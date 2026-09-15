@@ -5,6 +5,8 @@ import time
 import sys
 import os
 
+os.makedirs("outputs/fft", exist_ok=True)
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from generacion_señales.generacion_señales import (
     generar_secuencia_pulsos,
@@ -42,6 +44,18 @@ def fft(x):
     
     return [even[k] + T[k] for k in range(N // 2)] + \
            [even[k] - T[k] for k in range(N // 2)]
+
+def ifft(X):
+    """
+    Transformada Rápida de Fourier Inversa (IFFT).
+    Reutiliza la FFT directa mediante la identidad de conjugación:
+        x[n] = (1/N) * conj( FFT( conj(X[k]) ) )
+    Complejidad: O(N log N). Requiere N potencia de 2 (misma restricción que fft()).
+    """
+    X = np.asarray(X)
+    N = len(X)
+    x = np.array(fft(np.conjugate(X)))
+    return np.conjugate(x) / N
 
 # Insertar datos de prueba y ejecutar análisis
 def ejecutar_analisis_fourier(tipo_senal="chirp"):
@@ -117,7 +131,7 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
     axs1[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"ventana1_original_{tipo_senal}.png")
+    plt.savefig(f"outputs/fft/ventana1_original_{tipo_senal}.png")
 
     # =========================================================
     # VENTANA 2: ANÁLISIS DE LA SEÑAL RECIBIDA (ECO + RUIDO)
@@ -157,10 +171,7 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
     axs2[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"ventana2_recibida_{tipo_senal}.png")
-    
-    # Mostrar ventanas de señal
-    plt.show()
+    plt.savefig(f"outputs/fft/ventana2_recibida_{tipo_senal}.png")
 
 # Comparación de tiempos de ejecución entre DFT y FFT
 def comparar_tiempos_ejecucion():
@@ -206,9 +217,13 @@ def comparar_tiempos_ejecucion():
     plt.grid(True, which="both", ls="--")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("ventana3_comparacion_tiempos.png")
-    plt.show()
+    plt.savefig("outputs/fft/ventana3_comparacion_tiempos.png")
 
 if __name__ == "__main__":
     ejecutar_analisis_fourier(tipo_senal="chirp")
     comparar_tiempos_ejecucion()
+
+    # Se entra al event loop una sola vez, con todas las ventanas ya construidas.
+    # El backend macosx de matplotlib lanza "SystemError: NULL object passed to
+    # Py_BuildValue" si se invoca plt.show() varias veces en el mismo proceso.
+    plt.show()

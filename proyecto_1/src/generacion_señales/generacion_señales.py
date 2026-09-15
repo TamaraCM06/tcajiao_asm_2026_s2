@@ -57,7 +57,7 @@ def generar_chirp(Fs, duracion, f0, f1):
     return t, s_t
 
 
-def simular_canal_recepcion(t, s_t, Fs=44100, retardo_ms=4.0, nivel_ruido=0.4):
+def simular_canal_recepcion(t, s_t, Fs, retardo_ms, nivel_ruido):
     """
     Uso unicamente en experimentos, no en aplicacion fisica.
     Simula el canal de transmisión (aire) sumando atenuación, retardo y ruido blanco.
@@ -95,7 +95,10 @@ if __name__ == "__main__":
     
     t, pulso_s = generar_secuencia_pulsos(Fs, duracion, 1000, 3)
     _, chirp_s = generar_chirp(Fs, duracion, 500, 4000)
-    
+
+    print(f"Length of pulso_s: {len(pulso_s)}")
+    print(f"Length of chirp_s: {len(chirp_s)}")
+
     fig, axs = plt.subplots(2, 1, figsize=(10, 6))
     fig.suptitle("Comparación: Secuencia de Pulsos vs. Chirp", fontsize=14)
     

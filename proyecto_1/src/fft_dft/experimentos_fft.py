@@ -5,7 +5,7 @@ import time
 import sys
 import os
 
-os.makedirs("outputs", exist_ok=True)
+os.makedirs("outputs/fft", exist_ok=True)
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from generacion_señales.generacion_señales import (
@@ -44,6 +44,18 @@ def fft(x):
     
     return [even[k] + T[k] for k in range(N // 2)] + \
            [even[k] - T[k] for k in range(N // 2)]
+
+def ifft(X):
+    """
+    Transformada Rápida de Fourier Inversa (IFFT).
+    Reutiliza la FFT directa mediante la identidad de conjugación:
+        x[n] = (1/N) * conj( FFT( conj(X[k]) ) )
+    Complejidad: O(N log N). Requiere N potencia de 2 (misma restricción que fft()).
+    """
+    X = np.asarray(X)
+    N = len(X)
+    x = np.array(fft(np.conjugate(X)))
+    return np.conjugate(x) / N
 
 # Insertar datos de prueba y ejecutar análisis
 def ejecutar_analisis_fourier(tipo_senal="chirp"):
@@ -119,7 +131,7 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
     axs1[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"outputs/ventana1_original_{tipo_senal}.png")
+    plt.savefig(f"outputs/fft/ventana1_original_{tipo_senal}.png")
 
     # =========================================================
     # VENTANA 2: ANÁLISIS DE LA SEÑAL RECIBIDA (ECO + RUIDO)
@@ -159,7 +171,7 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
     axs2[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"outputs/ventana2_recibida_{tipo_senal}.png")
+    plt.savefig(f"outputs/fft/ventana2_recibida_{tipo_senal}.png")
     
     # Mostrar ventanas de señal
     plt.show()
@@ -208,7 +220,7 @@ def comparar_tiempos_ejecucion():
     plt.grid(True, which="both", ls="--")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("outputs/ventana3_comparacion_tiempos.png")
+    plt.savefig("outputs/fft/ventana3_comparacion_tiempos.png")
     plt.show()
 
 if __name__ == "__main__":

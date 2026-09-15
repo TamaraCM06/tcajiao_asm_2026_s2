@@ -172,9 +172,6 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
 
     plt.tight_layout()
     plt.savefig(f"outputs/fft/ventana2_recibida_{tipo_senal}.png")
-    
-    # Mostrar ventanas de señal
-    plt.show()
 
 # Comparación de tiempos de ejecución entre DFT y FFT
 def comparar_tiempos_ejecucion():
@@ -221,8 +218,12 @@ def comparar_tiempos_ejecucion():
     plt.legend()
     plt.tight_layout()
     plt.savefig("outputs/fft/ventana3_comparacion_tiempos.png")
-    plt.show()
 
 if __name__ == "__main__":
     ejecutar_analisis_fourier(tipo_senal="chirp")
     comparar_tiempos_ejecucion()
+
+    # Se entra al event loop una sola vez, con todas las ventanas ya construidas.
+    # El backend macosx de matplotlib lanza "SystemError: NULL object passed to
+    # Py_BuildValue" si se invoca plt.show() varias veces en el mismo proceso.
+    plt.show()

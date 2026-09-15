@@ -5,6 +5,8 @@ import time
 import sys
 import os
 
+os.makedirs("outputs", exist_ok=True)
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from generacion_señales.generacion_señales import (
     generar_secuencia_pulsos,
@@ -117,7 +119,7 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
     axs1[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"ventana1_original_{tipo_senal}.png")
+    plt.savefig(f"outputs/ventana1_original_{tipo_senal}.png")
 
     # =========================================================
     # VENTANA 2: ANÁLISIS DE LA SEÑAL RECIBIDA (ECO + RUIDO)
@@ -157,7 +159,7 @@ def ejecutar_analisis_fourier(tipo_senal="chirp"):
     axs2[1, 1].grid(True)
 
     plt.tight_layout()
-    plt.savefig(f"ventana2_recibida_{tipo_senal}.png")
+    plt.savefig(f"outputs/ventana2_recibida_{tipo_senal}.png")
     
     # Mostrar ventanas de señal
     plt.show()
@@ -206,7 +208,7 @@ def comparar_tiempos_ejecucion():
     plt.grid(True, which="both", ls="--")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("ventana3_comparacion_tiempos.png")
+    plt.savefig("outputs/ventana3_comparacion_tiempos.png")
     plt.show()
 
 if __name__ == "__main__":

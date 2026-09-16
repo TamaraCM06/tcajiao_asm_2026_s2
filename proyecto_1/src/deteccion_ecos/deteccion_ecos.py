@@ -13,22 +13,17 @@ from generacion_señales.generacion_señales import (
 )
 from fft_dft.experimentos_fft import fft, ifft
 
-# =========================================================
-# CASO DE PRUEBA ANALIZADO
-#
-# Se simulan dos reflexiones porque el haz acústico no viaja como un rayo: se
-# abre al propagarse, de modo que una parte de la señal choca contra el objeto
-# de interés y otra lo pasa de largo y rebota en la superficie que haya detrás.
-# Ambas regresan al micrófono con retardos distintos y se superponen, que es el
-# escenario que la correlación debe resolver.
-# =========================================================
-FS = 44100
-DURACION_EMITIDA = 0.02    # 20 ms de señal transmitida
-RETARDOS_MS = (4.0, 9.0)   # Retardos conocidos: objeto y superficie posterior
-ATENUACIONES = (0.6, 0.3)  # El eco lejano regresa más débil
-NIVEL_RUIDO = 0.4          # Amplitud del ruido blanco ambiental
-
+# Parámetros del caso de prueba
+FS = 44100                     # Frecuencia de muestreo en Hz
+DURACION_EMITIDA = 0.02        # 20 ms de señal transmitida
+NIVEL_RUIDO = 0.4              # Amplitud del ruido blanco ambiental
 REPETICIONES_CRONOMETRAJE = 3  # Corridas promediadas al medir tiempos
+
+# Dos reflexiones, porque el haz acústico se abre al propagarse: una parte choca
+# contra el objeto de interés y otra lo pasa de largo y rebota en la superficie
+# que haya detrás. Ambas regresan superpuestas y con retardos distintos.
+RETARDOS_MS = (4.0, 9.0)   # Retardos conocidos de cada eco
+ATENUACIONES = (0.6, 0.3)  # El eco lejano regresa más débil
 
 # Generación de la señal recibida con ecos de retardo conocido
 def simular_canal_ecos(s_t, Fs, retardos_ms, atenuaciones, nivel_ruido):

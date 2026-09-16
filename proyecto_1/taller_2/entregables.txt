@@ -1,5 +1,0 @@
-Se entregará un zip de esta carpeta que contendrá:
-
-- Pdf de https://docs.google.com/document/d/1YK9-Qk0JGCbyBQCqgz3TyOI9mHqYfwQ8g3hOWXq_ppo/edit?usp=sharing
-
-- Archivos de Python necesarios para dicho taller (se pueden copiar de src una vez estén listos)

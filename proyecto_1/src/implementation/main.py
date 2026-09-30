@@ -370,6 +370,20 @@ def tabla_chirp(n_pasos, f_inicial, f_final):
 # emision de 6 ms ya es escasa.
 VENTANA_ALFA = 0.5
 
+# Amplitud de la onda emitida, sobre el maximo de 32767 del formato de 16 bits.
+# Bajarla aqui es preferible a bajar el volumen del amplificador: el recorte que se
+# quiere evitar ocurre en el ADC, y lo que lo provoca es la potencia acustica que
+# llega al microfono por el trayecto directo. Recortar es una no linealidad, de modo
+# que rompe el supuesto de sistema lineal e invariante sobre el que se apoya la
+# correlacion: con la senal recortada el pico salta de una medicion a otra y las
+# distancias dejan de repetirse. Si la columna adc de la salida pasa del 80 por
+# ciento, hay que bajar este valor.
+AMPLITUD_EMISION = 12000
+# Escalones del ADC que se reservan en cada extremo. Una lectura que llega tan cerca
+# del limite ya perdio informacion: el valor verdadero pudo ser cualquiera mas alla
+# del tope y quedo aplanado contra el.
+LIMITE_RECORTE = 32
+
 
 def factor_ventana(i, n, alfa=VENTANA_ALFA):
     """
@@ -504,7 +518,8 @@ class EmisorAudio:
 
     def __init__(self, pin, duracion_s):
         self.muestras = generar_muestras_chirp(
-            FS_EMISION, duracion_s, CHIRP_F_INICIAL, CHIRP_F_FINAL)
+            FS_EMISION, duracion_s, CHIRP_F_INICIAL, CHIRP_F_FINAL,
+            amplitud=AMPLITUD_EMISION)
         self.onda = AUDIOCORE.RawSample(self.muestras, sample_rate=FS_EMISION)
         self.salida = AUDIOPWMIO.PWMAudioOut(pin)
         self.duracion_s = duracion_s
@@ -526,7 +541,8 @@ class EmisorAudio:
         n = max(2, int(round(ciclos * FS_EMISION / frecuencia)))
         muestras = array("h", bytes(2 * n))
         for i in range(n):
-            muestras[i] = int(32000 * math.sin(2.0 * math.pi * ciclos * i / n))
+            muestras[i] = int(AMPLITUD_EMISION
+                              * math.sin(2.0 * math.pi * ciclos * i / n))
         self._tono = AUDIOCORE.RawSample(muestras, sample_rate=FS_EMISION)
         self.salida.play(self._tono, loop=True)
 
@@ -814,6 +830,8 @@ class Radar:
         self.fs = fs_cruda / self.decimacion
         self.indice_directo = 0
         self.directo_crudo = 0
+        self.ocupacion = 0.0
+        self.recorta = False
         self.rango_max = min(
             RANGO_MAX_M,
             VELOCIDAD_SONIDO * (self.n_proc - self.n_emision_proc) / (2 * self.fs))
@@ -917,13 +935,29 @@ class Radar:
         frecuencia no se pliega sobre la banda util.
         """
         fs_cruda = capturar(self.emisor, self.mic, self.datos)
+        # Los extremos se vigilan dentro del mismo recorrido que ya hace la
+        # decimacion, de modo que saber si la captura se recorto no cuesta una
+        # pasada adicional sobre el arreglo.
+        val_min = 65535
+        val_max = 0
         for i in range(self.n_proc):
             suma = 0.0
             base = i * self.decimacion
             for k in range(self.decimacion):
-                suma += self.datos[base + k]
+                v = self.datos[base + k]
+                if v < val_min:
+                    val_min = v
+                if v > val_max:
+                    val_max = v
+                suma += v
             self.ventana[i] = suma / self.decimacion
         self.fs = fs_cruda / self.decimacion
+        # Fraccion del rango del conversor que ocupo la captura. Es la cifra con la
+        # que se ajusta el volumen: por encima de 0.8 el directo empieza a recortar
+        # y la correlacion deja de ser fiable; por debajo de 0.2 el eco se hunde en
+        # el ruido propio del conversor.
+        self.ocupacion = (val_max - val_min) / 65535.0
+        self.recorta = val_min <= LIMITE_RECORTE or val_max >= 65535 - LIMITE_RECORTE
 
     def _perfil_medido(self):
         """
@@ -939,8 +973,16 @@ class Radar:
         for i in range(self.n_proc):
             self.acumulador[i] = 0.0
 
+        # Del conjunto de disparos interesa el peor caso: basta que uno se recorte
+        # para que su correlacion entre deformada en el promedio.
+        ocupacion_maxima = 0.0
+        recorto = False
+
         for _ in range(PROMEDIOS):
             self.capturar_una()
+            if self.ocupacion > ocupacion_maxima:
+                ocupacion_maxima = self.ocupacion
+            recorto = recorto or self.recorta
             realzar_altas(self.ventana)
             quitar_continua(self.ventana)
 
@@ -961,6 +1003,8 @@ class Radar:
 
         gc.collect()
         self.indice_directo = 0
+        self.ocupacion = ocupacion_maxima
+        self.recorta = recorto
         return cancelar_directo(self.acumulador, self.autocorrelacion, 0)
 
     def medir(self):
@@ -1078,9 +1122,11 @@ def main():
         umbral, CHIRP_F_INICIAL, CHIRP_F_FINAL))
     print("Enter pausa y muestra el perfil. Ctrl-C termina.")
     print("Abri View -> Plot para ver las columnas como grafica.")
-    print("cm es la distancia del maximo; det dice si supero el umbral.")
+    print("cm es la distancia del maximo. det: si el umbral se supero.")
+    print("adc: cuanto del rango del conversor ocupo la captura (querido 40-70%).")
     print()
-    print("{:>7} {:>8} {:>5} {:>6}".format("razon", "cm", "det", "dir"))
+    print("{:>7} {:>8} {:>5} {:>5} {:>6}  {}".format(
+        "razon", "cm", "det", "adc", "dir", "aviso"))
 
     try:
         while True:
@@ -1092,9 +1138,20 @@ def main():
                 cm = distancia_desde_retardo(pico / radar.fs) * 100.0
             else:
                 cm = 0.0
-            print("{:>7.1f} {:>8.1f} {:>5} {:>6}".format(
+            # El aviso va al final y en palabras porque es lo que hay que leer
+            # cuando las distancias no se repiten: una captura recortada produce
+            # mediciones inconsistentes sin que nada mas en la linea lo delate.
+            if radar.recorta:
+                aviso = "RECORTA, baja AMPLITUD_EMISION"
+            elif radar.ocupacion > 0.80:
+                aviso = "al limite, conviene bajarla"
+            elif radar.ocupacion < 0.20:
+                aviso = "muy debil, subi ganancia del mic"
+            else:
+                aviso = ""
+            print("{:>7.1f} {:>8.1f} {:>5} {:>4.0f}% {:>6}  {}".format(
                 razon, cm, "si" if distancia is not None else "no",
-                radar.directo_crudo))
+                radar.ocupacion * 100, radar.directo_crudo, aviso))
 
             if _tecla_pendiente():
                 print()
@@ -1102,7 +1159,8 @@ def main():
                              pico, radar.rango_max)
                 print()
                 input(" pausado, Enter para seguir> ")
-                print("{:>7} {:>8} {:>5} {:>6}".format("razon", "cm", "det", "dir"))
+                print("{:>7} {:>8} {:>5} {:>5} {:>6}  {}".format(
+                    "razon", "cm", "det", "adc", "dir", "aviso"))
     except KeyboardInterrupt:
         print()
     finally:

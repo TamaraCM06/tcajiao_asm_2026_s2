@@ -222,3 +222,7 @@ __marimo__/
 
 # Generated outputs (plots, images, etc)
 outputs/
+
+# Salidas temporales del generador de la Tarea 1 (notebook del profesor)
+proyecto_1_grupal/tarea1_grupo1/tonos_defensa/
+proyecto_1_grupal/tarea1_grupo1/*.zip

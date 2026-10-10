@@ -1,0 +1,5 @@
+filtro,orden,mac_por_muestra,coeficientes,retardo_grupo_muestras,snr_salida_caso2_dB
+FIR Kaiser,74,75,75,37 (constante),65.13965083121779
+IIR Butterworth,20,50,50,18.4 – 24.7,15.45669143147088
+IIR Chebyshev I,10,25,25,13.3 – 20.6,14.844519288127206
+IIR Elíptico,6,15,15,6.0 – 10.6,18.639687781485897

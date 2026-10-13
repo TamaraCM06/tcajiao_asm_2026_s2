@@ -10,9 +10,9 @@ import numpy as np
 import pytest
 
 RAIZ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(RAIZ / "src"))
+sys.path.insert(0, str(RAIZ))
 
-import filtrado_espectral as fe
+from src.filtros import filtrado_espectral as fe
 
 FS = 16_000
 TOLERANCIA = 1e-12
@@ -169,3 +169,41 @@ def test_evaluar_filtro_con_senal_propia():
 def test_evaluar_filtro_rechaza_longitudes_invalidas(clean, noise):
     with pytest.raises(ValueError, match="misma longitud, no vacía"):
         fe.evaluar_filtro(clean, noise, FS)
+
+
+@pytest.mark.parametrize("longitud", [1, 1025, np.int64(2048)])
+def test_intervalo_evaluacion_conserva_salida_completa(longitud):
+    t = np.arange(4096) / FS
+    limpia = 0.5 * np.sin(2 * np.pi * 700 * t)
+    ruido = 0.2 * np.sin(2 * np.pi * 3500 * t)
+    completa = fe.evaluar_filtro(limpia, ruido, FS)
+    parcial = fe.evaluar_filtro(limpia, ruido, FS, longitud_evaluacion=longitud)
+
+    np.testing.assert_array_equal(parcial["salida"], completa["salida"])
+    assert completa["muestras_evaluadas"] == len(limpia)
+    assert parcial["muestras_evaluadas"] == longitud
+    error = limpia[:longitud] - completa["salida"][:longitud]
+    assert parcial["mse"] == pytest.approx(np.mean(error ** 2), abs=TOLERANCIA)
+    if longitud > 1:
+        snr = 10 * np.log10(np.sum(limpia[:longitud] ** 2) / np.sum(error ** 2))
+        assert parcial["snr_salida_dB"] == pytest.approx(snr)
+
+
+def test_intervalo_evaluacion_metricas_identidad():
+    limpia = np.ones(1024)
+    ruido = np.r_[np.full(512, 0.1), np.full(512, 0.9)]
+    m = fe.evaluar_filtro(limpia, ruido, FS, factor=1, longitud_evaluacion=512)
+
+    assert len(m["salida"]) == 1024
+    assert m["mse"] == pytest.approx(0.01)
+    assert m["snr_entrada_dB"] == pytest.approx(20)
+    assert m["snr_salida_dB"] == pytest.approx(20)
+    assert m["energia_util_conservada_pct"] == pytest.approx(100)
+    assert m["atenuacion_ruido_dB"] == pytest.approx(0, abs=TOLERANCIA)
+    assert m["atenuacion_interferencia_dB"] == pytest.approx(0, abs=TOLERANCIA)
+
+
+@pytest.mark.parametrize("longitud", [0, -1, 5, True, np.bool_(False), 2.0, "2", np.nan])
+def test_rechaza_intervalo_evaluacion_invalido(longitud):
+    with pytest.raises(ValueError, match="longitud_evaluacion"):
+        fe.evaluar_filtro(np.ones(4), np.zeros(4), FS, longitud_evaluacion=longitud)

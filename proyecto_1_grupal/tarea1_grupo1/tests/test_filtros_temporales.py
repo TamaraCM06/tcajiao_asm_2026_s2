@@ -11,9 +11,9 @@ import pytest
 from scipy import signal
 
 RAIZ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(RAIZ/'src'))
+sys.path.insert(0, str(RAIZ))
 
-import filtros_temporales as ft
+from src.filtros import filtros_temporales as ft
 
 FS = 16_000
 F_PASO, F_RECHAZO = 1600.0, 2400.0

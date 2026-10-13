@@ -27,3 +27,51 @@ python -m ipykernel install --user --name asm-grupal --display-name "Python (ASM
 ```
 
 En VS Code o Jupyter, abra `tarea1_grupo1/notebook.ipynb` y seleccione el kernel **"Python (ASM grupal)"**. Activar el venv en la terminal no cambia el kernel del notebook. Para confirmarlo, `import sys; print(sys.executable)` debe apuntar a `proyecto_1_grupal/.venv`.
+
+## Filtrado espectral (2.4)
+
+`tarea1_grupo1/src/filtrado_espectral.py` contiene el procesamiento FFT/IFFT con
+Hann, 50 % de solapamiento y normalización. Reutiliza la FFT de cada bloque para
+detectar y atenuar ruido mediante un umbral adaptativo, calculado a partir de la
+energía de cada bloque. Permite atenuar un pico o múltiples componentes.
+La región inferior a `frecuencia_minima` queda protegida. El filtro no separa
+perfectamente señal y ruido cuando comparten frecuencias.
+
+Desde esta carpeta, ejecutar la comparación de los tres casos:
+
+```bash
+python tarea1_grupo1/src/filtrado_espectral.py
+```
+
+Desde el notebook, con `tarea1_grupo1/` como directorio de trabajo:
+
+```python
+from src import filtrado_espectral as fe
+
+caso = fe.cargar_caso("caso_2")
+metricas = fe.evaluar_filtro(
+    caso["clean"], caso["noise"], caso["fs"]
+)
+salida = metricas["salida"]
+```
+
+`cargar_caso()` lee juntas las muestras y su configuración. `filtrar_senal()`
+procesa cualquier arreglo de muestras contaminadas. `evaluar_filtro()` recibe
+señal limpia, ruido y frecuencia de muestreo; no depende de los nombres de los
+casos ni de sus archivos. Devuelve MSE, SNR, energía útil conservada, atenuación
+y salida. La evaluación
+mantiene las máscaras estimadas desde la mezcla al separar señal útil y ruido.
+El tiempo y la memoria reportados corresponden al prototipo en computadora;
+la memoria incluye arreglos completos y excluye temporales internos de NumPy.
+El módulo no modifica CSV, WAV ni el notebook.
+
+El archivo está separado en casos/utilidades, validación, detección espectral,
+filtrado/reconstrucción, métricas y ejemplo de ejecución. `filtrar_bloque()`
+realiza FFT, atenuación e IFFT; `filtrar_senal()` recorre y combina los bloques.
+
+Las pruebas usan pytest, con fixtures y casos parametrizados como el filtro
+temporal. Para ejecutar ambas suites desde esta carpeta:
+
+```bash
+python -m pytest tarea1_grupo1/tests -q
+```

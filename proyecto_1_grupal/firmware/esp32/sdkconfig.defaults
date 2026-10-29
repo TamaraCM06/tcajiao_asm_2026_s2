@@ -1,0 +1,2 @@
+# Los parámetros propios del emisor están en emisor_config.c.
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y

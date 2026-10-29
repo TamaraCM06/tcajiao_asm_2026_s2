@@ -1,191 +1,155 @@
-# 1. Emisor ESP32
+# 1. Emisor ESP32 con señales del notebook
 
-## 1.1. Estado y alcance
+## 1.1. Propósito y estado
 
 | Campo | Valor |
 |---|---|
 | Responsable | Persona 3, Santiago |
-| Proyecto | Reducción adaptativa de ruido, CE 1110 |
-| Entrega inmediata | Taller asincrónico de semana 12 |
-| Avance | Bloque 1: base ESP-IDF y generador configurable |
-| Lenguaje y entorno | C estándar para el cálculo; ESP-IDF 5.5.5 para la aplicación |
-| Destino de compilación | esp32, correspondiente al ESP32 clásico |
-| Implementado | Configuración, validación, síntesis numérica y primer buffer |
-| Estado de revisión | Lectura de código, documentación y diff |
-| Pendiente de verificar | Compilación, ejecución y salida física |
-| Siguiente bloque | Conversión de muestras y reproducción DAC/DMA |
+| Rama | sb-emisor-esp32 |
+| Entorno | C, ESP-IDF 5.5.5, destino esp32 |
+| Fuente de señales | CSV exportados por el notebook de Tarea 1; Python es el único generador matemático |
+| Funcionamiento | Elegir un caso en app_main, compilar y reproducirlo una vez al arrancar |
+| Almacenamiento | Tres registros constantes incluidos en la memoria flash del firmware |
+| Implementado | Exportación de los tres casos, catálogo, selección y reproducción finita DAC/DMA |
+| Realizado en este avance | Exportación de datos y revisión estática de código, documentación e interfaces |
+| Pendiente por acuerdo | Compilación, carga en placa, memoria real y pruebas funcionales/físicas |
+| Alcance | Emisor del banco del taller; filtros y enlace Pico → ESP32 del proyecto final quedan fuera |
 
-La aplicación prepara 256 muestras y termina. El estado y el buffer permanecen
-reservados para conectarlos al DAC en el siguiente bloque. Este avance todavía
-no emite una señal física.
+Flujo de preparación: CSV del notebook → exportador Python → arreglos C → firmware en flash.
 
-## 1.2. Módulos y responsabilidades
+Flujo de reproducción: flash ESP32 → buffer pequeño en RAM → DAC/DMA GPIO25 → ADC acondicionado de Pico.
+
+El computador se utiliza para preparar y programar el firmware. Una vez programado,
+el emisor puede reproducir el caso al arrancar sin una aplicación de envío conectada.
+Esta función de banco se distingue de la arquitectura final: Pico adquiere y
+ESP32 filtra.
+
+## 1.2. Archivos y responsabilidades
 
 | Archivo | Responsabilidad |
 |---|---|
-| [emisor_config.h](components/emisor/include/emisor_config.h) | Tipos, parámetros y operaciones de configuración. |
-| [emisor_config.c](components/emisor/emisor_config.c) | Valores iniciales y validaciones de tonos e interferencia. |
-| [generador_senales.h](components/emisor/include/generador_senales.h) | Estado e interfaz pública del generador. |
-| [generador_senales.c](components/emisor/generador_senales.c) | Preparación de amplitudes, fases y generación continua. |
-| [app_main.c](main/app_main.c) | Selección del modo, inicialización y primer buffer. |
-| [CMakeLists.txt](CMakeLists.txt) | Proyecto ESP-IDF y destino esp32. |
-| [sdkconfig.defaults](sdkconfig.defaults) | Opciones iniciales de ESP-IDF compartidas por el equipo. |
+| [archivos.py](../../tarea1_grupo1/src/datos/archivos.py) | Lectura compartida del CSV; conserva la interfaz de cargar_caso |
+| [preparacion.py](../../herramientas/exportacion_senales/preparacion.py) | Validación de las muestras y conversión a códigos DAC |
+| [escritura_c.py](../../herramientas/exportacion_senales/escritura_c.py) | Escritura de arreglos C constantes y metadatos JSON |
+| [exportar_senales.py](../../herramientas/exportar_senales.py) | Consola para exportar los tres casos o actualizar uno |
+| [senales_embebidas.h](components/senales_embebidas/include/senales_embebidas.h) | Identificadores y descriptor de lectura de las señales |
+| [senales_embebidas.c](components/senales_embebidas/senales_embebidas.c) | Catálogo que devuelve el registro seleccionado |
+| [caso_1.c](components/senales_embebidas/datos/caso_1.c), [caso_2.c](components/senales_embebidas/datos/caso_2.c) y [caso_3.c](components/senales_embebidas/datos/caso_3.c) | Muestras exportadas automáticamente; contienen datos, sin algoritmos |
+| [caso_1.json](components/senales_embebidas/datos/caso_1.json), [caso_2.json](components/senales_embebidas/datos/caso_2.json) y [caso_3.json](components/senales_embebidas/datos/caso_3.json) | Origen, longitud, duración, conversión, recortes y CRC de cada registro |
+| [salida_dac.c](components/salida_dac/salida_dac.c) | Controlador, DMA, contadores, espera de fin y cierre |
+| [reproduccion_senal.c](main/reproduccion_senal.c) | Copia por bloques desde flash y coordinación de una reproducción |
+| [app_main.c](main/app_main.c) | Único lugar de selección del caso e inicio de la reproducción |
+| [CMakeLists.txt](CMakeLists.txt) y [sdkconfig.defaults](sdkconfig.defaults) | Construcción para esp32 y alineación automática para DMA |
 
-El componente emisor usa C estándar y la biblioteca matemática. Sus archivos C
-no dependen de FreeRTOS, UART ni DAC. La aplicación es responsable de conectarlo
-con el hardware. Las funciones auxiliares permanecen en el módulo de su dominio;
-una utilidad compartida se extraerá cuando exista una función repetida que lo justifique.
+Los archivos C de datos son extensos porque contienen muestras, no lógica.
+Se mantienen separados por caso y se regeneran con Python. Incluirlos en el commit
+permite compilar sin ejecutar el exportador ni abrir el notebook.
 
-## 1.3. Modos y parámetros
+## 1.3. Casos y conversión
 
-| Parámetro | Valor inicial | Unidad o significado |
-|---|---|---|
-| Modo | EMISOR_MULTITONO_CON_INTERFERENCIA | Suma de señal útil e interferencia tonal. |
-| frecuencia_muestreo_hz | 16000 | Muestras por segundo. |
-| EMISOR_MUESTRAS_POR_BLOQUE | 256 | Cantidad de muestras del buffer de aplicación. |
-| Tono individual | Frecuencia 440; amplitud 1; fase 0 | Hz; peso relativo; grados. |
-| Multitono | Frecuencias 440, 880, 1320 | Hz. |
-| Amplitudes del multitono | 1, 0.55, 0.3 | Pesos relativos antes de la ganancia común. |
-| Fases del multitono | 0, 35, -50 | Grados. |
-| frecuencia_interferencia_hz | 4000 | Hz. |
-| fase_interferencia_grados | 0 | Grados. |
-| snr_db | 10 | Relación señal a ruido (SNR), en decibelios. |
-| limite_amplitud | 0.8 | Cota de magnitud de salida normalizada. |
-| Salida | float centrado en cero | Todavía no son códigos del DAC. |
-
-| Modo disponible | Señal generada |
+| Contrato | Valor |
 |---|---|
-| EMISOR_TONO | Un tono útil. |
-| EMISOR_MULTITONO | Dos o tres tonos útiles; tres en la configuración inicial. |
-| EMISOR_MULTITONO_CON_INTERFERENCIA | Multitono más interferencia de amplitud derivada de la SNR. |
+| Fuente | [Notebook](../../tarea1_grupo1/notebook.ipynb), [configuraciones](../../tarea1_grupo1/metadatos/configuraciones.json) y resultados/muestras de Tarea 1 |
+| CSV | Encabezado tiempo_s,limpia,ruido,contaminada |
+| Señal reproducida | Columna contaminada |
+| Muestreo admitido | 16000 Hz; tiempo positivo entre muestras y uniforme |
+| Longitud admitida | 256 a 96000 muestras, múltiplo de 256 |
+| Casos actuales | 96000 muestras por caso; duración nominal de 6 s |
+| Validación | Columnas, finitud, limpia + ruido = contaminada, tiempo y longitud; presets contrastados con su JSON |
+| Conversión | piso(127.5 × (clip(muestra, -1, 1) + 1) + 0.5) |
+| Escala | Sin normalización adicional; contar valores fuera de [-1,+1] y limitarlos |
+| Correspondencia | -1 → 0, 0 → 128, +1 → 255 |
+| Identificación | CRC-32 de los códigos exportados; se registra como metadato, sin protocolo ni cálculo en la placa |
 
-Seleccionar MODO_EMISION_INICIAL en la aplicación. Obtener la configuración
-predeterminada y editar sus campos antes de inicializar. Editar esa estructura
-después no cambia el estado ya preparado; para aplicar otra configuración se
-debe volver a inicializar. Los comandos de selección durante ejecución se incorporarán después.
+| Caso | Señal útil | Ruido activo | SNR del modelo | Semilla | CRC-32 exportado |
+|---|---|---|---|---|---|
+| caso_1 | 440, 880 y 1320 Hz | Tonal de 4000 Hz | 10 dB | 1000 | 8B1F9B59 |
+| caso_2 | 440, 880 y 1320 Hz | Banda de 2500 a 3800 Hz | 5 dB | 2000 | 6140EEE7 |
+| caso_3 | 440, 880 y 1320 Hz | Banda de 600 a 1500 Hz | 0 dB | 3000 | C29233A4 |
 
-## 1.4. Interfaz y contrato de errores
+La señal útil utiliza amplitudes relativas 1, 0.55 y 0.3, con fases 0°, 35° y -50°.
+El CSV conserva el ruido, suavizado y escala del notebook. La exportación actual
+reportó cero recortes en los tres casos. La cuantización a 8 bits y el circuito
+introducen diferencias frente a los valores ideales y su SNR.
 
-| Orden de uso | Operación | Entrada | Resultado |
-|---|---|---|---|
-| 1 | emisor_config_predeterminada | Modo y destino de configuración. | Llena los parámetros de emisión. |
-| Opcional | emisor_validar_configuracion | Configuración. | Comprueba parámetros sin generar muestras. |
-| 2 | emisor_inicializar | Estado y configuración. | Valida, copia parámetros y prepara amplitudes/fases. |
-| 3 | emisor_generar | Estado, buffer y cantidad_muestras. | Escribe muestras y avanza las fases. |
-| Opcional | emisor_reiniciar | Estado inicializado. | Restaura las fases, conservando amplitudes y ganancia. |
+## 1.4. Preparación y selección
 
-| Regla del contrato | Comportamiento |
+Los arreglos de los tres casos ya están exportados. Solo ejecutar el exportador
+cuando cambien los CSV o se quiera incluir otra señal compatible. No genera
+nuevos ruidos ni altera las semillas o los resultados de Tarea 1.
+
+| Acción desde la raíz del repositorio | Comando o cambio |
 |---|---|
-| Operación correcta | Devuelve NULL. |
-| Error | Devuelve un mensaje estático; el llamador debe mostrarlo o gestionarlo y no liberarlo. |
-| Inicialización fallida | El generador queda deshabilitado. |
-| Vida de la configuración | No necesita seguir viva después de una inicialización correcta. |
-| Buffer de salida | El llamador reserva espacio para la cantidad solicitada. |
-| Cero muestras | Válido; permite buffer NULL y no cambia el estado. |
-| Memoria por bloque | No hay reservas dinámicas ni normalización individual del bloque. |
-| Concurrencia | Cada instancia tiene estado propio; no modificar una instancia desde tareas simultáneas. |
+| Exportar los tres casos originales | & 'proyecto_1_grupal/.venv/Scripts/python.exe' -m proyecto_1_grupal.herramientas.exportar_senales |
+| Actualizar un caso original | & 'proyecto_1_grupal/.venv/Scripts/python.exe' -m proyecto_1_grupal.herramientas.exportar_senales --caso caso_2 |
+| Incluir CSV manual en el lugar del caso 2 | & 'proyecto_1_grupal/.venv/Scripts/python.exe' -m proyecto_1_grupal.herramientas.exportar_senales --caso caso_2 --archivo 'proyecto_1_grupal/tarea1_grupo1/tonos_defensa/muestras_referencia.csv' |
+| Caso inicial | En app_main.c, CASO_EMISION_INICIAL = SENAL_CASO_1 |
+| Elegir otro caso | Cambiar esa constante a SENAL_CASO_2 o SENAL_CASO_3 |
+| Entrar al firmware | Set-Location proyecto_1_grupal/firmware/esp32 |
+| Compilar/programar al cierre | Desde terminal ESP-IDF 5.5.5: idf.py -p COM5 build flash monitor |
+| Repetir la señal | Reiniciar con EN/RESET; preparar antes el receptor o instrumento de medida |
 
-## 1.5. Validaciones
-
-| Parámetro o condición | Criterio |
+| Condición | Comportamiento |
 |---|---|
-| Modo | Uno de los tres modos definidos. |
-| Muestreo | Entero positivo representado por frecuencia_muestreo_hz. |
-| Frecuencias | Finitas y dentro de 0 < frecuencia < muestreo/2. |
-| Cantidad de tonos | Uno para tono individual; dos o tres para multitono. |
-| Amplitudes útiles | Finitas, no negativas y al menos una positiva. |
-| Fases y SNR | Finitas. |
-| Límite de amplitud | Mayor que cero y no mayor que uno. |
-| Mezcla con interferencia | Tonos útiles distintos entre sí y de la interferencia. |
-| SNR extrema | Error al inicializar si produce una amplitud de ruido o ganancia no representable. |
+| Cambiar selección o muestras | Requiere recompilar y programar nuevamente |
+| CSV manual | Reemplaza solo el registro seleccionado del firmware; conserva los CSV originales del notebook |
+| Restaurar casos originales | Ejecutar el exportador sin argumentos y volver a compilar |
+| Archivos específicos | Se sobrescriben el C y JSON del caso actualizado; no se borran carpetas |
+| Reinicio | Conserva los datos en flash y reproduce de nuevo el caso seleccionado |
+| Consola | UART0 a 115200 solo muestra registros de inicio, fin o error |
+| Puerto COM | COM5 es un ejemplo para la programación; usar el puerto real |
+| USB | Se retiraron cliente de envío, comandos ASM1, carga en RAM y dependencia PySerial |
 
-Los tonos inactivos no se evalúan. La frecuencia y fase de interferencia y la SNR
-deben ser válidas incluso en los modos sin ruido, aunque solo se utilizan para
-sintetizar interferencia en el modo de mezcla.
+## 1.5. Memoria y reproducción
 
-## 1.6. Fundamento de la generación
-
-### 1.6.1. Potencia y ganancia común
-
-| Cálculo | Expresión | Propósito |
-|---|---|---|
-| Potencia útil estable | (A1^2 + A2^2 + A3^2) / 2 | Sumar la potencia media de tonos distintos. |
-| Amplitud de interferencia | sqrt(A1^2 + A2^2 + A3^2) * 10^(-SNR_dB/20) | Ajustar la relación señal a ruido solicitada. |
-| Ganancia común | limite_amplitud / (A1 + A2 + A3 + A_interferencia) | Acotar la mezcla sin alterar la relación útil/ruido. |
-| Muestra emitible | ganancia_comun * (senal_util + interferencia) | Producir una amplitud numérica normalizada. |
-
-Los modos sin ruido omiten su amplitud del denominador. La cota utiliza que la
-magnitud de un seno no supera uno; el pico real puede quedar por debajo de 0.8.
-El límite está sujeto al redondeo de punto flotante. La misma ganancia para útil
-y ruido conserva su relación de potencia.
-
-La SNR configurada describe potencia estable. Un fragmento corto que no contiene
-ciclos completos puede tener otra SNR medida.
-
-### 1.6.2. Continuidad y precisión
-
-| Decisión | Efecto |
+| Elemento | Implementación |
 |---|---|
-| Fases e incrementos en double | Mantener el estado angular con mayor precisión. |
-| Fases acotadas a un ciclo | Evitar un contador de tiempo que crezca indefinidamente. |
-| Seno evaluado con sinf y salida float | Producir las muestras que consumirá el siguiente bloque. |
-| Estado conservado entre llamadas | Continuar la onda sin reiniciarla al comenzar cada buffer. |
-| Reinicio explícito | Volver a las fases configuradas cuando se solicite. |
+| Datos de los tres casos | 3 × 96000 = 288000 bytes de muestras constantes; presupuesto de flash adicional al programa |
+| Flash disponible | Comprobar tamaño final de imagen y partición al compilar; no asumir capacidad física por la etiqueta ESP-32S |
+| RAM de trabajo | Un buffer de 1536 códigos; no se copia un registro completo a RAM |
+| DMA | Seis buffers de 512 bytes = 3072 bytes, más estructuras del controlador |
+| Reservas adicionales | Tarea, estado, semáforo y recursos de ESP-IDF |
+| Salida | Un canal, GPIO25, 16000 muestras/s solicitadas, reloj APLL |
+| Arranque | Una entrega de hasta 1536 muestras del registro |
+| Continuación | Bloques de 256, sin repetir fragmentos ni añadir esperas artificiales |
+| Copia | Desde el arreglo constante en flash al buffer RAM, después al formato DMA interno |
+| Alineación | Códigos de 8 bits; ESP-IDF los adapta a contenedores internos de 16 bits |
+| Escritura | Síncrona; timeout de 1000 ms y comprobación de cantidad aceptada |
+| Consumo | Eventos on_convert_done acumulan write_bytes / 2 |
+| Final | on_stop compara contra la longitud total; fin normal exige previsto = aceptado = consumido |
+| Cierre | Esperar hasta 1000 ms tras enviar el último bloque y después liberar el DAC |
+| Errores | Detener y cerrar; informar la causa mediante el registro de ESP-IDF |
 
-El periodo común de las frecuencias iniciales es 25 ms, equivalente a 400 muestras.
-El buffer de 256 representa 16 ms: se deben generar muestras nuevas conservando
-las fases, no repetir ese primer buffer. La duración del buffer no es una medida
-de latencia del sistema.
+Aceptar bytes significa que el controlador ya los copió. Esperar el evento final
+permite que termine de consumirlos antes de deshabilitar el DAC. Los contadores
+describen el avance reportado por DMA; la señal física se valida con medición.
 
-## 1.7. Relación con Python
+## 1.6. Conexión y verificación pendiente
 
-| Referencia | Información reutilizada |
+| Elemento | Acuerdo |
 |---|---|
-| [configuraciones.json](../../tarea1_grupo1/metadatos/configuraciones.json) | Frecuencias, amplitudes relativas y fases útiles. |
-| [generacion.py](../../tarea1_grupo1/src/senales/generacion.py) | Definición de senoides y relación señal a ruido. |
+| Señal | GPIO25 hacia entrada ADC acondicionada de Pico |
+| Referencia eléctrica | GND común |
+| Componente DC | El cero numérico corresponde aproximadamente a media alimentación |
+| Coordinación con Persona 1 | Confirmar pin ADC, niveles, acondicionamiento y filtrado analógico |
+| Referencia limpia | Este único DAC reproduce la mezcla; no entrega un segundo canal limpio |
 
-| Aspecto | Emisor continuo | Registros históricos Python |
-|---|---|---|
-| Fase de interferencia | Explícita; 0 grados por defecto. | Determinada por una semilla. |
-| Ganancia | Cota basada en suma de amplitudes. | Máximo observado en seis segundos. |
-| SNR | Potencia estable de tonos. | RMS del registro finito. |
-| Extremos | Sin envolvente de inicio/final todavía. | Suavizado en los extremos del registro. |
-| Tipo de ruido del bloque 1 | Interferencia tonal. | También existen otros tipos de ruido. |
-
-El emisor no reproduce exactamente los CSV anteriores. En la verificación final,
-comparar con una señal Python construida con los mismos parámetros y sobre
-intervalos equivalentes. El arranque suave del audio físico, si se añade, debe
-aplicar la misma ganancia a señal útil y ruido.
-
-## 1.8. Entorno y verificación final
-
-| Paso | Directorio o condición | Comando o dato |
-|---|---|---|
-| Activar entorno | Terminal ESP-IDF 5.5.5; idf.py disponible. | Instalación local: C:/Espressif/frameworks/esp-idf-v5.5.5. |
-| Entrar al proyecto | Desde la raíz del repositorio. | Set-Location proyecto_1_grupal/firmware/esp32 |
-| Compilar al cerrar la implementación | Desde la carpeta del proyecto. | idf.py build |
-| Cargar y observar después de integrar DAC | Sustituir COM_REEMPLAZAR por el puerto real. | idf.py -p COM_REEMPLAZAR flash monitor |
-
-| Archivo o carpeta | Gestión |
+| Verificación al cierre | Criterio |
 |---|---|
-| [sdkconfig.defaults](sdkconfig.defaults) | Valores compartidos. |
-| sdkconfig y sdkconfig.old | Generados localmente; ignorados por Git. |
-| build/ | Artefactos locales; ignorados por Git. |
-| CMake del proyecto | No contiene rutas absolutas al SDK instalado. |
+| Compilación | ESP-IDF 5.5.5; revisar imagen, partición y RAM |
+| Tres casos | Seleccionar, programar y medir cada registro de 96000 muestras |
+| Datos | Comprobar conversión y correspondencia con los CSV de origen |
+| Duración | Una emisión de 6 s nominales por arranque; sin repetición automática |
+| Continuidad | Frecuencias, amplitud, tasa efectiva y ausencia de interrupciones medidas |
+| Final DMA | Número exacto de muestras, sin paradas prematuras ni cierre anticipado |
+| Reinicio | Nueva reproducción del mismo registro conservado en flash |
+| Modelo Python | Pruebas finales sin regresiones y cargar_caso compatible |
 
-Por acuerdo del equipo, los bloques permiten commits incrementales y no incluyen
-etapas de pruebas intermedias. La verificación final abarcará tonos, mezcla,
-continuidad, amplitud, SNR, reinicio, parámetros inválidos y frecuencia física de salida.
+## 1.7. Fuentes
 
-## 1.9. Auditoría de organización del bloque
-
-| Zona | Ajuste de legibilidad | Finalidad |
-|---|---|---|
-| Configuración | Validación separada en comprobaciones generales, tonos e interferencia. | Localizar cada criterio sin concentrar todas las comprobaciones en una función. |
-| Generación | Preparación de amplitudes separada de la inicialización de fases. | Distinguir nivel/SNR de continuidad angular. |
-| Código e interfaz | Nombres descriptivos, unidades en las fases y comentario por función. | Reducir ambigüedad al leer el estado y los parámetros. |
-| Documentación | Apartados numerados, tablas de parámetros/contratos y enlaces a archivos. | Facilitar lectura humana y extracción automática del contexto. |
-
-La reorganización conserva las fórmulas y valores iniciales. La compilación,
-las pruebas funcionales y la validación física siguen pendientes. El siguiente
-bloque implementará la conversión y reproducción DAC mediante DMA.
+| Fuente | Uso |
+|---|---|
+| [DAC de ESP-IDF v5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/dac.html) | APLL, DMA, alineación y eventos |
+| [Tipos de memoria de ESP-IDF v5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-guides/memory-types.html) | Datos constantes en flash y memoria de trabajo |
+| [Configuración Python](../../tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de los casos |
+| SDK local ESP-IDF 5.5.5 | Semántica del controlador DAC y enlace de datos constantes |

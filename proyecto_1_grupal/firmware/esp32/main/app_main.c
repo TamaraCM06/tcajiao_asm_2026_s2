@@ -1,46 +1,29 @@
 #include <inttypes.h>
 
+#include "reproduccion_senal.h"
 #include "esp_log.h"
-#include "generador_senales.h"
 
 static const char *ETIQUETA_REGISTRO = "emisor";
-static const emisor_modo_t MODO_EMISION_INICIAL = EMISOR_MULTITONO_CON_INTERFERENCIA;
+/* Cambiar a SENAL_CASO_2 o SENAL_CASO_3 y recompilar para elegir otra señal. */
+static const senal_embebida_id_t CASO_EMISION_INICIAL = SENAL_CASO_1;
 
-/* Persisten al terminar app_main. El siguiente bloque conectará este estado
- * y el buffer inicial con la reproducción continua mediante DAC/DMA. */
-static emisor_generador_t generador_senales;
-static float muestras_primer_bloque[EMISOR_MUESTRAS_POR_BLOQUE];
-
-/* Prepara el generador y el primer bloque numérico para integrar posteriormente el DAC. */
+/* Reproduce una vez el caso incluido en flash; reiniciar la placa permite emitirlo otra vez. */
 void app_main(void)
 {
-    emisor_config_t configuracion;
-    const char *mensaje_error = emisor_config_predeterminada(MODO_EMISION_INICIAL, &configuracion);
-    if (mensaje_error != NULL) {
-        ESP_LOGE(ETIQUETA_REGISTRO, "%s", mensaje_error);
+    const senal_embebida_t *senal = senales_embebidas_obtener(CASO_EMISION_INICIAL);
+    if (senal == NULL) {
+        ESP_LOGE(ETIQUETA_REGISTRO, "El identificador del caso no existe.");
         return;
     }
-
-    mensaje_error = emisor_inicializar(&generador_senales, &configuracion);
-    if (mensaje_error != NULL) {
-        ESP_LOGE(ETIQUETA_REGISTRO, "%s", mensaje_error);
+    ESP_LOGI(ETIQUETA_REGISTRO, "Caso=%s, muestras=%u, muestreo=%" PRIu32 " Hz, CRC=%08" PRIX32,
+             senal->nombre, (unsigned)senal->cantidad_muestras,
+             senal->frecuencia_muestreo_hz, senal->crc32);
+    salida_dac_estadisticas_t estadisticas;
+    const esp_err_t resultado = reproduccion_senal_ejecutar(senal, &estadisticas);
+    if (resultado != ESP_OK) {
+        ESP_LOGE(ETIQUETA_REGISTRO, "El emisor quedó detenido: %s", esp_err_to_name(resultado));
         return;
     }
-
-    mensaje_error = emisor_generar(&generador_senales, muestras_primer_bloque,
-                                 EMISOR_MUESTRAS_POR_BLOQUE);
-    if (mensaje_error != NULL) {
-        ESP_LOGE(ETIQUETA_REGISTRO, "%s", mensaje_error);
-        return;
-    }
-
-    ESP_LOGI(ETIQUETA_REGISTRO, "Generador preparado: muestreo=%" PRIu32 " Hz, buffer=%u muestras",
-             configuracion.frecuencia_muestreo_hz, (unsigned)EMISOR_MUESTRAS_POR_BLOQUE);
-    ESP_LOGI(ETIQUETA_REGISTRO, "Ganancia común=%.6f, límite=%.3f",
-             generador_senales.ganancia_comun, (double)configuracion.limite_amplitud);
-    if (configuracion.modo == EMISOR_MULTITONO_CON_INTERFERENCIA) {
-        ESP_LOGI(ETIQUETA_REGISTRO, "SNR objetivo=%.1f dB, amplitud de interferencia sin escalar=%.6f",
-                 (double)configuracion.snr_db, generador_senales.amplitud_interferencia);
-    }
-    ESP_LOGI(ETIQUETA_REGISTRO, "Primer buffer numérico preparado; salida DAC pendiente de integración.");
+    ESP_LOGI(ETIQUETA_REGISTRO, "Reproducción terminada: %" PRIu64 " muestras consumidas por DMA.",
+             estadisticas.codigos_reproducidos);
 }

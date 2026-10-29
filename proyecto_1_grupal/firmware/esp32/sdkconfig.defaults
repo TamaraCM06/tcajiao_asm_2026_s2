@@ -1,2 +1,6 @@
-# Los parámetros propios del emisor están en emisor_config.c.
+# UART0 se conserva como consola de registros a 115200 baudios.
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+
+# Recibir códigos de 8 bits y dejar que el driver los alinee para DMA.
+CONFIG_DAC_DMA_AUTO_16BIT_ALIGN=y

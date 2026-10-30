@@ -22,7 +22,8 @@ enum {
 
 typedef struct {
     uint64_t codigos_aceptados; /* Copiados a DMA, no necesariamente emitidos aún. */
-    uint64_t codigos_reproducidos; /* Consumidos según eventos DMA, con alineación de 16 bits. */
+    uint64_t codigos_reproducidos; /* Confirmados por on_stop: terminó la conversión de lo cargado. */
+    uint64_t codigos_notificados_dma; /* Suma de on_convert_done; puede omitir el último bloque. */
     uint64_t codigos_previstos;
     uint32_t paradas_inesperadas;
 } salida_dac_estadisticas_t;
@@ -53,7 +54,7 @@ esp_err_t salida_dac_inicializar(salida_dac_t *salida_dac,
 esp_err_t salida_dac_escribir(salida_dac_t *salida_dac,
                             uint8_t *codigos_entrada, size_t cantidad_codigos);
 
-/* Espera el fin DMA y comprueba que se consumió exactamente todo el registro. */
+/* Espera on_stop después de cargar todo el registro, sin paradas prematuras. */
 esp_err_t salida_dac_esperar_fin(salida_dac_t *salida_dac);
 
 /* Copia contadores coherentes; siguen disponibles después de cerrar la salida. */

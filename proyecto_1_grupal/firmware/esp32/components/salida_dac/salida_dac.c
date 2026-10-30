@@ -11,7 +11,7 @@
 // 1. Registro de interrupciones y estado
 // ---------------------------------------------------------------------------
 
-/* Cuenta muestras terminadas por DMA; cada código ocupa dos bytes en el formato interno. */
+/* Acumula avisos parciales DMA; no sustituye la confirmación total de on_stop. */
 static bool IRAM_ATTR registrar_consumo_dac(dac_continuous_handle_t controlador,
                                           const dac_event_data_t *evento,
                                           void *contexto_salida)
@@ -19,13 +19,13 @@ static bool IRAM_ATTR registrar_consumo_dac(dac_continuous_handle_t controlador,
     (void)controlador;
     salida_dac_t *salida_dac = contexto_salida;
     portENTER_CRITICAL_ISR(&salida_dac->bloqueo_estadisticas);
-    salida_dac->estadisticas.codigos_reproducidos +=
+    salida_dac->estadisticas.codigos_notificados_dma +=
         evento->write_bytes / SALIDA_DAC_BYTES_POR_MUESTRA_DMA;
     portEXIT_CRITICAL_ISR(&salida_dac->bloqueo_estadisticas);
     return false;
 }
 
-/* Distingue fin normal de agotamiento prematuro y despierta la tarea que espera el cierre. */
+/* on_stop confirma lo cargado; una parada antes de cargar todo sigue siendo error. */
 static bool IRAM_ATTR registrar_parada_dac(dac_continuous_handle_t controlador,
                                          const dac_event_data_t *evento,
                                          void *contexto_salida)
@@ -36,10 +36,18 @@ static bool IRAM_ATTR registrar_parada_dac(dac_continuous_handle_t controlador,
     bool notificar = false;
     portENTER_CRITICAL_ISR(&salida_dac->bloqueo_estadisticas);
     if (salida_dac->contabilizar_paradas) {
-        if (salida_dac->estadisticas.codigos_reproducidos ==
-            salida_dac->estadisticas.codigos_previstos) {
+        /* ESP-IDF define on_stop como la conversión de todos los buffers cargados.
+         * En ESP32 el último buffer puede no aportar un on_convert_done separado. */
+        salida_dac->estadisticas.codigos_reproducidos =
+            salida_dac->estadisticas.codigos_aceptados;
+        if (salida_dac->estadisticas.codigos_aceptados ==
+                salida_dac->estadisticas.codigos_previstos &&
+            salida_dac->estadisticas.codigos_notificados_dma <=
+                salida_dac->estadisticas.codigos_aceptados &&
+            salida_dac->estadisticas.paradas_inesperadas == 0) {
             salida_dac->fin_confirmado = true;
         } else {
+            salida_dac->fin_confirmado = false;
             ++salida_dac->estadisticas.paradas_inesperadas;
         }
         notificar = true;
@@ -167,7 +175,7 @@ esp_err_t salida_dac_escribir(salida_dac_t *salida_dac,
     return resultado;
 }
 
-/* Espera el evento de fin, no una estimación basada en duración ni bytes aceptados. */
+/* Exige el evento de fin total además de la carga completa, sin estimar su duración. */
 esp_err_t salida_dac_esperar_fin(salida_dac_t *salida_dac)
 {
     if (salida_dac == NULL || !salida_dac->habilitado || salida_dac->notificacion_final == NULL) {

@@ -121,7 +121,7 @@ esp_err_t salida_dac_inicializar(salida_dac_t *salida_dac,
     return resultado;
 }
 
-/* Carga el bloque y registra bytes aceptados, errores y discontinuidades detectadas. */
+/* Carga el bloque y comprueba la cantidad aceptada y las paradas prematuras. */
 esp_err_t salida_dac_escribir(salida_dac_t *salida_dac,
                             uint8_t *codigos_entrada, size_t cantidad_codigos)
 {
@@ -141,11 +141,6 @@ esp_err_t salida_dac_escribir(salida_dac_t *salida_dac,
                             salida_dac->fin_confirmado;
     const bool excede_total = salida_dac->estadisticas.codigos_aceptados + cantidad_codigos >
                              salida_dac->estadisticas.codigos_previstos;
-    if (hubo_parada || excede_total) {
-        salida_dac->estadisticas.ultima_cantidad_solicitada = cantidad_codigos;
-        salida_dac->estadisticas.ultima_cantidad_aceptada = 0;
-        ++salida_dac->estadisticas.errores_escritura;
-    }
     portEXIT_CRITICAL(&salida_dac->bloqueo_estadisticas);
     if (hubo_parada) {
         return ESP_ERR_INVALID_STATE;
@@ -165,15 +160,8 @@ esp_err_t salida_dac_escribir(salida_dac_t *salida_dac,
 
     portENTER_CRITICAL(&salida_dac->bloqueo_estadisticas);
     salida_dac->estadisticas.codigos_aceptados += cantidad_aceptada;
-    salida_dac->estadisticas.ultima_cantidad_solicitada = cantidad_codigos;
-    salida_dac->estadisticas.ultima_cantidad_aceptada = cantidad_aceptada;
     if (resultado == ESP_OK && salida_dac->estadisticas.paradas_inesperadas > 0) {
         resultado = ESP_ERR_INVALID_STATE;
-    }
-    if (resultado == ESP_OK) {
-        ++salida_dac->estadisticas.escrituras_completas;
-    } else {
-        ++salida_dac->estadisticas.errores_escritura;
     }
     portEXIT_CRITICAL(&salida_dac->bloqueo_estadisticas);
     return resultado;

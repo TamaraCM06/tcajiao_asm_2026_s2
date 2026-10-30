@@ -11,7 +11,6 @@
 #include "freertos/semphr.h"
 
 enum {
-    SALIDA_DAC_GPIO = 25,
     SALIDA_DAC_CANTIDAD_DESCRIPTORES = 6,
     SALIDA_DAC_BYTES_POR_BUFFER = 512,
     SALIDA_DAC_BYTES_POR_MUESTRA_DMA = 2,
@@ -25,11 +24,7 @@ typedef struct {
     uint64_t codigos_aceptados; /* Copiados a DMA, no necesariamente emitidos aún. */
     uint64_t codigos_reproducidos; /* Consumidos según eventos DMA, con alineación de 16 bits. */
     uint64_t codigos_previstos;
-    uint32_t escrituras_completas;
-    uint32_t errores_escritura;
     uint32_t paradas_inesperadas;
-    size_t ultima_cantidad_solicitada;
-    size_t ultima_cantidad_aceptada;
 } salida_dac_estadisticas_t;
 
 /* Estado del controlador, reservado con duración mayor que toda la reproducción.

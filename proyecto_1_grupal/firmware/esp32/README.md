@@ -1,155 +1,173 @@
-# 1. Emisor ESP32 con señales del notebook
+# 1. Emisor y comparaci?n digital en ESP32
 
-## 1.1. Propósito y estado
+## 1.1. Prop?sito y alcance
 
-| Campo | Valor |
+La ESP32 reproduce las se?ales del notebook por GPIO25 y despu?s ejecuta en su
+propio procesador un FIR y un filtro espectral independientes. La computadora
+prepara los datos, programa la placa y muestra la consola; no calcula los filtros
+durante la demostraci?n.
+
+| Etapa | Entrada | Salida |
+|---|---|---|
+| Preparaci?n Python | CSV y coeficientes de Tarea 1 | C?digos DAC y pares mezcla/referencia en flash |
+| Emisi?n | Mezcla cuantizada a 8 bits | GPIO25, 16000 muestras/s, una reproducci?n |
+| Evaluaci?n FIR | Mezcla y referencia float32 | M?tricas y tiempos de la ESP32 |
+| Evaluaci?n espectral | La misma mezcla y referencia float32 | M?tricas y tiempos de la ESP32 |
+| Final | Tres casos completos | Mensaje DEMOSTRACION COMPLETADA |
+
+Cada caso se emite y luego se eval?a; las etapas son secuenciales. No hay captura
+ADC, transferencia de muestras por USB, gr?ficas ni filtros alimentados por Pico.
+Las m?tricas digitales no demuestran la calidad de la tensi?n emitida por el DAC.
+La referencia limpia sirve ?nicamente para evaluar: no decide qu? ruido eliminar.
+
+## 1.2. Par?metros y datos
+
+| Par?metro | Valor |
 |---|---|
-| Responsable | Persona 3, Santiago |
-| Rama | sb-emisor-esp32 |
-| Entorno | C, ESP-IDF 5.5.5, destino esp32 |
-| Fuente de señales | CSV exportados por el notebook de Tarea 1; Python es el único generador matemático |
-| Funcionamiento | Elegir un caso en app_main, compilar y reproducirlo una vez al arrancar |
-| Almacenamiento | Tres registros constantes incluidos en la memoria flash del firmware |
-| Implementado | Exportación de los tres casos, catálogo, selección y reproducción finita DAC/DMA |
-| Realizado en este avance | Exportación de datos y revisión estática de código, documentación e interfaces |
-| Pendiente por acuerdo | Compilación, carga en placa, memoria real y pruebas funcionales/físicas |
-| Alcance | Emisor del banco del taller; filtros y enlace Pico → ESP32 del proyecto final quedan fuera |
+| Plataforma | ESP32 cl?sico, C, ESP-IDF 5.5.5 |
+| Casos | caso_1, caso_2 y caso_3; autom?ticos en ese orden |
+| Muestreo y longitud | 16000 Hz; 96000 muestras por caso; 6 segundos de emisi?n |
+| Se?al ?til | 440, 880 y 1320 Hz; amplitudes 1, 0.55 y 0.3; fases 0?, 35? y ?50? |
+| Caso 1 | Interferencia tonal 4000 Hz, SNR configurada 10 dB |
+| Caso 2 | Ruido 2500?3800 Hz, SNR configurada 5 dB |
+| Caso 3 | Ruido superpuesto 600?1500 Hz, SNR configurada 0 dB |
+| FIR | 75 coeficientes exportados del notebook, historia persistente, bloques de 256 |
+| Alineaci?n FIR | Retardo de 37 muestras, sin buscar un retardo que mejore la m?trica |
+| Espectral | FFT 1024, salto 512, Hann sim?trica de an?lisis y s?ntesis |
+| Detecci?n | M?nimo 1600 Hz, ancho total 100 Hz, factor 0.1, umbral relativo 0.05 |
+| Datos digitales | Pares mezcla/referencia float32 little-endian, sin nueva normalizaci?n |
+| Conversi?n DAC | Redondear 127.5 ? (clip(muestra, ?1, 1) + 1); no se usa para evaluar filtros |
+| Flash de datos | 2304000 bytes float32 + 288000 c?digos DAC + coeficientes y programa |
+| Partici?n | Una aplicaci?n sin OTA; requiere flash f?sica de al menos 4 MB |
+| RAM | Buffers por bloque; no se cargan las se?ales completas ni se asigna memoria por bloque |
 
-Flujo de preparación: CSV del notebook → exportador Python → arreglos C → firmware en flash.
+Los archivos binarios .f32 evitan a?adir cientos de miles de l?neas de constantes.
+Son datos generados, incluidos en Git y reproducibles con el exportador. Cada JSON
+registra formato, longitud, SHA-256 y CRC del registro DAC correspondiente.
+Los coeficientes y los CSV originales, sus semillas y el notebook se conservan.
+Cambiar se?ales requiere exportar, compilar y programar otra vez.
 
-Flujo de reproducción: flash ESP32 → buffer pequeño en RAM → DAC/DMA GPIO25 → ADC acondicionado de Pico.
+## 1.3. Organizaci?n del c?digo
 
-El computador se utiliza para preparar y programar el firmware. Una vez programado,
-el emisor puede reproducir el caso al arrancar sin una aplicación de envío conectada.
-Esta función de banco se distingue de la arquitectura final: Pico adquiere y
-ESP32 filtra.
-
-## 1.2. Archivos y responsabilidades
-
-| Archivo | Responsabilidad |
+| Ubicaci?n | Responsabilidad |
 |---|---|
-| [archivos.py](../../tarea1_grupo1/src/datos/archivos.py) | Lectura compartida del CSV; conserva la interfaz de cargar_caso |
-| [preparacion.py](../../herramientas/exportacion_senales/preparacion.py) | Validación de las muestras y conversión a códigos DAC |
-| [escritura_c.py](../../herramientas/exportacion_senales/escritura_c.py) | Escritura de arreglos C constantes y metadatos JSON |
-| [exportar_senales.py](../../herramientas/exportar_senales.py) | Consola para exportar los tres casos o actualizar uno |
-| [senales_embebidas.h](components/senales_embebidas/include/senales_embebidas.h) | Identificadores y descriptor de lectura de las señales |
-| [senales_embebidas.c](components/senales_embebidas/senales_embebidas.c) | Catálogo que devuelve el registro seleccionado |
-| [caso_1.c](components/senales_embebidas/datos/caso_1.c), [caso_2.c](components/senales_embebidas/datos/caso_2.c) y [caso_3.c](components/senales_embebidas/datos/caso_3.c) | Muestras exportadas automáticamente; contienen datos, sin algoritmos |
-| [caso_1.json](components/senales_embebidas/datos/caso_1.json), [caso_2.json](components/senales_embebidas/datos/caso_2.json) y [caso_3.json](components/senales_embebidas/datos/caso_3.json) | Origen, longitud, duración, conversión, recortes y CRC de cada registro |
-| [salida_dac.c](components/salida_dac/salida_dac.c) | Controlador, DMA, contadores, espera de fin y cierre |
-| [reproduccion_senal.c](main/reproduccion_senal.c) | Copia por bloques desde flash y coordinación de una reproducción |
-| [app_main.c](main/app_main.c) | Único lugar de selección del caso e inicio de la reproducción |
-| [CMakeLists.txt](CMakeLists.txt) y [sdkconfig.defaults](sdkconfig.defaults) | Construcción para esp32 y alineación automática para DMA |
+| [app_main.c](main/app_main.c) | Entrada y reporte de fallo |
+| [demostracion.c](main/demostracion.c) | Secuencia de casos, reloj y coordinaci?n |
+| [informe_consola.c](main/informe_consola.c) | Res?menes legibles por caso y m?todo |
+| [reproduccion_senal.c](main/reproduccion_senal.c) | Env?o finito de flash al DAC |
+| components/salida_dac | Controlador, DMA y confirmaci?n de fin |
+| components/senales_embebidas | Cat?logo, lectura float32, datos y coeficientes |
+| components/filtros_digitales | FIR con estado, FFT radix 2 y filtrado espectral |
+| components/evaluacion_digital | Alineaci?n, banco secuencial y m?tricas acumuladas |
+| [exportar_senales.py](../../herramientas/exportar_senales.py) | Exportaci?n com?n de c?digos y datos digitales |
+| [tests](tests/test_filtros_c.py) | Comparaci?n del n?cleo C con Python mediante GCC |
 
-Los archivos C de datos son extensos porque contienen muestras, no lógica.
-Se mantienen separados por caso y se regeneran con Python. Incluirlos en el commit
-permite compilar sin ejecutar el exportador ni abrir el notebook.
+Los filtros usan C est?ndar y no conocen FreeRTOS, consola ni DAC. El banco recibe
+funciones para leer el reloj, ceder procesador y observar salidas durante pruebas.
+Su espacio de trabajo est?tico se comparte entre m?todos: no es reentrante ni se
+puede llamar simult?neamente desde dos tareas. La FFT radix 2 portable evita a?adir
+una dependencia externa; se puede sustituir por una implementaci?n optimizada en
+el proyecto final, verificando antes equivalencia num?rica.
 
-## 1.3. Casos y conversión
+## 1.4. Qu? hacen los filtros
 
-| Contrato | Valor |
+El FIR combina la muestra actual con las 74 anteriores. Conserva esa historia
+entre bloques y reduce las frecuencias altas con los coeficientes ya dise?ados.
+
+El espectral aplica Hann ? FFT ? ganancias ? IFFT ? Hann ? solapamiento y
+normalizaci?n. El umbral se calcula desde la energ?a de la mezcla en cada ventana;
+se descarta silencio o energ?a regional inferior a 0.001 del pico global.
+La ganancia se aplica a ambas mitades conjugadas del espectro: no se modifica
+intencionalmente la fase de los coeficientes. Los pesos acumulados de Hann al
+cuadrado compensan la reconstrucci?n. Se a?aden ceros virtuales al principio y
+al final, evitando reservar un registro extendido completo.
+
+Para evaluar da?o ?til, la referencia pasa por el mismo FIR o por las mismas
+ganancias espectrales de la mezcla. Nunca se vuelve a estimar ruido desde ella.
+
+## 1.5. Lectura de resultados
+
+| Campo de consola | Significado |
 |---|---|
-| Fuente | [Notebook](../../tarea1_grupo1/notebook.ipynb), [configuraciones](../../tarea1_grupo1/metadatos/configuraciones.json) y resultados/muestras de Tarea 1 |
-| CSV | Encabezado tiempo_s,limpia,ruido,contaminada |
-| Señal reproducida | Columna contaminada |
-| Muestreo admitido | 16000 Hz; tiempo positivo entre muestras y uniforme |
-| Longitud admitida | 256 a 96000 muestras, múltiplo de 256 |
-| Casos actuales | 96000 muestras por caso; duración nominal de 6 s |
-| Validación | Columnas, finitud, limpia + ruido = contaminada, tiempo y longitud; presets contrastados con su JSON |
-| Conversión | piso(127.5 × (clip(muestra, -1, 1) + 1) + 0.5) |
-| Escala | Sin normalización adicional; contar valores fuera de [-1,+1] y limitarlos |
-| Correspondencia | -1 → 0, 0 → 128, +1 → 255 |
-| Identificación | CRC-32 de los códigos exportados; se registra como metadato, sin protocolo ni cálculo en la placa |
+| SNR entrada / salida / mejora | Relaci?n entre energ?a de referencia y error; mayor suele ser mejor |
+| MSE | Error cuadr?tico medio entre salida alineada y referencia; menor es mejor |
+| Energ?a ?til | Energ?a de la referencia despu?s del filtro respecto a su energ?a original |
+| Atenuaci?n ruido total | Reducci?n de la energ?a del ruido residual, no solo de su pico dominante |
+| SNR distorsi?n | Da?o que el filtro introduce en la referencia limpia |
+| Evaluadas | 95963 muestras comunes para los registros actuales: longitud menos 37 |
+| Producidas | FIR: 95963 alineadas; espectral: las 96000 muestras originales |
+| C?lculo / media / m?ximo | Lectura de datos, filtrado de mezcla y referencia, y acumulaci?n de m?tricas |
+| Tiempo transcurrido | Incluye preparaci?n y cesiones a FreeRTOS; no incluye emisi?n DAC |
+| Espacio est?tico | Buffers compartidos reservados por el banco; excluye pila, SDK y DMA |
+| M?ximo compatible | Comparaci?n orientativa con 16 ms FIR o 32 ms espectral |
 
-| Caso | Señal útil | Ruido activo | SNR del modelo | Semilla | CRC-32 exportado |
-|---|---|---|---|---|---|
-| caso_1 | 440, 880 y 1320 Hz | Tonal de 4000 Hz | 10 dB | 1000 | 8B1F9B59 |
-| caso_2 | 440, 880 y 1320 Hz | Banda de 2500 a 3800 Hz | 5 dB | 2000 | 6140EEE7 |
-| caso_3 | 440, 880 y 1320 Hz | Banda de 600 a 1500 Hz | 0 dB | 3000 | C29233A4 |
+Ambos m?todos usan el mismo intervalo y cada salida se compara con la referencia
+correctamente alineada. La salida completa no se guarda: se consume por bloques
+y se acumulan energ?as en doble precisi?n. Una energ?a ?til cercana al 100 % no
+implica ausencia de distorsi?n; tambi?n se revisan MSE y SNR de distorsi?n.
+Los casos 1 y 2 deben mejorar; el caso 3 evidencia el l?mite de conservar la banda
+?til cuando el ruido cae dentro de ella. No se obliga a que todos los casos mejoren.
 
-La señal útil utiliza amplitudes relativas 1, 0.55 y 0.3, con fases 0°, 35° y -50°.
-El CSV conserva el ruido, suavizado y escala del notebook. La exportación actual
-reportó cero recortes en los tres casos. La cuantización a 8 bits y el circuito
-introducen diferencias frente a los valores ideales y su SNR.
+Los tiempos se miden con el reloj de la ESP32 e incluyen la evaluaci?n adicional
+de la referencia. Las cesiones al sistema quedan fuera del tiempo por bloque.
+El indicador de presupuesto no demuestra operaci?n simult?nea en tiempo real,
+ni equivale a latencia de extremo a extremo. Resultados en el PC son validaci?n
+num?rica, no tiempos de la placa. Con silencio pueden aparecer NaN o infinito,
+porque algunas relaciones de energ?a no est?n definidas.
 
-## 1.4. Preparación y selección
+## 1.6. Preparar, compilar y ejecutar
 
-Los arreglos de los tres casos ya están exportados. Solo ejecutar el exportador
-cuando cambien los CSV o se quiera incluir otra señal compatible. No genera
-nuevos ruidos ni altera las semillas o los resultados de Tarea 1.
+Ejecutar desde la ra?z del repositorio en PowerShell. Sustituir COM5 por el puerto
+real de la placa. No se programa hardware autom?ticamente desde las pruebas.
 
-| Acción desde la raíz del repositorio | Comando o cambio |
+| Paso | Comando |
 |---|---|
-| Exportar los tres casos originales | & 'proyecto_1_grupal/.venv/Scripts/python.exe' -m proyecto_1_grupal.herramientas.exportar_senales |
-| Actualizar un caso original | & 'proyecto_1_grupal/.venv/Scripts/python.exe' -m proyecto_1_grupal.herramientas.exportar_senales --caso caso_2 |
-| Incluir CSV manual en el lugar del caso 2 | & 'proyecto_1_grupal/.venv/Scripts/python.exe' -m proyecto_1_grupal.herramientas.exportar_senales --caso caso_2 --archivo 'proyecto_1_grupal/tarea1_grupo1/tonos_defensa/muestras_referencia.csv' |
-| Caso inicial | En app_main.c, CASO_EMISION_INICIAL = SENAL_CASO_1 |
-| Elegir otro caso | Cambiar esa constante a SENAL_CASO_2 o SENAL_CASO_3 |
-| Entrar al firmware | Set-Location proyecto_1_grupal/firmware/esp32 |
-| Compilar/programar al cierre | Desde terminal ESP-IDF 5.5.5: idf.py -p COM5 build flash monitor |
-| Repetir la señal | Reiniciar con EN/RESET; preparar antes el receptor o instrumento de medida |
+| Exportar los tres casos | & proyecto_1_grupal/.venv/Scripts/python.exe -m proyecto_1_grupal.herramientas.exportar_senales |
+| Compilar ESP32 | powershell -NoProfile -ExecutionPolicy Bypass -File proyecto_1_grupal/firmware/esp32/ejecutar_idf.ps1 -Accion build |
+| Programar | powershell -NoProfile -ExecutionPolicy Bypass -File proyecto_1_grupal/firmware/esp32/ejecutar_idf.ps1 -Accion flash -Puerto COM5 |
+| Ver resultados | powershell -NoProfile -ExecutionPolicy Bypass -File proyecto_1_grupal/firmware/esp32/ejecutar_idf.ps1 -Accion monitor -Puerto COM5 |
+| Repetir | Pulsar EN/RESET con el monitor abierto |
+| Salir del monitor | Ctrl+] |
+| Pruebas num?ricas y regresi?n | & proyecto_1_grupal/.venv/Scripts/python.exe -m pytest proyecto_1_grupal/firmware/esp32/tests proyecto_1_grupal/tarea1_grupo1/tests -q |
 
-| Condición | Comportamiento |
+El script usa el SDK y Python instalados en C:/Espressif; permite reemplazar sus
+rutas mediante par?metros. Debido a incompatibilidades de las herramientas con
+la ruta acentuada del repositorio, build copia exclusivamente las fuentes del
+firmware a una carpeta temporal ASCII. No mueve ni borra el repositorio.
+Guarda la ubicaci?n exitosa en build/ruta_compilacion.txt, ignorado por Git.
+Flash y monitor usan esa compilaci?n. Despu?s de editar fuentes, ejecutar build
+otra vez antes de flash. Si se borra la carpeta temporal, volver a compilar.
+ExecutionPolicy Bypass afecta solo ese proceso; no cambia la pol?tica persistente.
+
+Para ver los c?lculos basta USB y consola. La emisi?n DAC puede ejecutarse sin
+conectar nada a GPIO25. Para recepci?n el?ctrica se usar?n GPIO25 y GND com?n,
+con niveles y acondicionamiento acordados con Persona 1. Cero num?rico en el DAC
+corresponde aproximadamente a media alimentaci?n: no es una se?al bipolar.
+No se necesita el divisor GPIO25 ? GPIO34 de la alternativa descartada.
+
+## 1.7. Verificaci?n y pendientes
+
+| Verificaci?n | Estado |
 |---|---|
-| Cambiar selección o muestras | Requiere recompilar y programar nuevamente |
-| CSV manual | Reemplaza solo el registro seleccionado del firmware; conserva los CSV originales del notebook |
-| Restaurar casos originales | Ejecutar el exportador sin argumentos y volver a compilar |
-| Archivos específicos | Se sobrescriben el C y JSON del caso actualizado; no se borran carpetas |
-| Reinicio | Conserva los datos en flash y reproduce de nuevo el caso seleccionado |
-| Consola | UART0 a 115200 solo muestra registros de inicio, fin o error |
-| Puerto COM | COM5 es un ejemplo para la programación; usar el puerto real |
-| USB | Se retiraron cliente de envío, comandos ASM1, carga en RAM y dependencia PySerial |
+| Pruebas Python originales y n?cleo C | 110 aprobadas: 94 existentes + 16 nuevas |
+| Comparaci?n C/Python | Error absoluto de muestras ? 3e-6; m?tricas relevantes ? 0.03 dB |
+| Distorsi?n casi nula | Si Python supera 100 dB, exigir C > 100 dB; float32 impone otro piso num?rico |
+| Reconstrucci?n | Ganancia unitaria, silencio y longitudes 256, 768 y 96000 verificadas |
+| Compilaci?n ESP-IDF | Compilaci?n completa ESP-IDF 5.5.5; no equivale a una prueba f?sica |
+| Hardware | Pendientes programaci?n, comprobaci?n de flash f?sica, emisi?n y tiempos reales |
+| Cierre esperado | Tres emisiones completas, seis evaluaciones y DEMOSTRACION COMPLETADA |
 
-## 1.5. Memoria y reproducción
+Se retiraron captura ADC, protocolo CAP1, cliente de adquisici?n, gr?ficas y
+PySerial de esta propuesta. Se conservaron la salida DAC, sus controles de error,
+los datos del notebook y el exportador. El sistema continuo con Pico, adquisici?n,
+interfaz y salidas filtradas corresponde al siguiente avance del proyecto.
 
-| Elemento | Implementación |
+## 1.8. Fuentes
+
+| Fuente | Aplicaci?n |
 |---|---|
-| Datos de los tres casos | 3 × 96000 = 288000 bytes de muestras constantes; presupuesto de flash adicional al programa |
-| Flash disponible | Comprobar tamaño final de imagen y partición al compilar; no asumir capacidad física por la etiqueta ESP-32S |
-| RAM de trabajo | Un buffer de 1536 códigos; no se copia un registro completo a RAM |
-| DMA | Seis buffers de 512 bytes = 3072 bytes, más estructuras del controlador |
-| Reservas adicionales | Tarea, estado, semáforo y recursos de ESP-IDF |
-| Salida | Un canal, GPIO25, 16000 muestras/s solicitadas, reloj APLL |
-| Arranque | Una entrega de hasta 1536 muestras del registro |
-| Continuación | Bloques de 256, sin repetir fragmentos ni añadir esperas artificiales |
-| Copia | Desde el arreglo constante en flash al buffer RAM, después al formato DMA interno |
-| Alineación | Códigos de 8 bits; ESP-IDF los adapta a contenedores internos de 16 bits |
-| Escritura | Síncrona; timeout de 1000 ms y comprobación de cantidad aceptada |
-| Consumo | Eventos on_convert_done acumulan write_bytes / 2 |
-| Final | on_stop compara contra la longitud total; fin normal exige previsto = aceptado = consumido |
-| Cierre | Esperar hasta 1000 ms tras enviar el último bloque y después liberar el DAC |
-| Errores | Detener y cerrar; informar la causa mediante el registro de ESP-IDF |
-
-Aceptar bytes significa que el controlador ya los copió. Esperar el evento final
-permite que termine de consumirlos antes de deshabilitar el DAC. Los contadores
-describen el avance reportado por DMA; la señal física se valida con medición.
-
-## 1.6. Conexión y verificación pendiente
-
-| Elemento | Acuerdo |
-|---|---|
-| Señal | GPIO25 hacia entrada ADC acondicionada de Pico |
-| Referencia eléctrica | GND común |
-| Componente DC | El cero numérico corresponde aproximadamente a media alimentación |
-| Coordinación con Persona 1 | Confirmar pin ADC, niveles, acondicionamiento y filtrado analógico |
-| Referencia limpia | Este único DAC reproduce la mezcla; no entrega un segundo canal limpio |
-
-| Verificación al cierre | Criterio |
-|---|---|
-| Compilación | ESP-IDF 5.5.5; revisar imagen, partición y RAM |
-| Tres casos | Seleccionar, programar y medir cada registro de 96000 muestras |
-| Datos | Comprobar conversión y correspondencia con los CSV de origen |
-| Duración | Una emisión de 6 s nominales por arranque; sin repetición automática |
-| Continuidad | Frecuencias, amplitud, tasa efectiva y ausencia de interrupciones medidas |
-| Final DMA | Número exacto de muestras, sin paradas prematuras ni cierre anticipado |
-| Reinicio | Nueva reproducción del mismo registro conservado en flash |
-| Modelo Python | Pruebas finales sin regresiones y cargar_caso compatible |
-
-## 1.7. Fuentes
-
-| Fuente | Uso |
-|---|---|
-| [DAC de ESP-IDF v5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/dac.html) | APLL, DMA, alineación y eventos |
-| [Tipos de memoria de ESP-IDF v5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-guides/memory-types.html) | Datos constantes en flash y memoria de trabajo |
-| [Configuración Python](../../tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de los casos |
-| SDK local ESP-IDF 5.5.5 | Semántica del controlador DAC y enlace de datos constantes |
+| [Modelo del proyecto](../../tarea1_grupo1/src/filtros/filtrado_espectral.py) | Selecci?n espectral y par?metros |
+| [M?tricas Python](../../tarea1_grupo1/src/mediciones/metricas.py) | Convenciones de energ?a y SNR |
+| [DAC ESP-IDF 5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/dac.html) | DMA y conversi?n de 8 bits |
+| [Reloj ESP-IDF 5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/system/esp_timer.html) | Medici?n en microsegundos |
+| [Particiones ESP-IDF 5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-guides/partition-tables.html) | Aplicaci?n y datos en flash |

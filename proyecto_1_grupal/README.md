@@ -1,130 +1,165 @@
-# Proyecto grupal: reducción adaptativa de ruido
+# 1. Proyecto grupal: reducción adaptativa de ruido
 
-Primera entrega de CE 1110 Análisis de Señales Mixtas: señales reproducibles,
-fundamentos de Fourier y prototipos de filtrado temporal y espectral. El enunciado
-está en `docs/references/ASM_Tarea1_v7.pdf`.
+Proyecto de CE 1110, Análisis de Señales Mixtas. Contiene el modelo Python de
+Tarea 1 y el avance del taller de semana 12: emisión de señales y evaluación
+digital de filtros en ESP32.
 
-## Estructura
+Para preparar y ejecutar la demostración del taller, consultar el
+[README de ESP32](firmware/esp32/README.md). Esta guía general explica dónde está
+cada parte y cómo trabajar con el modelo Python.
 
-El trabajo está en `tarea1_grupo1/`: el notebook organiza los experimentos,
-`src/` contiene las funciones reutilizables y `tests/` sus pruebas.
-Las semillas están en `metadatos/configuraciones.json`, los WAV de entrada en
-`pruebas/caso_N/` y las muestras, métricas, figuras y salidas en `resultados/`.
+## 1.1. Accesos principales
 
-| Ubicación en src | Qué buscar aquí |
+| Parte | Contenido | Acceso |
+|---|---|---|
+| Modelo Python de Tarea 1 | Señales reproducibles, análisis de Fourier, filtros temporal y espectral, métricas y figuras | [Notebook](tarea1_grupo1/notebook.ipynb) y [README de Tarea 1](tarea1_grupo1/README.md) |
+| Taller: ESP32 | Firmware C que emite tres señales por DAC, evalúa ambos filtros sobre 95963 muestras y reúne los seis resultados en tablas finales | [Instrucciones de ESP32](firmware/esp32/README.md) |
+| Preparación de señales | Exportador de los CSV del notebook a los datos incluidos en flash | [Exportador](herramientas/exportar_senales.py) |
+| Requisitos de Tarea 1 | Enunciado académico de la primera entrega | [Enunciado](docs/references/ASM_Tarea1_v7.pdf) |
+
+El convertidor digital a analógico (DAC) convierte los códigos numéricos en una
+salida eléctrica. Evaluar filtros sobre datos guardados y comprobar esa salida
+son actividades distintas.
+
+## 1.2. Organización del proyecto
+
+| Ubicación | Qué contiene |
 |---|---|
-| filtros/filtros_temporales.py | Ecuación de diferencias y FIR por bloques con estado. |
-| filtros/filtrado_espectral.py | Parámetros, umbral adaptativo y coordinación FFT/IFFT. |
-| filtros/bloques_espectrales.py | Hann, relleno, reconstrucción y ganancias guardadas. |
-| filtros/diseno_temporal.py | Diseño FIR/IIR, respuesta, especificaciones, polos y estabilidad. |
-| senales/generacion.py | Señales, ruido, semillas, suavizado y escalado de SNR. |
-| senales/analisis_fourier.py | DFT directa, espectros y energía por bandas. |
-| mediciones/metricas.py | Energía, SNR, MSE, distorsión y atenuación. |
-| mediciones/evaluacion.py | Alineación temporal y evaluación espectral con ganancias de la mezcla. |
-| datos/archivos.py | JSON, CSV, PCM16, WAV y ZIP. |
-| visualizacion/graficas.py | Construcción de figuras, sin mostrarlas ni guardarlas. |
+| [tarea1_grupo1](tarea1_grupo1/) | Modelo Python, notebook, pruebas y resultados de Tarea 1 |
+| [firmware/esp32](firmware/esp32/) | Programa de la ESP32 e instrucciones del taller |
+| [herramientas](herramientas/) | Preparación de datos para el firmware |
+| [configuraciones.json](tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de los tres casos |
+| [pruebas](tarea1_grupo1/pruebas/) | Archivos de audio WAV de entrada por caso |
+| [resultados](tarea1_grupo1/resultados/) | Muestras, métricas, figuras y salidas de los filtros |
 
-Las carpetas agrupan filtrado y diseño (`filtros`), señales y Fourier (`senales`),
-medidas y evaluación (`mediciones`), archivos (`datos`) y figuras (`visualizacion`).
-`src/__init__.py` conserva también los imports anteriores `from src import ...`.
+## 1.3. Módulos Python
 
-Los módulos de filtrado conservan su interfaz pública como fachadas: las llamadas
-anteriores a sus funciones de lectura, diseño y evaluación siguen disponibles.
-Para código nuevo, importar cada utilidad desde el módulo responsable.
-Los evaluadores reciben funciones de filtrado, evitando dependencias circulares.
+El [notebook](tarea1_grupo1/notebook.ipynb) organiza los experimentos. Las funciones
+reutilizables están en [src](tarea1_grupo1/src/) y las pruebas en
+[tests](tarea1_grupo1/tests/).
 
-## Entorno
+| Módulo dentro de src | Responsabilidad |
+|---|---|
+| [filtros/filtros_temporales.py](tarea1_grupo1/src/filtros/filtros_temporales.py) | Ecuación de diferencias y filtro de respuesta finita al impulso (FIR) por bloques con estado |
+| [filtros/filtrado_espectral.py](tarea1_grupo1/src/filtros/filtrado_espectral.py) | Parámetros, umbral adaptativo y coordinación del filtro espectral |
+| [filtros/bloques_espectrales.py](tarea1_grupo1/src/filtros/bloques_espectrales.py) | Ventana Hann, reconstrucción y ganancias guardadas |
+| [filtros/diseno_temporal.py](tarea1_grupo1/src/filtros/diseno_temporal.py) | Diseño FIR y de respuesta infinita al impulso (IIR), respuesta en frecuencia, polos y estabilidad |
+| [senales/generacion.py](tarea1_grupo1/src/senales/generacion.py) | Generación de señales y ruido, semillas, suavizado y ajuste de la relación señal a ruido (SNR) |
+| [senales/analisis_fourier.py](tarea1_grupo1/src/senales/analisis_fourier.py) | Transformada discreta de Fourier (DFT), espectros y energía por bandas |
+| [mediciones/metricas.py](tarea1_grupo1/src/mediciones/metricas.py) | Energía, SNR, error cuadrático medio (MSE), distorsión y atenuación |
+| [mediciones/evaluacion.py](tarea1_grupo1/src/mediciones/evaluacion.py) | Alineación temporal y evaluación con las ganancias calculadas desde la mezcla |
+| [datos/archivos.py](tarea1_grupo1/src/datos/archivos.py) | Lectura y escritura de parámetros, muestras, audio y paquetes de entrega |
+| [visualizacion/graficas.py](tarea1_grupo1/src/visualizacion/graficas.py) | Construcción de figuras; el notebook decide cuándo mostrarlas o guardarlas |
 
-Se requiere Python 3.10 o superior. Desde `proyecto_1_grupal/`:
+Los módulos conservan las llamadas públicas anteriores, incluidos los imports
+desde src. Las funciones se importan desde el módulo que las define.
+Los evaluadores reciben las funciones de filtrado como argumentos.
 
-```bash
-python -m venv .venv
-# Windows PowerShell:
-.venv\Scripts\Activate.ps1
-# Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
-python -m ipykernel install --user --name asm-grupal --display-name "Python (ASM grupal)"
-```
+## 1.4. Entorno Python
 
-Abrir `tarea1_grupo1/notebook.ipynb`, seleccionar el kernel **Python (ASM grupal)**
-y ejecutar todas las celdas con `tarea1_grupo1/` como directorio de trabajo.
-`sys.executable` debe apuntar al entorno `.venv` del proyecto.
+Se requiere Python 3.10 o superior. Ejecutar los comandos siguientes desde
+proyecto_1_grupal/; los pasos de activación son alternativas según el sistema.
 
-## Recorrido del notebook
+| Paso | Comando |
+|---|---|
+| Crear el entorno | python -m venv .venv |
+| Activar en Windows PowerShell | .venv\Scripts\Activate.ps1 |
+| Activar en Linux o macOS | source .venv/bin/activate |
+| Instalar dependencias | python -m pip install -r requirements.txt |
+| Registrar el entorno en Jupyter | python -m ipykernel install --user --name asm-grupal --display-name "Python (ASM grupal)" |
 
-1. Importaciones, rutas y configuración.
-2. Ejemplo de 2.1a: ocho muestras, DFT directa, FFT e IFFT, magnitud y fase.
-3. Generación, escucha y exportación de señales.
-4. Diseño, verificación y aplicación del filtro temporal.
-5. Aplicación del filtro espectral.
-6. Compromiso entre reducción de ruido y distorsión.
-7. Comparación y exportación común de métricas.
+Abrir el [notebook](tarea1_grupo1/notebook.ipynb), seleccionar **Python (ASM grupal)**
+como entorno de ejecución y ejecutar todas las celdas con tarea1_grupo1/ como
+directorio de trabajo. La ruta indicada por sys.executable debe corresponder al
+entorno .venv del proyecto.
 
-`CASO` elige la señal mostrada y escuchada al inicio. Los tres casos del JSON
-siempre se regeneran con semillas independientes. Con `CASO = None`, se genera
-además una prueba manual o `defensa_aleatoria`. Su exportación sobrescribe solo
-los archivos conocidos y el ZIP; conserva los demás archivos de la carpeta.
+## 1.5. Recorrido del notebook
 
-El notebook cubre el trabajo implementado y el ejemplo de 2.1a. Los demás
-apartados teóricos pendientes y la propuesta embebida corresponden al trabajo del grupo.
+| Orden | Contenido |
+|---|---|
+| 1 | Importaciones, rutas y configuración |
+| 2 | Ejemplo de 2.1a: ocho muestras, DFT, transformada rápida de Fourier (FFT), su inversa (IFFT), magnitud y fase |
+| 3 | Generación, escucha y exportación de señales |
+| 4 | Diseño, verificación y aplicación del filtro temporal |
+| 5 | Aplicación del filtro espectral |
+| 6 | Comparación entre reducción de ruido y distorsión |
+| 7 | Comparación y exportación de métricas |
 
-## Uso de los módulos
+CASO selecciona la señal inicial. Para un caso fijo, los parámetros efectivos se
+cargan desde configuraciones.json. Los tres casos se regeneran con sus propias
+semillas. Con CASO = None también se genera una señal manual o defensa_aleatoria.
+La exportación reemplaza los archivos conocidos y el ZIP, conservando los demás
+archivos de la carpeta.
 
-Desde `tarea1_grupo1/`:
+Estas señales son la base del taller y de la defensa. El exportador para ESP32
+lee los CSV existentes. Las instrucciones de exportación, compilación y
+programación están en el [README del emisor](firmware/esp32/README.md#14-preparación-y-ejecución).
 
-```python
-from src.datos import archivos
-from src.filtros import filtrado_espectral as fe
+## 1.6. Uso de los filtros Python
 
-caso = archivos.cargar_caso('caso_2')
-resultado = fe.evaluar_filtro(
-    caso['clean'], caso['noise'], caso['fs'], longitud_evaluacion=95963
-)
-salida = resultado['salida']  # Conserva las 96000 muestras.
-```
+El filtro espectral analiza bloques con Hann y 50 % de solapamiento. Calcula
+las frecuencias mediante una FFT para señales reales (rFFT), aplica las ganancias
+y reconstruye mediante la transformada inversa. Las frecuencias inferiores a
+frecuencia_minima quedan protegidas. Cuando ruido y señal comparten frecuencias,
+el método no puede separarlos perfectamente.
 
-`filtrar_senal()` recibe muestras contaminadas y no utiliza la referencia limpia.
-Procesa bloques con Hann, rFFT, umbral adaptativo, irFFT y reconstrucción con
-50 % de solapamiento. Las frecuencias inferiores a `frecuencia_minima` se protegen.
-El método no separa perfectamente señal y ruido cuando comparten frecuencias.
+| Función o dato | Uso |
+|---|---|
+| filtrar_senal() | Recibe la mezcla contaminada y no utiliza la referencia limpia |
+| evaluar_filtro() | Procesa toda la señal y limita las métricas al intervalo solicitado |
+| Ganancias espectrales | Se calculan desde la mezcla y se reutilizan sobre la referencia para medir distorsión |
+| Alineación FIR | Compensa el retardo conocido de 37 muestras |
+| Intervalo actual | Entrada y ambos filtros se comparan sobre 95963 muestras; la salida espectral conserva las 96000 |
 
-`evaluar_filtro()` procesa la señal completa y limita las métricas al intervalo
-solicitado. Para medir distorsión conserva las ganancias estimadas desde la mezcla
-al procesar la referencia. El FIR compensa su retardo de 37 muestras: actualmente
-ambos filtros y la entrada se comparan sobre las primeras 95963 muestras.
+Ejemplo de evaluación desde tarea1_grupo1/. Cada fila continúa el ejemplo anterior.
+Los nombres clean, noise y fs son las claves existentes de la interfaz Python.
 
-La ejecución directa sigue disponible desde `proyecto_1_grupal/`:
+| Paso | Instrucción Python |
+|---|---|
+| Importar lectura | from src.datos import archivos |
+| Importar filtro | from src.filtros import filtrado_espectral |
+| Cargar caso | caso = archivos.cargar_caso('caso_2') |
+| Evaluar | resultado = filtrado_espectral.evaluar_filtro(caso['clean'], caso['noise'], caso['fs'], longitud_evaluacion=95963) |
+| Obtener salida | salida = resultado['salida'] |
 
-```bash
-python -m tarea1_grupo1.src.filtros.filtrado_espectral
-```
+También se puede ejecutar el módulo directamente:
 
-## Resultados
+| Directorio | Comando |
+|---|---|
+| proyecto_1_grupal/ | python -m tarea1_grupo1.src.filtros.filtrado_espectral |
 
-- `resultados/metricas.csv`: nueve filas, tres casos por tres métodos.
-- `resultados/filtro_temporal/`: coeficientes, comparación de diseños y WAV filtrados.
-- `resultados/filtro_espectral/`: experimento del caso 3 y WAV filtrados.
-- `resultados/figuras/`: figuras de generación, filtros y ejemplo de Fourier.
-- `resultados/fourier_coeficientes.csv`: componentes no nulos del ejemplo de 2.1a.
-- `resultados/fourier_verificacion.csv`: errores DFT–FFT e IFFT frente a las muestras.
+## 1.7. Resultados del modelo Python
 
-Los WAV mantienen la escala de amplitud; las métricas se calculan sobre muestras
-en punto flotante. Las celdas de exportación reemplazan sus tablas completas.
-Los campos todavía no calculados para un método quedan vacíos.
+| Ubicación | Contenido |
+|---|---|
+| [metricas.csv](tarea1_grupo1/resultados/metricas.csv) | Nueve filas: tres casos por tres métodos, incluida la entrada sin filtrar |
+| [filtro_temporal](tarea1_grupo1/resultados/filtro_temporal/) | Coeficientes, comparación de diseños y audio filtrado |
+| [filtro_espectral](tarea1_grupo1/resultados/filtro_espectral/) | Experimento del caso 3 y audio filtrado |
+| [figuras](tarea1_grupo1/resultados/figuras/) | Figuras de señales, filtros y ejemplo de Fourier |
+| [fourier_coeficientes.csv](tarea1_grupo1/resultados/fourier_coeficientes.csv) | Componentes no nulas del ejemplo de 2.1a |
+| [fourier_verificacion.csv](tarea1_grupo1/resultados/fourier_verificacion.csv) | Errores de DFT frente a FFT y de IFFT frente a las muestras originales |
 
-Los tiempos y la memoria corresponden al prototipo en computadora. La memoria
-espectral cuenta arreglos explícitos, incluidas las ganancias guardadas para
-evaluación; excluye temporales internos de NumPy y no representa la RAM del microcontrolador.
+Los WAV mantienen la escala de amplitud. Las métricas se calculan sobre muestras
+en punto flotante. Las tablas exportadas conservan los campos vacíos y las celdas
+de exportación reemplazan sus tablas completas.
 
-## Pruebas
+Los tiempos y la memoria de estos resultados corresponden a la computadora.
+La memoria espectral cuenta arreglos explícitos, incluidas las ganancias de
+evaluación; excluye temporales internos de NumPy. Estos datos no representan la
+memoria ni los tiempos del microcontrolador.
 
-Desde `proyecto_1_grupal/`:
+## 1.8. Pruebas
 
-```bash
-python -m pytest tarea1_grupo1/tests -q
-```
+La verificación en computadora reúne 117 pruebas aprobadas: 94 del modelo Python,
+16 del núcleo C de filtros y 7 del cierre DAC con eventos controlados.
+Para ejecutar las pruebas del modelo Python:
 
-Las pruebas de filtros utilizan los CSV de los casos; si faltan, ejecutar primero
-el notebook. Se comprueban la implementación contra SciPy, reconstrucción y
-extremos, ruido cambiante, protección de banda, evaluación parcial, compatibilidad
-de interfaces, generación reproducible y exportación sin borrar archivos ajenos.
+| Directorio | Comando |
+|---|---|
+| proyecto_1_grupal/ | python -m pytest tarea1_grupo1/tests -q |
+
+Las pruebas de filtros usan los CSV de los casos generados por el notebook.
+Cubren comparación con SciPy, reconstrucción, extremos, ruido cambiante,
+protección de banda, evaluación parcial, compatibilidad de interfaces, generación
+reproducible y exportación sin borrar archivos ajenos. La verificación conjunta
+con el núcleo C se describe en el [README de ESP32](firmware/esp32/README.md#17-verificación-numérica).

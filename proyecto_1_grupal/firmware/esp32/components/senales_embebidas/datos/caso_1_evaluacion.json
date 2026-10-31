@@ -1,0 +1,11 @@
+{
+  "caso": "caso_1",
+  "formato": "float32 little-endian intercalado: mezcla, referencia",
+  "muestras": 96000,
+  "frecuencia_muestreo_hz": 16000,
+  "bytes": 768000,
+  "sha256": "2abf8940f855d58e2d4dc7cad72ddb7d357c29f56b5c5ca49b39db0e50580c18",
+  "crc32_dac": "8B1F9B59",
+  "origen": "caso_1_muestras.csv",
+  "uso_referencia": "Solo evaluación; no interviene en detección de ruido"
+}

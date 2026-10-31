@@ -226,3 +226,6 @@ outputs/
 # Salidas temporales del generador de la Tarea 1 (notebook del profesor)
 proyecto_1_grupal/tarea1_grupo1/tonos_defensa/
 proyecto_1_grupal/tarea1_grupo1/*.zip
+
+# Contexto local del asistente (cualquier combinación de mayúsculas)
+/[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]

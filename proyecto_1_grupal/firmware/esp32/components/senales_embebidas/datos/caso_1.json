@@ -1,0 +1,14 @@
+{
+  "version_formato": 1,
+  "caso_firmware": "caso_1",
+  "identificador_origen": "caso_1",
+  "archivo_csv": "proyecto_1_grupal/tarea1_grupo1/resultados/muestras/caso_1_muestras.csv",
+  "archivo_c": "caso_1.c",
+  "frecuencia_muestreo_hz": 16000,
+  "cantidad_muestras": 96000,
+  "duracion_s": 6.0,
+  "formato": "uint8 DAC",
+  "conversion": "floor(127.5 * (clip(muestra, -1, 1) + 1) + 0.5)",
+  "cantidad_recortes": 0,
+  "crc32_codigos": "8B1F9B59"
+}

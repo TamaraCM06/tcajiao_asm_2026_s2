@@ -1,0 +1,11 @@
+# UART0 se conserva como consola de registros a 115200 baudios.
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+
+# Recibir códigos de 8 bits y dejar que el driver los alinee para DMA.
+CONFIG_DAC_DMA_AUTO_16BIT_ALIGN=y
+
+# Tres parejas float32 en flash; requiere una placa con al menos 4 MB.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

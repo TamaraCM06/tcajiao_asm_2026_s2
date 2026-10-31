@@ -1,0 +1,32 @@
+---
+config:
+  flowchart:
+    curve: stepBefore
+    useMaxWidth: false
+    nodeSpacing: 30
+    rankSpacing: 35
+---
+flowchart TB
+
+    subgraph PC["Computadora · preparación"]
+        direction LR
+        NB["Muestras CSV<br/>notebook / prototipo"]
+        EXP["exportar_senales.py"]
+        NB -->|"x[n], s[n]<br/>float64"| EXP
+    end
+
+    subgraph MCU["ESP32 · ejecución en secuencia"]
+        direction LR
+        FL["Flash<br/>4 MB"]
+        DAC["① DAC + DMA<br/>APLL · 16 kHz"]
+        GPIO["GPIO25"]
+        BANCO["②③ Banco<br/>FIR → espectral"]
+        UART["Consola UART<br/>115200 baud"]
+        FL -->|"códigos u8<br/>bloques 256"| DAC
+        DAC -->|"v(t)<br/>0–3.3 V"| GPIO
+        FL -->|"pares<br/>float32"| BANCO
+        BANCO -->|"métricas<br/>+ tiempos"| UART
+        DAC -->|"reproducidas<br/>· paradas"| UART
+    end
+
+    PC -->|"códigos u8 + pares float32, incorporados al compilar"| MCU

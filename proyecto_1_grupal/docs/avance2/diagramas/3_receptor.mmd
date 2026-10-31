@@ -1,0 +1,42 @@
+---
+config:
+  flowchart:
+    curve: stepBefore
+    useMaxWidth: false
+    nodeSpacing: 30
+    rankSpacing: 35
+---
+flowchart TB
+
+    subgraph CON["Conexión y adquisición"]
+        direction LR
+        ESP["ESP32 GPIO25<br/>DAC 8 bits · 16 kHz"]
+        RC["Filtro RC<br/>1 kΩ · 33 nF<br/>fc ≈ 4.8 kHz"]
+        ADC["Pico GPIO26 / ADC0<br/>12 bits · 10 kHz"]
+        DMA["DMA ping-pong<br/>2 × 256"]
+        ISR["ISR: error y<br/>desborde → reinicio<br/>cola de 4"]
+        ESP -->|"0.32–2.98 V<br/>GND común"| RC
+        RC -->|"v_adc"| ADC
+        ADC -->|"FIFO u12"| DMA
+        DMA -->|"256 · 25.6 ms"| ISR
+    end
+
+    subgraph ANA["Análisis por bloque"]
+        direction LR
+        CONV["Códigos → V<br/>mín · máx · Sat"]
+        DC["Resta de la media<br/>DC · RMS"]
+        WIN["Hann"]
+        FFT["FFT radix-2<br/>256 · Δf 39 Hz"]
+        ID["Pico dominante<br/>banda ≥ 1600 Hz"]
+        CONV -->|"x[n] V"| DC
+        DC -->|"x[n] sin DC"| WIN
+        WIN -->|"x_w[n]"| FFT
+        FFT -->|"|X[k]|²"| ID
+    end
+
+    CON -->|"bloque a[n] u12"| ANA
+    ANA -->|"métricas por bloque"| OUT["Tabla USB cada 1 s<br/>Fs · Sat · DC · RMS · Pico"]
+    ANA -.->|"x[n] float32 sin DC"| SPI["Trama SPI v1 · CRC-8<br/>(deshabilitada)"]
+
+    classDef deshabilitado stroke-dasharray: 6 4,fill:#f7f7f7
+    class SPI deshabilitado

@@ -1,0 +1,38 @@
+---
+config:
+  flowchart:
+    curve: stepBefore
+    useMaxWidth: false
+    nodeSpacing: 30
+    rankSpacing: 35
+---
+flowchart TD
+
+    A["Fila de la consola (≈ 1 s)<br/>durante una emisión de 6 s"]
+    B{{"¿Fs ≈ 10 000 Hz<br/>y sin '!'?"}}
+    C{{"¿Perd/Err/Rein<br/>= 0/0/0?"}}
+    D{{"¿Sat = 0?"}}
+    E{{"¿DC en 1.65 ± 0.17 V?"}}
+    F{{"¿Nivel ACTIVIDAD?"}}
+    G{{"¿Pico en bin 11 ± 1<br/>(≈ 430 Hz)?"}}
+    OK["RECEPCIÓN CORRECTA"]
+    R1["RECHAZO: muestreo<br/>revisar divisor o reinicios"]
+    R2["RECHAZO: captura discontinua<br/>revisar carga o USB"]
+    R3["RECHAZO: recorte<br/>revisar nivel u offset"]
+    R4["RECHAZO: nivel DC<br/>revisar GND o entrada flotante"]
+    R5["SIN SEÑAL<br/>emisor detenido o pausa"]
+    R6["RECHAZO: frecuencia<br/>¿fs, aliasing o ruido superpuesto?"]
+
+    A --> B
+    B -->|"sí"| C
+    C -->|"sí"| D
+    D -->|"sí"| E
+    E -->|"sí"| F
+    F -->|"sí"| G
+    G -->|"sí"| OK
+    B -->|"no"| R1
+    C -->|"no"| R2
+    D -->|"no"| R3
+    E -->|"no"| R4
+    F -->|"no"| R5
+    G -->|"no"| R6

@@ -1,9 +1,10 @@
 # Nodo 1: Pico RP2040
 
-ADC0/GPIO26, 10 kHz, bloques de 256; eliminación de DC por media flotante,
-Hann + FFT radix-2 sobre una copia y estadísticas USB cada segundo.
+ADC0/GPIO26, 10 kHz, bloques de 256; eliminación de DC restando la media de
+cada bloque, Hann + FFT radix-2 sobre una copia y estadísticas USB cada segundo.
 `main.c` coordina hardware; `nodo1_metodos.c/.h` contienen DSP y tramas.
-`receiver.c` es un archivo vacío previo, no participa en la compilación.
+Los diagramas de conexión, procesamiento y decisión están en
+[docs/avance2](../../docs/avance2/README.md) (Figuras 3.5 y 3.6 del informe).
 
 ## Contrato actual: entrada analógica
 
@@ -18,16 +19,17 @@ ambas salidas. Limitar la banda antes de 5 kHz; 16 kHz de reproducción y 10 kHz
 de adquisición son relojes distintos. Las muestras Pico se expresan en voltios
 con Vref nominal 3,3 V, sin normalización al rango del CSV.
 
-## Contrato SPI v1: preparado, integración pendiente
+## Contrato SPI v1 (deshabilitado por defecto)
 
-El ESP32 actual **no recibe SPI ni ejecuta filtros**. Este acuerdo define su
-futura interfaz; SPI permanece OFF para las pruebas autónomas de Pico.
+Este acuerdo define la interfaz entre la Pico y el ESP32 como nodos del sistema.
+En este avance el ESP32 evalúa ambos filtros con sus propias muestras, por lo que
+SPI permanece OFF y la Pico funciona de forma autónoma.
 
 | Elemento | Acuerdo |
 |---|---|
 | Roles | Pico maestro transmite; ESP32 esclavo recibe y distribuye a nodos 2/3 |
 | Bus | SPI0, 2 MHz solicitados, **modo 1**, 8 bits, MSB primero; CS activo bajo |
-| Cableado futuro | Pico GP18→ESP32 GP18 SCK; GP19→GP23 MOSI; GP17→GP5 CS; GP20←GP21 READY; GND común, 3,3 V |
+| Cableado | Pico GP18→ESP32 GP18 SCK; GP19→GP23 MOSI; GP17→GP5 CS; GP20←GP21 READY; GND común, 3,3 V |
 | MISO | Sin uso; no se recibe ACK remoto |
 | Transacción | 1032 bytes bajo un único CS: trama de 1031 + relleno `00` |
 | Trama | `[0:1] AA BB`, `[2:5] id uint32 LE`, `[6:1029] 256 float32 IEEE-754 LE`, `[1030] CRC8`, `[1031] 00` |
@@ -37,12 +39,12 @@ futura interfaz; SPI permanece OFF para las pruebas autónomas de Pico.
 | READY | Alto solo cuando el esclavo tiene buffer armado; bajar al consumir cada transacción, antes de volver a armar y subir |
 | Espera | Pico espera READY hasta 2 ms; tras envío espera su flanco descendente hasta 2 ms; cuenta fallos y no retransmite |
 
-El futuro ESP32 debe usar RX DMA alineado a 4 bytes, capacidad >=1032 y comprobar
+El ESP32 esclavo debe usar RX DMA alineado a 4 bytes, capacidad >=1032 y comprobar
 longitud **8256 bits**, cabecera, CRC, relleno, finitud y secuencia antes de
 distribuir el bloque. Modo 1 y relleno atienden las [restricciones DMA del ESP32
 clásico](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/spi_slave.html#restrictions-and-known-issues).
 El diagnóstico FFT permanece local: esta trama transporta solo muestras.
-Un envío registrado no confirma validación remota. GP5 y demás pines propuestos
+Un envío registrado no confirma validación remota. GP5 y demás pines del ESP32
 deben verificarse con la placa elegida y su configuración de arranque.
 Si READY queda alto después de una transacción, no se vuelve a enviar hasta
 observar su descenso; los bloques intermedios se omiten y sus IDs dejan huecos.
@@ -153,8 +155,7 @@ y GND común. El pico debe aproximarse al tono con la limitación de resolución
 FFT; revisar que no haya recorte y que los tres contadores `Perd/Err/Rein`
 permanezcan en cero. Con SPI apagado sus contadores también quedan en cero.
 
-Para un ensayo posterior con los casos del notebook, usar el contrato analógico
-anterior: preparar Pico y consola, luego reiniciar el emisor. El caso 1 contiene
+Para un ensayo con los casos del notebook, usar el contrato analógico anterior: preparar Pico y consola, luego reiniciar el emisor. El caso 1 contiene
 440/880/1320 Hz y una interferencia de 4000 Hz; la tabla muestra la frecuencia dominante del bloque más intenso de cada
 intervalo, no una lista de todos los tonos.
 
@@ -173,7 +174,7 @@ python3 -m venv .venv
 Ejecutar en una sesión de escritorio Linux: se abre una ventana de Matplotlib.
 Si falta el soporte de ventanas de Python, instalar el paquete Tk correspondiente
 a Python de la distribución (`python3-tk` en Debian/Ubuntu, `tk` en Arch).
-En este equipo Arch Linux falta la biblioteca nativa de Tk; instalarla con:
+En Arch Linux, si falta la biblioteca nativa de Tk, instalarla con:
 
 ```bash
 sudo pacman -S --needed tk
@@ -183,7 +184,7 @@ El visualizador selecciona TkAgg cuando Matplotlib utiliza Agg (sin ventana),
 y avisa si falta Tk. Ejecutarlo sin sudo desde la sesión de escritorio.
 Sin `--puerto`, el programa busca automáticamente una única Pico USB.
 
-Si aparece `Permission denied`, este equipo usa el grupo `uucp` para el puerto:
+Si aparece `Permission denied` en Arch Linux, el puerto pertenece al grupo `uucp`:
 
 ```bash
 sudo usermod -aG uucp "$USER"
@@ -232,12 +233,11 @@ Pruebas del lector y conversión, sin Pico ni dependencias gráficas:
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-### 5. Ensayo SPI posterior
+### 5. Ensayo SPI
 
-Reconfigurar con `-DNODO1_HABILITAR_SPI=ON`, recompilar y cargar cuando exista
-un esclavo compatible. Sin él, `sin_READY` aumentará y la adquisición continuará.
-Esta etapa exige implementar recepción en el ESP32 conforme al contrato anterior.
+Reconfigurar con `-DNODO1_HABILITAR_SPI=ON`, recompilar y cargar con un esclavo
+ESP32 que reciba la trama según el contrato SPI v1. Sin esclavo, `sin_READY`
+aumenta y la adquisición continúa.
 
-Pendientes físicos: compilación ARM, tasa ADC real, continuidad/latencia,
-acondicionamiento, recepción y CRC remoto SPI. Ante FIFO lleno o plazo DMA
-perdido se reinicia captura y se informa; el rendimiento se debe medir en placa.
+Ante FIFO lleno o plazo DMA perdido se reinicia la captura y se informa en el
+contador `Rein`.

@@ -1,0 +1,30 @@
+{
+  "archivo_casos": "../tarea1_grupo1/metadatos/configuraciones.json",
+  "fade_ms": 20,
+  "tolerancia": 1e-12,
+  "fir": {
+    "frecuencia_paso_Hz": 1600.0,
+    "frecuencia_rechazo_Hz": 2400.0,
+    "rizado_maximo_dB": 0.1,
+    "atenuacion_minima_dB": 60.0,
+    "tam_bloque": 256
+  },
+  "espectral": {
+    "tam_bloque": 1024,
+    "frecuencia_minima": 1600,
+    "ancho_hz": 100,
+    "factor": 0.1,
+    "umbral_relativo": 0.05
+  },
+  "compromiso": {
+    "caso": "caso_3",
+    "frecuencia_minima": 600,
+    "factores": [0.8, 0.1]
+  },
+  "ejemplo_fourier": {
+    "fs_Hz": 8000,
+    "numero_muestras": 8,
+    "frecuencias_Hz": [1000, 2000],
+    "amplitudes": [1.0, 0.5]
+  }
+}

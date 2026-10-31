@@ -10,9 +10,47 @@ from ..senales.analisis_fourier import espectro_db
 # ---------------------------------------------------------------------------
 
 
-def graficar_generacion(t, clean, noisy, fs, titulo):
-    """Muestra el comienzo de la señal y el espectro de la referencia y la mezcla."""
+def graficar_generacion(t, clean, noisy, fs, titulo, noise=None):
+    """Grafica señales en tiempo y frecuencia sin cambiar su escala.
+
+    Con noise, separa limpia, ruido y mezcla en filas con límites comparables.
+    Sin noise, conserva la vista superpuesta de referencia y mezcla.
+    """
     view = min(len(t), int(0.05 * fs))
+    if noise is not None:
+        componentes = [(clean, 'Limpia', 'C0'), (noise, 'Ruido', 'C3'), (noisy, 'Mezcla', 'C1')]
+        espectros = [espectro_db(senal, fs) for senal, _, _ in componentes]
+        max_amplitud = max(float(np.max(np.abs(senal))) for senal, _, _ in componentes)
+        limite_amplitud = 1.05 * max_amplitud if max_amplitud > 0 else 1.0
+        max_db = max(float(np.max(magnitud)) for _, magnitud in espectros)
+        limites_db = (max_db - 100, max_db + 5)
+        fig, ax = plt.subplots(
+            3, 2, figsize=(15, 10), sharex='col', sharey='col', layout='constrained'
+        )
+        fig.suptitle(
+            f'{titulo}: señal limpia + ruido = mezcla\n'
+            f'Simulación · espectros del registro completo (FFT de {len(t)} muestras)'
+        )
+        for fila, ((senal, etiqueta, color), (frecuencias, magnitud)) in enumerate(
+            zip(componentes, espectros)
+        ):
+            ax[fila, 0].plot(t[:view] * 1000, senal[:view], color=color, lw=1)
+            ax[fila, 0].set(
+                xlabel='Tiempo (ms)',
+                ylabel='Amplitud digital',
+                title=f'{etiqueta}: primeros {1000 * view / fs:g} ms',
+                ylim=(-limite_amplitud, limite_amplitud),
+            )
+            ax[fila, 1].plot(frecuencias, magnitud, color=color, lw=1)
+            ax[fila, 1].set(
+                xlabel='Frecuencia (Hz)',
+                ylabel='Magnitud (dB)',
+                title=f'{etiqueta}: frecuencias presentes',
+                xlim=(0, fs / 2),
+                ylim=limites_db,
+            )
+        return fig
+
     f1, m1 = espectro_db(clean, fs)
     f2, m2 = espectro_db(noisy, fs)
     fig, ax = plt.subplots(2, 1, figsize=(14, 8))
@@ -102,7 +140,15 @@ def graficar_respuesta_temporal(
     rizado,
     atenuacion,
 ):
-    """Construye la figura sin mostrarla ni escribir archivos."""
+    """Grafica la respuesta y las componentes de los casos recibidos.
+
+    Combina las frecuencias útiles sin depender del orden de los casos y marca
+    el ruido según su tipo. Devuelve la figura sin mostrarla ni escribirla.
+    """
+    frecuencias_utiles = set()
+    for caso in casos:
+        frecuencias_utiles.update(caso['frecuencias_utiles_Hz'])
+
     fig, axs = plt.subplots(2, 2, figsize=(15, 9))
     ax = axs[0, 0]
     ax.plot(f, mag_db)
@@ -111,16 +157,32 @@ def graficar_respuesta_temporal(
         [f_rechazo, fs / 2], -atenuacion_min_db, 10, color='C3', alpha=0.12, label='Zona prohibida'
     )
     ax.axhline(-atenuacion_min_db, color='C3', ls='--', lw=1)
-    for fu in casos[0]['frecuencias_utiles_Hz']:
+    for fu in sorted(frecuencias_utiles):
         ax.axvline(fu, color='C2', ls=':', lw=1)
-    ax.axvspan(*casos[1]['banda_ruido_Hz'], color='C1', alpha=0.15, label='Ruido caso 2')
-    ax.axvline(
-        casos[0]['frecuencia_interferencia_Hz'],
-        color='C4',
-        ls='--',
-        lw=1,
-        label='Interferencia caso 1',
-    )
+    for caso in casos:
+        nombre = caso.get('id', caso.get('nombre_prueba', 'Caso'))
+        if caso['tipo_ruido'] in ('banda', 'mixto'):
+            ax.axvspan(
+                *caso['banda_ruido_Hz'], color='C1', alpha=0.15, label=f'Ruido de banda ({nombre})'
+            )
+        if caso['tipo_ruido'] in ('tonal', 'mixto'):
+            ax.axvline(
+                caso['frecuencia_interferencia_Hz'],
+                color='C4',
+                ls='--',
+                lw=1,
+                label=f'Interferencia tonal ({nombre})',
+            )
+        elif caso['tipo_ruido'] == 'red_60hz':
+            # El generador suma los cuatro primeros armónicos de la red de 60 Hz.
+            for armonico in range(1, 5):
+                ax.axvline(
+                    60 * armonico,
+                    color='C4',
+                    ls='--',
+                    lw=1,
+                    label=f'Ruido de red ({nombre})' if armonico == 1 else '_nolegend_',
+                )
     ax.set(
         xlim=(0, fs / 2),
         ylim=(-120, 5),
@@ -140,7 +202,7 @@ def graficar_respuesta_temporal(
         alpha=0.1,
         label='±0.05 dB (especificación)',
     )
-    for fu in casos[0]['frecuencias_utiles_Hz']:
+    for fu in sorted(frecuencias_utiles):
         ax.axvline(fu, color='C2', ls=':', lw=1)
     ax.axvline(f_paso, color='k', ls='--', lw=0.8)
     ax.set(

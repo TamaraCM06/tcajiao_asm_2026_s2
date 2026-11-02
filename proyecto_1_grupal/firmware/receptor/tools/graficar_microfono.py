@@ -81,7 +81,7 @@ def crear_figura():
     linea_adc, = adc.plot([], [], color="#1874b5", linewidth=1.3)
     linea_ac, = ac.plot([], [], color="#d66b13", linewidth=1.3)
     adc.set(title="Voltaje de entrada medido por el ADC (incluye offset DC)", ylabel="Voltaje [V]", ylim=(0, 3.3))
-    ac.set(title="Señal sin DC — muestras equivalentes a la futura salida SPI",
+    ac.set(title="Señal sin DC: muestras equivalentes a la trama SPI",
            ylabel="Amplitud [mV]", xlabel="Tiempo dentro del bloque [ms]", ylim=(-10, 10))
     ac.axhline(0, color="gray", linewidth=0.6)
     for eje in (adc, ac):

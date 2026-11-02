@@ -1,8 +1,9 @@
 # 1. Proyecto grupal: reducción adaptativa de ruido
 
 Proyecto de CE 1110, Análisis de Señales Mixtas. Contiene el modelo Python de
-Tarea 1 y el avance del taller de semana 12: emisión de señales y evaluación
-digital de filtros en ESP32.
+Tarea 1 y el avance del taller de semana 12: prototipo Python del sistema
+completo, emisión de señales y evaluación digital de filtros en ESP32, y
+receptor en Raspberry Pi Pico con su estrategia de validación.
 
 Para preparar y ejecutar la demostración del taller, consultar el
 [README de ESP32](firmware/esp32/README.md). Esta guía general explica dónde está
@@ -13,8 +14,11 @@ cada parte y cómo trabajar con el modelo Python.
 | Parte | Contenido | Acceso |
 |---|---|---|
 | Modelo Python de Tarea 1 | Señales reproducibles, análisis de Fourier, filtros temporal y espectral, métricas y figuras | [Notebook](tarea1_grupo1/notebook.ipynb) y [README de Tarea 1](tarea1_grupo1/README.md) |
+| Taller: prototipo Python | Ejecuta los tres casos, el diseño FIR, el filtro espectral y las métricas sin abrir el notebook | [prototipo.py](prototipo.py) y [ajustes](metadatos/prototipo.json) |
 | Taller: ESP32 | Firmware C que emite tres señales por DAC, evalúa ambos filtros sobre 95963 muestras y reúne los seis resultados en tablas finales | [Instrucciones de ESP32](firmware/esp32/README.md) |
 | Preparación de señales | Exportador de los CSV del notebook a los datos incluidos en flash | [Exportador](herramientas/exportar_senales.py) |
+| Taller: receptor Pico | Firmware C que adquiere por ADC a 10 kHz, analiza bloques de 256 con Hann y FFT y reporta diagnóstico por USB | [Instrucciones del receptor](firmware/receptor/README.md) |
+| Taller: informe | Proceso de diseño, criterios, validación y discusión del avance, con las fuentes de sus diagramas | [Informe](docs/avance2/informe.pdf) y [diagramas](docs/avance2/README.md) |
 | Requisitos de Tarea 1 | Enunciado académico de la primera entrega | [Enunciado](docs/references/ASM_Tarea1_v7.pdf) |
 
 El convertidor digital a analógico (DAC) convierte los códigos numéricos en una
@@ -26,8 +30,11 @@ son actividades distintas.
 | Ubicación | Qué contiene |
 |---|---|
 | [tarea1_grupo1](tarea1_grupo1/) | Modelo Python, notebook, pruebas y resultados de Tarea 1 |
+| [prototipo.py](prototipo.py) y [metadatos](metadatos/) | Prototipo Python del taller y sus ajustes |
 | [firmware/esp32](firmware/esp32/) | Programa de la ESP32 e instrucciones del taller |
+| [firmware/receptor](firmware/receptor/) | Programa del receptor Raspberry Pi Pico, pruebas y visualizador |
 | [herramientas](herramientas/) | Preparación de datos para el firmware |
+| [docs/avance2](docs/avance2/) | Informe del avance del taller y fuentes de sus diagramas |
 | [configuraciones.json](tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de los tres casos |
 | [pruebas](tarea1_grupo1/pruebas/) | Archivos de audio WAV de entrada por caso |
 | [resultados](tarea1_grupo1/resultados/) | Muestras, métricas, figuras y salidas de los filtros |
@@ -67,6 +74,19 @@ proyecto_1_grupal/; los pasos de activación son alternativas según el sistema.
 | Activar en Linux o macOS | source .venv/bin/activate |
 | Instalar dependencias | python -m pip install -r requirements.txt |
 | Registrar el entorno en Jupyter | python -m ipykernel install --user --name asm-grupal --display-name "Python (ASM grupal)" |
+
+Para ejecutar el prototipo del taller sin notebook, desde proyecto_1_grupal/:
+
+| Paso | Comando |
+|---|---|
+| Ejecutar los tres casos | python prototipo.py --caso todos |
+| Ejecutar un caso | python prototipo.py --caso caso_2 |
+| Elegir otra salida o ajustes | python prototipo.py --salida carpeta --config archivo.json |
+
+Los resultados quedan en resultados/simulacion/<caso>/, con figuras, WAV,
+muestras, metricas.csv y la configuración efectiva (configuracion_ejecutada.json
+y configuracion.csv). Los ajustes de procesamiento están en
+[prototipo.json](metadatos/prototipo.json) y los casos en configuraciones.json.
 
 Abrir el [notebook](tarea1_grupo1/notebook.ipynb), seleccionar **Python (ASM grupal)**
 como entorno de ejecución y ejecutar todas las celdas con tarea1_grupo1/ como

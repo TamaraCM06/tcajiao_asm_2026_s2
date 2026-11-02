@@ -227,5 +227,11 @@ outputs/
 proyecto_1_grupal/tarea1_grupo1/tonos_defensa/
 proyecto_1_grupal/tarea1_grupo1/*.zip
 
+# Salidas del prototipo Python (prototipo.py las regenera en cada ejecución)
+proyecto_1_grupal/resultados/
+
+# Paquete de entrega generado por docs/avance2/empaquetar_entrega.py
+ASM_Semana12_Grupo1.zip
+
 # Contexto local del asistente (cualquier combinación de mayúsculas)
 /[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]

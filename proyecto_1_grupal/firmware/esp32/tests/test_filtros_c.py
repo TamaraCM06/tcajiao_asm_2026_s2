@@ -36,8 +36,10 @@ def ejecutor(tmp_path_factory):
                *sorted((COMPONENTES / "evaluacion_digital").glob("*.c")),
                COMPONENTES / "senales_embebidas/lectura_float32.c",
                DATOS / "coeficientes_fir.c", Path(__file__).with_name("ejecutor_host.c")]
+    # El enlazador de macOS no acepta --gc-sections; -dead_strip cumple la misma función.
+    descartar = "-Wl,-dead_strip" if sys.platform == "darwin" else "-Wl,--gc-sections"
     comando = [compilador, "-std=gnu11", "-D__USE_MINGW_ANSI_STDIO=1", "-O2", "-Wall", "-Wextra", "-Werror",
-               "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections"]
+               "-ffunction-sections", "-fdata-sections", descartar]
     for modulo in ("filtros_digitales", "evaluacion_digital", "senales_embebidas"):
         comando += ["-I", str(COMPONENTES / modulo / "include")]
     compilacion = subprocess.run([*comando, *map(str, fuentes), "-lm", "-o", str(ejecutable)],

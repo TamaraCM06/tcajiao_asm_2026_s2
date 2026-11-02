@@ -13,7 +13,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
-option(NODO1_HABILITAR_SPI "Enviar bloques al futuro esclavo ESP32" OFF)
+option(NODO1_HABILITAR_SPI "Enviar bloques al ESP32 esclavo por SPI" OFF)
 add_executable(nodo1_receptor main.c nodo1_metodos.c)
 target_compile_options(nodo1_receptor PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(nodo1_receptor PRIVATE

@@ -19,18 +19,20 @@ ambas salidas. Limitar la banda antes de 5 kHz; 16 kHz de reproducción y 10 kHz
 de adquisición son relojes distintos. Las muestras Pico se expresan en voltios
 con Vref nominal 3,3 V, sin normalización al rango del CSV.
 
-## Contrato SPI v1 (deshabilitado por defecto)
+## Contrato SPI v1 (habilitar para integrar filtros)
 
-Este acuerdo define la interfaz entre la Pico y el ESP32 como nodos del sistema.
-En este avance el ESP32 evalúa ambos filtros con sus propias muestras, por lo que
-SPI permanece OFF y la Pico funciona de forma autónoma.
+El nuevo [firmware esp32_filtros](../esp32_filtros/README.md) recibe por DMA y
+aplica FIR y espectral a 10 kHz en una misma ESP32, con pantalla ST7735S.
+El proyecto `esp32` anterior conserva su demostración/DAC de 16 kHz.
+SPI está OFF por defecto para pruebas autónomas; activar explícitamente
+`-DNODO1_HABILITAR_SPI=ON` para integrar.
 
 | Elemento | Acuerdo |
 |---|---|
 | Roles | Pico maestro transmite; ESP32 esclavo recibe y distribuye a nodos 2/3 |
-| Bus | SPI0, 2 MHz solicitados, **modo 1**, 8 bits, MSB primero; CS activo bajo |
+| Bus | SPI0, 2 MHz solicitados (configurable 1–10 MHz), **modo 0 solicitado, experimental con DMA**; modo 1 alternativo recomendado, 8 bits, MSB primero; CS activo bajo |
 | Cableado | Pico GP18→ESP32 GP18 SCK; GP19→GP23 MOSI; GP17→GP5 CS; GP20←GP21 READY; GND común, 3,3 V |
-| MISO | Sin uso; no se recibe ACK remoto |
+| MISO | ESP32 GP19→Pico GP16; devuelve ceros, no es ACK |
 | Transacción | 1032 bytes bajo un único CS: trama de 1031 + relleno `00` |
 | Trama | `[0:1] AA BB`, `[2:5] id uint32 LE`, `[6:1029] 256 float32 IEEE-754 LE`, `[1030] CRC8`, `[1031] 00` |
 | Muestras | Voltios sin DC, **sin Hann**, orden temporal, Fs=10000 Hz |
@@ -41,7 +43,7 @@ SPI permanece OFF y la Pico funciona de forma autónoma.
 
 El ESP32 esclavo debe usar RX DMA alineado a 4 bytes, capacidad >=1032 y comprobar
 longitud **8256 bits**, cabecera, CRC, relleno, finitud y secuencia antes de
-distribuir el bloque. Modo 1 y relleno atienden las [restricciones DMA del ESP32
+distribuir el bloque. El relleno atiende alineación; revisar modos 0/1 y timing en las [restricciones DMA del ESP32
 clásico](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/spi_slave.html#restrictions-and-known-issues).
 El diagnóstico FFT permanece local: esta trama transporta solo muestras.
 Un envío registrado no confirma validación remota. GP5 y demás pines del ESP32
@@ -233,11 +235,22 @@ Pruebas del lector y conversión, sin Pico ni dependencias gráficas:
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-### 5. Ensayo SPI
+### 5. Ensayo integrado SPI y pantalla
 
-Reconfigurar con `-DNODO1_HABILITAR_SPI=ON`, recompilar y cargar con un esclavo
-ESP32 que reciba la trama según el contrato SPI v1. Sin esclavo, `sin_READY`
-aumenta y la adquisición continúa.
+Seguir [el cableado corregido, compilación y plan de pruebas](../esp32_filtros/README.md).
+No usar GPIO9/10 de la ESP32 para la pantalla. Agregar READY GP20←ESP32 GPIO21.
 
-Ante FIFO lleno o plazo DMA perdido se reinicia la captura y se informa en el
-contador `Rein`.
+```bash
+cmake -S . -B build -DPICO_SDK_PATH="$HOME/.pico-sdk/sdk/2.3.1" \
+  -DPICO_BOARD=pico -DNODO1_HABILITAR_SPI=ON \
+  -DNODO1_SPI_MODO=0 -DNODO1_SPI_HZ=2000000
+cmake --build build -j2
+```
+
+Programar `build/nodo1_receptor.uf2` y configurar el ESP32 en el mismo modo.
+Modo0+DMA requiere validación eléctrica; alternativa recomendada modo1 en ambos.
+Los contadores de la Pico no acreditan CRC remoto; revisar también el monitor ESP32.
+
+Ante FIFO lleno o plazo DMA perdido se reinicia la captura y se informa en `Rein`.
+La compilación y pruebas host no acreditan tasa ADC real, integridad SPI, latencia,
+acondicionamiento ni perfil exacto del módulo LCD: verificarlos en hardware.

@@ -10,9 +10,15 @@
 #define NODO1_ADC_GPIO 26u
 #define NODO1_ADC_CANAL 0u
 #define NODO1_ADC_VREF 3.3f /* Sustituir por la referencia medida para calibrar voltios. */
+#ifndef NODO1_SPI_HZ
 #define NODO1_SPI_HZ 2000000u
+#endif
+#ifndef NODO1_SPI_MODO
+#define NODO1_SPI_MODO 0u
+#endif
 #define NODO1_SPI_SCK 18u
 #define NODO1_SPI_MOSI 19u
+#define NODO1_SPI_MISO 16u
 #define NODO1_SPI_CS 17u
 #define NODO1_SPI_READY 20u
 #define NODO1_SPI_TIMEOUT_US 2000u

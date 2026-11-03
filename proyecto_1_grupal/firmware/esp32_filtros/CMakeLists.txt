@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+set(IDF_TARGET "esp32")
+set(EXTRA_COMPONENT_DIRS "../esp32/components/filtros_digitales")
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(esp32_filtros_en_vivo)

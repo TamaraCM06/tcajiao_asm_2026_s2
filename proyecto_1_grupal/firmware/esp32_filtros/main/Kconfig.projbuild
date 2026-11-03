@@ -1,0 +1,26 @@
+menu "Audio Pico / filtros / pantalla"
+config AUDIO_SPI_MODO
+    int "Modo SPI del enlace (0 solicitado; 1 recomendado para DMA ESP32)"
+    range 0 1
+    default 0
+config AUDIO_AUTOPRUEBA
+    bool "Autoprueba con referencia conocida (NO recibe audio Pico)"
+    default n
+config AUDIO_LCD
+    bool "Pantalla ST7735S 80x160 en HSPI"
+    default y
+config AUDIO_LCD_X
+    int "Offset X en orientacion horizontal"
+    range 0 2
+    default 1
+config AUDIO_LCD_Y
+    int "Offset Y en orientacion horizontal"
+    range 0 52
+    default 26
+config AUDIO_LCD_MADCTL
+    hex "MADCTL del modulo (orientacion y RGB/BGR)"
+    default 0xA8
+config AUDIO_LCD_INVERTIR
+    bool "Inversion IPS"
+    default y
+endmenu

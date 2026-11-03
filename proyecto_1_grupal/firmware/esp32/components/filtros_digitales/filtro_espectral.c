@@ -5,14 +5,22 @@
 /* Prepara Hann simetrica como numpy.hanning y estado acotado de overlap-add. */
 bool filtro_espectral_inicializar(filtro_espectral_t *estado, espectral_configuracion_t configuracion)
 {
-    if (!estado || !isfinite(configuracion.frecuencia_minima_hz) ||
+    return filtro_espectral_inicializar_fs(estado, configuracion, 16000.0f);
+}
+
+bool filtro_espectral_inicializar_fs(filtro_espectral_t *estado,
+    espectral_configuracion_t configuracion, float frecuencia_muestreo_hz)
+{
+    if (!estado || !isfinite(frecuencia_muestreo_hz) || frecuencia_muestreo_hz <= 0 ||
+        !isfinite(configuracion.frecuencia_minima_hz) ||
         !isfinite(configuracion.ancho_hz) || !isfinite(configuracion.factor) ||
         !isfinite(configuracion.umbral_relativo) || configuracion.frecuencia_minima_hz < 0 ||
-        configuracion.frecuencia_minima_hz >= 8000 || configuracion.ancho_hz < 0 ||
-        configuracion.ancho_hz > 8000 || configuracion.factor < 0 || configuracion.factor > 1 ||
+        configuracion.frecuencia_minima_hz >= frecuencia_muestreo_hz / 2 || configuracion.ancho_hz < 0 ||
+        configuracion.ancho_hz > frecuencia_muestreo_hz / 2 || configuracion.factor < 0 || configuracion.factor > 1 ||
         configuracion.umbral_relativo <= 0 || configuracion.umbral_relativo > 1) return false;
     memset(estado, 0, sizeof(*estado));
     estado->configuracion = configuracion;
+    estado->frecuencia_muestreo_hz = frecuencia_muestreo_hz;
     fft_preparar(&estado->transformada);
     for (int indice = 0; indice < FFT_LONGITUD; ++indice)
         estado->ventana[indice] = (float)(0.5 - 0.5 * cos(6.2831853071795864769 * indice / (FFT_LONGITUD - 1)));
@@ -22,8 +30,9 @@ bool filtro_espectral_inicializar(filtro_espectral_t *estado, espectral_configur
 /* Estima el umbral regional y expande bins seleccionados sin invadir la banda protegida. */
 static void estimar_ganancias(filtro_espectral_t *estado)
 {
-    int primer_bin = (int)ceilf(estado->configuracion.frecuencia_minima_hz / 15.625f);
-    int radio = (int)floorf(estado->configuracion.ancho_hz / 31.25f);
+    const float bin_hz = estado->frecuencia_muestreo_hz / FFT_LONGITUD;
+    int primer_bin = (int)ceilf(estado->configuracion.frecuencia_minima_hz / bin_hz);
+    int radio = (int)floorf(estado->configuracion.ancho_hz / (2 * bin_hz));
     float pico_global = 0, pico_regional = 0;
     for (int indice = 0; indice <= FFT_SALTO; ++indice) {
         complejo_t valor = estado->mezcla[indice];

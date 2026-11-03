@@ -11,9 +11,13 @@ typedef struct {
     float energia[FFT_SALTO + 1], ganancias[FFT_SALTO + 1];
     float acumulada[FFT_LONGITUD], util[FFT_LONGITUD], pesos[FFT_LONGITUD];
     espectral_configuracion_t configuracion;
+    float frecuencia_muestreo_hz;
 } filtro_espectral_t;
 /* Reinicia la reconstruccion y valida parametros a 16000 Hz; devuelve false si son invalidos. */
 bool filtro_espectral_inicializar(filtro_espectral_t *estado, espectral_configuracion_t configuracion);
+/* Variante para adquisicion en vivo; conserva la API de 16 kHz del banco. */
+bool filtro_espectral_inicializar_fs(filtro_espectral_t *estado,
+    espectral_configuracion_t configuracion, float frecuencia_muestreo_hz);
 /* Procesa ventanas sucesivas separadas 512 muestras y entrega 512 muestras definitivas.
  * La referencia solo se filtra con las ganancias calculadas desde la mezcla. */
 void filtro_espectral_bloque(filtro_espectral_t *estado, const float *mezcla,

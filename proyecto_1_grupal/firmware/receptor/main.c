@@ -193,10 +193,12 @@ static void inicializar_spi(void)
     gpio_set_irq_enabled_with_callback(NODO1_SPI_READY, GPIO_IRQ_EDGE_FALL, true, atender_ready);
     spi_hz_real = spi_init(spi0, NODO1_SPI_HZ);
     spi_set_slave(spi0, false);
-    /* Modo 1 para compatibilidad con DMA del esclavo ESP32 clásico. */
-    spi_set_format(spi0, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
+    /* Modo 0 solicitado; modo 1 configurable para DMA ESP32 clasico. */
+    spi_set_format(spi0, 8, SPI_CPOL_0,
+                   NODO1_SPI_MODO == 0 ? SPI_CPHA_0 : SPI_CPHA_1, SPI_MSB_FIRST);
     gpio_set_function(NODO1_SPI_SCK, GPIO_FUNC_SPI);
     gpio_set_function(NODO1_SPI_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(NODO1_SPI_MISO, GPIO_FUNC_SPI);
 }
 
 typedef enum { ENVIO_OK, ENVIO_SIN_READY, ENVIO_SIN_CONSUMO } resultado_spi_t;

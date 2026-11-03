@@ -14,10 +14,23 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 pico_sdk_init()
 
 option(NODO1_HABILITAR_SPI "Enviar bloques al ESP32 esclavo por SPI" OFF)
+set(NODO1_SPI_MODO 0 CACHE STRING "SPI 0 solicitado (experimental con DMA) o 1 recomendado")
+set(NODO1_SPI_HZ 2000000 CACHE STRING "Reloj SPI solicitado, 1000000 a 10000000 Hz")
+if(NOT NODO1_SPI_MODO MATCHES "^[01]$")
+    message(FATAL_ERROR "NODO1_SPI_MODO debe ser 0 o 1")
+endif()
+if(NODO1_SPI_HZ LESS 1000000 OR NODO1_SPI_HZ GREATER 10000000)
+    message(FATAL_ERROR "NODO1_SPI_HZ debe estar entre 1000000 y 10000000")
+endif()
+if(NODO1_HABILITAR_SPI AND NODO1_SPI_MODO EQUAL 0)
+    message(WARNING "Modo 0 + DMA del ESP32 clasico: validar timing/CRC; modo 1 es la alternativa recomendada")
+endif()
 add_executable(nodo1_receptor main.c nodo1_metodos.c)
 target_compile_options(nodo1_receptor PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(nodo1_receptor PRIVATE
     NODO1_HABILITAR_SPI=$<BOOL:${NODO1_HABILITAR_SPI}>
+    NODO1_SPI_MODO=${NODO1_SPI_MODO}
+    NODO1_SPI_HZ=${NODO1_SPI_HZ}
     PICO_STDIO_USB_CONNECT_WAIT_TIMEOUT_MS=0
     PICO_STDIO_USB_STDOUT_TIMEOUT_US=1000
 )

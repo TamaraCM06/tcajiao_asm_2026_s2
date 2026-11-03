@@ -1,3 +1,4 @@
+/** Define la adquisicion, analisis y contrato SPI de la Pico a 16000 muestras/s. */
 #ifndef NODO1_METODOS_H
 #define NODO1_METODOS_H
 
@@ -6,7 +7,7 @@
 #include <stdint.h>
 
 #define NODO1_N 256u
-#define NODO1_FS_HZ 10000u
+#define NODO1_FS_HZ 16000u
 #define NODO1_ADC_GPIO 26u
 #define NODO1_ADC_CANAL 0u
 #define NODO1_ADC_VREF 3.3f /* Sustituir por la referencia medida para calibrar voltios. */

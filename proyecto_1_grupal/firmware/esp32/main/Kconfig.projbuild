@@ -1,0 +1,14 @@
+menu "Aplicacion del proyecto grupal"
+
+    choice APLICACION_MODO
+        prompt "Modo de arranque"
+        default APLICACION_VIVO
+
+        config APLICACION_VIVO
+            bool "MAX4466/Pico -> SPI -> FIR y espectral -> audio seleccionable"
+
+        config APLICACION_DEMOSTRACION
+            bool "Demostracion anterior con las tres senales de flash"
+    endchoice
+
+endmenu

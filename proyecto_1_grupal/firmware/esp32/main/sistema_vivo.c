@@ -321,8 +321,10 @@ esp_err_t sistema_vivo_ejecutar(void)
     xTaskNotifyGive(tarea_rx);
     xTaskNotifyGive(tarea_dsp);
     ESP_LOGI(ETIQUETA, "MAX4466/Pico -> SPI -> FIR y espectral originales -> escucha por GPIO25");
-    ESP_LOGI(ETIQUETA, "GPIO26 libre para DC/RS de pantalla; la pantalla no se inicializa en este modo");
-    ESP_LOGI(ETIQUETA, "16 kHz; SPI SCK18 MOSI23 CS5 READY21; sin retorno MISO");
+    ESP_LOGI(ETIQUETA, "Pantalla no inicializada en este modo; control y estado por consola");
+    ESP_LOGI(ETIQUETA, "16 kHz; SPI SCK%d MOSI%d CS%d READY%d; sin retorno MISO",
+             RECEPCION_SPI_GPIO_SCK, RECEPCION_SPI_GPIO_MOSI,
+             RECEPCION_SPI_GPIO_CS, RECEPCION_SPI_GPIO_READY);
     ESP_LOGI(ETIQUETA, "Estados DSP=%u bytes; colas acotadas; reinicio si faltan/sobran datos",
              (unsigned)sizeof(procesamiento));
     mostrar_ayuda();

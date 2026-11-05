@@ -2,6 +2,8 @@
 #include "servicios_sesion.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
@@ -38,29 +40,28 @@ esp_err_t sesion_texto(uint32_t sesion, unsigned tipo, const char *texto)
     return enlace_pc_enviar(&respuesta);
 }
 
-/** Publica PCM16 con indices absolutos y contabiliza la cuantizacion de cada ruta. */
-static bool enviar_muestras(unsigned canal, size_t indice, size_t cantidad, const float *muestras)
-{
-    const int64_t inicio = esp_timer_get_time();
-    respuesta = (pc_paquete_t){.sesion = sesion_actual, .tipo = PC_SALIDA,
-        .canal = canal, .indice = indice, .longitud = cantidad * 2};
-    for (size_t posicion = 0; posicion < cantidad; ++posicion) {
-        if (!isfinite(muestras[posicion])) return false;
-        const uint16_t pcm = (uint16_t)pc_cuantizar(muestras[posicion], escala_actual, &recortes[canal - 1]);
-        respuesta.datos[2 * posicion] = pcm;
-        respuesta.datos[2 * posicion + 1] = pcm >> 8;
-    }
-    const bool correcto = enlace_pc_enviar(&respuesta) == ESP_OK;
-    tiempo_transporte += esp_timer_get_time() - inicio;
-    return correcto;
-}
-
-/** Entrega ambas salidas del mismo intervalo al almacen externo. */
+/** Agrupa entrada/FIR/espectral PCM16 para reducir cabeceras sin perder precision. */
 static bool publicar_salidas(size_t indice, size_t cantidad, const float *fir,
     const float *espectral, void *contexto)
 {
     (void)contexto;
-    return enviar_muestras(2, indice, cantidad, fir) && enviar_muestras(3, indice, cantidad, espectral);
+    const int64_t inicio = esp_timer_get_time();
+    respuesta = (pc_paquete_t){.sesion = sesion_actual, .tipo = PC_SALIDA,
+        .canal = 0, .indice = indice, .longitud = cantidad * 6};
+    for (size_t posicion = 0; posicion < cantidad; ++posicion) {
+        const float muestras[3] = {registro.historia[(indice + posicion) % 2048],
+                                    fir[posicion], espectral[posicion]};
+        for (unsigned canal = 0; canal < 3; ++canal) {
+            if (!isfinite(muestras[canal])) return false;
+            const uint16_t pcm = (uint16_t)pc_cuantizar(muestras[canal], escala_actual, &recortes[canal]);
+            const size_t desplazamiento = posicion * 6 + canal * 2;
+            respuesta.datos[desplazamiento] = pcm;
+            respuesta.datos[desplazamiento + 1] = pcm >> 8;
+        }
+    }
+    const bool correcto = enlace_pc_enviar(&respuesta) == ESP_OK;
+    tiempo_transporte += esp_timer_get_time() - inicio;
+    return correcto;
 }
 
 /** Procesa una captura acotada y falla ante cualquier interrupcion, sin rellenar huecos. */
@@ -117,7 +118,6 @@ static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_refere
                 }
             }
         }
-        if (!enviar_muestras(1, registro.recibidas, 256, mezcla)) { resultado = ESP_FAIL; break; }
         const uint64_t transporte_anterior = tiempo_transporte;
         const int64_t inicio = esp_timer_get_time();
         if (!registro_agregar(&registro, mezcla, con_referencia ? referencia : NULL)) {
@@ -134,7 +134,15 @@ static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_refere
     }
     const double tasa_adquisicion = fisica ? captura_pico_tasa() : 0;
     captura_pico_activar(false);
-    if (resultado != ESP_OK) return resultado;
+    if (resultado != ESP_OK) {
+        char diagnostico[240];
+        snprintf(diagnostico, sizeof(diagnostico),
+            "Captura incompleta tras %u muestras: %s. Calculo maximo %u us; salto disponible 32000 us. "
+            "ESP_ERR_NO_MEM indica cola de adquisicion llena o epoca invalida.",
+            (unsigned)registro.recibidas, esp_err_to_name(resultado), (unsigned)maximo_us);
+        sesion_texto(sesion_actual, PC_ERROR, diagnostico);
+        return resultado;
+    }
     if (fisica && longitud >= 16000 && (tasa_adquisicion < 15200 || tasa_adquisicion > 16800))
         return ESP_ERR_INVALID_RESPONSE;
     const uint64_t transporte_anterior = tiempo_transporte;
@@ -162,14 +170,11 @@ static esp_err_t comprobar_enlace(void)
     return ESP_OK;
 }
 
-/** Atiende operaciones mutuamente excluyentes y conserva errores explicitos. */
-esp_err_t sesiones_pc_ejecutar(void)
+/** Atiende control y DSP en una tarea propia, independiente de las ISR SPI/UART. */
+static void atender_sesiones(void *contexto)
 {
-    esp_log_level_set("*", ESP_LOG_NONE);
-    esp_err_t resultado = enlace_pc_iniciar();
-    if (resultado != ESP_OK) return resultado;
-    resultado = captura_pico_iniciar();
-    if (resultado != ESP_OK) return resultado;
+    (void)contexto;
+    esp_err_t resultado;
     while (true) {
         resultado = sesion_recibir(&entrada, 1000);
         if (resultado == ESP_ERR_TIMEOUT) continue;
@@ -218,4 +223,23 @@ esp_err_t sesiones_pc_ejecutar(void)
             sesion_texto(sesion_actual, PC_ERROR, causa);
         }
     }
+}
+
+/** Inicializa controladores en core 0 y dedica el otro nucleo al calculo y las sesiones. */
+esp_err_t sesiones_pc_ejecutar(void)
+{
+    esp_log_level_set("*", ESP_LOG_NONE);
+    esp_err_t resultado = enlace_pc_iniciar();
+    if (resultado != ESP_OK) return resultado;
+    resultado = captura_pico_iniciar();
+    if (resultado != ESP_OK) return resultado;
+    resultado = sesion_texto(0, PC_ACK, "ASM2 LISTO; esperando HELLO");
+    if (resultado != ESP_OK) return resultado;
+#if CONFIG_FREERTOS_UNICORE
+    const BaseType_t nucleo_calculo = 0;
+#else
+    const BaseType_t nucleo_calculo = 1 - xPortGetCoreID();
+#endif
+    return xTaskCreatePinnedToCore(atender_sesiones, "sesiones_dsp", 16384, NULL, 5,
+        NULL, nucleo_calculo) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }

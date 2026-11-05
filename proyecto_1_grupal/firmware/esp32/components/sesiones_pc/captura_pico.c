@@ -66,7 +66,7 @@ esp_err_t captura_pico_leer(trama_spi_bloque_t *bloque)
     portENTER_CRITICAL(&bloqueo);
     const bool perdida = desbordamiento || entrada.epoca != epoca_actual;
     portEXIT_CRITICAL(&bloqueo);
-    if (perdida) return ESP_ERR_INVALID_STATE;
+    if (perdida) return ESP_ERR_NO_MEM;
     if (entrada.resultado != ESP_OK) return entrada.resultado;
     const trama_spi_continuidad_t continuidad = trama_spi_actualizar_secuencia(&secuencia, entrada.bloque.id);
     if (continuidad.evento != TRAMA_SPI_PRIMER_BLOQUE && continuidad.evento != TRAMA_SPI_CONTINUO)

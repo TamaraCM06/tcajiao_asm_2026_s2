@@ -48,17 +48,25 @@ static void recibir_uart(void *contexto)
         }
     }
 }
-/** Configura el puente USB-UART sin reasignar pines y sin control de flujo fisico. */
+/** Configura explicitamente UART0 del puente USB: TX GPIO1 y RX GPIO3. */
 esp_err_t enlace_pc_iniciar(void)
 {
-    const uart_config_t configuracion = {.baud_rate = 2000000, .data_bits = UART_DATA_8_BITS,
+    const uart_config_t configuracion = {.baud_rate = 1000000, .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE, .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE, .source_clk = UART_SCLK_DEFAULT};
     paquetes = xQueueCreate(4, sizeof(pc_paquete_t));
     if (!paquetes) return ESP_ERR_NO_MEM;
-    esp_err_t resultado = uart_driver_install(UART_NUM_0, 16384, 0, 32, &eventos, 0);
+    esp_err_t resultado = uart_param_config(UART_NUM_0, &configuracion);
     if (resultado != ESP_OK) return resultado;
-    resultado = uart_param_config(UART_NUM_0, &configuracion);
+    resultado = uart_set_pin(UART_NUM_0, 1, 3, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    if (resultado != ESP_OK) return resultado;
+    resultado = uart_driver_install(UART_NUM_0, 16384, 16384, 32, &eventos, 0);
+    if (resultado != ESP_OK) return resultado;
+    /* Deja margen al FIFO durante las interrupciones SPI; a 120/128 bytes
+     * solo quedaban 80 us a 1 Mbaud antes de perder datos de un CSV. */
+    resultado = uart_set_rx_full_threshold(UART_NUM_0, 64);
+    if (resultado != ESP_OK) return resultado;
+    resultado = uart_set_rx_timeout(UART_NUM_0, 10);
     if (resultado != ESP_OK) return resultado;
     return xTaskCreate(recibir_uart, "pc_rx", 16384, NULL, 8, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM;
 }
@@ -69,11 +77,15 @@ esp_err_t enlace_pc_enviar(pc_paquete_t *paquete)
     const size_t cantidad = pc_codificar(paquete, salida);
     if (!cantidad) return ESP_ERR_INVALID_SIZE;
     if (uart_write_bytes(UART_NUM_0, salida, cantidad) != (int)cantidad) return ESP_FAIL;
-    return uart_wait_tx_done(UART_NUM_0, pdMS_TO_TICKS(200));
+    /* El buffer TX permite transmitir mientras main calcula el siguiente salto.
+     * Esperar drenaje por paquete impediria sostener las tres rutas a 1 Mbaud. */
+    return ESP_OK;
 }
 /** Prioriza los fallos sobre los datos para no declarar continua una captura corrupta. */
 esp_err_t enlace_pc_recibir(pc_paquete_t *paquete, unsigned espera_ms)
 {
     if (fallo_recepcion) { fallo_recepcion = false; return ESP_ERR_INVALID_CRC; }
-    return xQueueReceive(paquetes, paquete, pdMS_TO_TICKS(espera_ms)) == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
+    const BaseType_t recibido = xQueueReceive(paquetes, paquete, pdMS_TO_TICKS(espera_ms));
+    if (fallo_recepcion) { fallo_recepcion = false; return ESP_ERR_INVALID_CRC; }
+    return recibido == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
 }

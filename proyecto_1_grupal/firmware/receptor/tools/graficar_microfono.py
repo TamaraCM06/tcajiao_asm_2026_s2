@@ -2,7 +2,8 @@
 """Visualiza capturas ADC de la Pico; no une bloques separados en el tiempo."""
 
 import argparse
-from dataclasses import dataclass
+from pathlib import Path
+import sys
 import math
 import os
 import queue
@@ -10,43 +11,9 @@ import shlex
 import threading
 import time
 
-
-@dataclass(frozen=True)
-class Captura:
-    bloque: int
-    fs: int
-    vref: float
-    perdidos: int
-    errores: int
-    reinicios: int
-    codigos: tuple[int, ...]
-
-    @property
-    def voltios(self):
-        return [codigo * self.vref / 4095 for codigo in self.codigos]
-
-
-def decodificar(linea: bytes):
-    """Ignora tabla, datos incompletos y tramas fuera del contrato ADC1."""
-    try:
-        campos = linea.decode("ascii").strip().split(",")
-        if campos[0] != "ADC1" or len(campos) < 8:
-            return None
-        bloque, fs = int(campos[1]), int(campos[2])
-        vref = float(campos[3])
-        perdidos, errores, reinicios, n = map(int, campos[4:8])
-        if n != 256 or len(campos) != 8 + n or fs != 16000:
-            return None
-        if not math.isfinite(vref) or not 0 < vref <= 5:
-            return None
-        if not all(0 <= valor <= 0xFFFFFFFF for valor in (bloque, perdidos, errores, reinicios)):
-            return None
-        codigos = tuple(map(int, campos[8:]))
-        if any(codigo < 0 or codigo > 4095 for codigo in codigos):
-            return None
-        return Captura(bloque, fs, vref, perdidos, errores, reinicios, codigos)
-    except (ValueError, UnicodeDecodeError):
-        return None
+RAIZ_PROYECTO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(RAIZ_PROYECTO))
+from herramientas.capturas_pico import Captura, decodificar
 
 
 def recibir(puerto, ultimos, detener):

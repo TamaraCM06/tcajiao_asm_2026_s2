@@ -71,8 +71,8 @@ class PuertoSimulado:
             if self.fallo == "salto":
                 self.secuencia += 1
             mezcla = np.frombuffer(paquete.datos, dtype="<i2").reshape(-1, 2)[:, 0].tobytes()
-            for canal in (1, 2, 3):
-                self.publicar(protocolo.SALIDA, mezcla, paquete.indice, canal)
+            agrupadas = np.repeat(np.frombuffer(mezcla, dtype="<i2")[:, None], 3, axis=1)
+            self.publicar(protocolo.SALIDA, agrupadas.astype("<i2").tobytes(), paquete.indice, 0)
             self.publicar(protocolo.ACK, b"BLOQUE")
             if paquete.indice + 256 == self.longitud:
                 informe = {"muestras": self.longitud, "calculo_max_us": 100,

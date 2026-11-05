@@ -54,7 +54,7 @@ class Cliente:
                         continue
                     raise
                 if sincronizando:
-                    if paquete.sesion != self.sesion or paquete.tipo != protocolo.ACK:
+                    if paquete.sesion != self.sesion or paquete.tipo not in (protocolo.ACK, protocolo.ERROR):
                         continue
                 elif self.ultima_secuencia is not None and paquete.secuencia != (self.ultima_secuencia + 1) & 0xFFFFFFFF:
                     raise ValueError("Se perdieron o duplicaron paquetes de la ESP32")
@@ -89,7 +89,10 @@ class Cliente:
                 return saludo
             except TimeoutError as error:
                 ultimo_error = error
-        raise ultimo_error
+        raise TimeoutError(
+            "No se recibio el saludo inicial ASM2 de la ESP32. "
+            "Compruebe el firmware cargado, el puerto y la comunicacion USB-UART."
+        ) from ultimo_error
 
     def comprobar_enlace(self):
         """Mide datos verificados y exige margen sobre los 96000 bytes/s de audio."""
@@ -108,8 +111,8 @@ class Cliente:
                 raise ValueError("Contenido incorrecto en prueba de enlace")
             recibidos += len(paquete.datos)
         velocidad = recibidos / (time.monotonic() - inicio)
-        if recibidos != 393216 or velocidad < 120000:
-            raise RuntimeError(f"Enlace insuficiente: {velocidad:.0f} bytes/s; se requieren al menos 120000. Revisar cable/puente USB.")
+        if recibidos != 393216 or velocidad < 98000:
+            raise RuntimeError(f"Enlace insuficiente: {velocidad:.0f} bytes/s; se requieren al menos 98000. Revisar cable/puente USB.")
         self.comando("LINK_OK")
         if self.recibir().tipo != protocolo.ACK:
             raise ValueError("Falta confirmacion del enlace")
@@ -171,7 +174,7 @@ class Cliente:
                 pass
             raise RuntimeError(f"{error}. Sesion incompleta conservada en {archivos.ruta}") from error
 
-    def reproducir(self, ruta, nombre, ganancia):
+    def reproducir(self, ruta, nombre, ganancia, al_iniciar=None):
         """Reproduce un archivo inmutable con dos paquetes en vuelo; no vuelve a filtrarlo."""
         ruta, metadatos = abrir_sesion(ruta)
         if nombre not in ("entrada", "fir", "espectral"):
@@ -184,12 +187,17 @@ class Cliente:
         enviados = 0
         pendientes = 0
         resultado = None
+        inicio_notificado = False
         with wave.open(str(ruta / f"{nombre}.wav"), "rb") as audio:
             while True:
                 paquete = self.recibir()
                 if paquete.tipo == protocolo.ACK:
                     if paquete.datos == b"BLOQUE_AUDIO":
                         pendientes -= 1
+                        if not inicio_notificado:
+                            inicio_notificado = True
+                            if al_iniciar is not None:
+                                al_iniciar()
                     while pendientes < 2 and enviados < longitud and not self.cancelado.is_set():
                         cantidad = min(1536, longitud - enviados)
                         self.enviar(protocolo.AUDIO, audio.readframes(cantidad), indice=enviados)

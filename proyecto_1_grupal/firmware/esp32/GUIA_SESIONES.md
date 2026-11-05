@@ -12,7 +12,8 @@
 | Bloques | Entrada 256; FFT 1024; salto 512; 16000 Hz |
 | Duración inicial | 6 segundos, 96000 muestras; configurable entre 256 y 960000 muestras |
 | Memoria | Estado y colas acotados; ningún registro completo se almacena en RAM de la placa |
-| Pendiente físico | Velocidad USB real, continuidad ADC/SPI/DAC, niveles, escucha y respuesta analógica |
+| Ejecución | Optimización de rendimiento, CPU 240 MHz; sesiones/DSP en núcleo distinto de las ISR SPI/UART |
+| Verificación física parcial | Saludo y transferencia a 1 Mbaud, captura Pico de 6 s y evaluación de caso_1 comprobadas; DAC, escucha, niveles y respuesta analógica pendientes |
 
 La aplicación completa dos filtros durante la captura y guarda sus resultados en la
 computadora. El programa Python no aplica filtros para sustituir a la ESP32.
@@ -60,10 +61,16 @@ real que aparezca al conectar la placa. Los puertos Bluetooth no son la ESP32.
 | Abrir herramienta | & proyecto_1_grupal/.venv/Scripts/python.exe proyecto_1_grupal/firmware/esp32/tools/sesiones.py --puerto COMx |
 
 Compilar Pico con NODO1_HABILITAR_SPI=ON según su [README](../receptor/README.md).
-La aplicación PC utiliza 2 000 000 baudios; el arranque ROM puede emitir a 115200.
+La aplicación PC utiliza 1 000 000 baudios; el arranque ROM puede emitir a 115200.
 La herramienta ignora solamente ese ruido inicial durante HELLO. No utilizar
 idf.py monitor simultáneamente. Al iniciar mide 393216 bytes con CRC e índices:
-exige al menos 120000 bytes/s, frente a los 96000 bytes/s de las tres señales.
+exige al menos 98000 bytes/s de contenido, frente a los 96000 bytes/s de las tres señales.
+Las tres rutas viajan agrupadas en un paquete por salto y la transmisión UART
+usa una cola para avanzar mientras se calcula el siguiente bloque. La ocupación
+máxima estimada del enlace se acerca al 97.4 %: comprobar la captura completa,
+porque el ensayo inicial de velocidad por sí solo no garantiza continuidad.
+El puente de la placa conectada falló a 2 Mbaud y respondió a 1 Mbaud en la
+comprobación directa con esptool; no aumentar la velocidad sin validarla.
 Ese control del enlace no sustituye la prueba física completa de 60 segundos.
 
 La compilación usa una copia temporal ASCII para evitar problemas de rutas con
@@ -89,6 +96,8 @@ modo en menuconfig si conserva un sdkconfig antiguo.
 | reproducir espectral | Reproduce el resultado espectral guardado |
 | abrir "C:/ruta/sesion" | Selecciona una sesión completa anterior después de verificar integridad |
 | detener | Cancela una operación; una captura parcial permanece incompleta |
+| validar | Compara la sesión seleccionada con el modelo Python sobre la misma entrada PCM16 |
+| demo analogico | Guía la comparación de GPIO25 y pin 7 del LM358 usando la Pico por USB |
 | salir | Cancela si hace falta y cierra el puerto |
 
 No se permite cambiar parámetros durante una operación. La Pico continúa
@@ -172,7 +181,7 @@ experimental. La aceptación de escucha diferida debe contrastarse con la defens
 | Integridad | CRC-32/ISO-HDLC sobre cabecera y payload, anexado como u32; COBS sobre todo, delimitador 0 |
 | Tamaño | Payload máximo 4096 bytes; muestras PCM16 little-endian |
 | Tipos | 1 comando, 2 ACK, 3 entrada, 4 salida, 5 resultado JSON, 6 error, 7 audio, 8 sonda, 9 fin |
-| Canales de salida | 1 entrada, 2 FIR, 3 espectral |
+| Canales de salida | 0: entrada/FIR/espectral PCM16 intercalados por muestra; el lector también acepta los canales individuales 1/2/3 |
 | Evaluación | Un paquete de 256 muestras, mezcla/referencia intercaladas si existe referencia; esperar ACK antes del siguiente |
 | Audio | Paquetes de hasta 1536 muestras, ventana de dos paquetes pendientes; ACK libera capacidad |
 | enlace_pc | UART, cola RX y codec portable |
@@ -183,3 +192,105 @@ experimental. La aceptación de escucha diferida debe contrastarse con la defens
 Documentación de controladores: [UART ESP-IDF 5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/uart.html),
 [DAC ESP-IDF 5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5/esp32/api-reference/peripherals/dac.html),
 [PySerial](https://pyserial.readthedocs.io/en/latest/pyserial_api.html).
+
+## 1.9. Diagnóstico y comprobación del 5 de noviembre de 2026
+
+| Elemento | Evidencia observada |
+|---|---|
+| Placas | ESP32-D0WD-V3, revisión 3.1, COM12; Pico USB CDC, COM13 |
+| Fallo inicial | Sin saludo a 2 Mbaud; esptool tampoco recibió respuesta al cambiar a esa velocidad |
+| Velocidad utilizada | 1 Mbaud; ensayo ASM2 con contenido verificado de aproximadamente 98970 bytes/s |
+| Ajustes | Rutas agrupadas, TX acotado, margen FIFO RX de 64 bytes y timeout de 10 símbolos; CPU 240 MHz, optimización de rendimiento y DSP en núcleo separado |
+| Captura física | 96000 muestras por archivo; 0 pérdidas y 0 recortes; cadencia estimada 16000.26 muestras/s |
+| Cálculo durante captura | Máximo conjunto de 16323 us, inferior al salto de 32000 us; no es latencia analógica |
+| Sesión física | proyecto_1_grupal/resultados/sesiones/20261105T164053Z_77315ebc |
+| Evaluación controlada en placa | Caso 1 del CSV original, con referencia PCM16; 96000 muestras guardadas, 95963 evaluadas |
+| Resultado espectral del caso 1 | SNR entrada 10.0017 dB; salida 29.9764 dB; mejora 19.9747 dB |
+| Sesión de evaluación | proyecto_1_grupal/resultados/sesiones/20261105T164327Z_614a343d |
+| Límite de esta evidencia | Una captura y un caso; no acredita 60 s de estabilidad, P1–P6 completos ni calidad analógica del DAC/parlante |
+
+Las sesiones previas que fallaron se conservaron como incompletas para diagnóstico.
+Las carpetas de resultados están ignoradas por Git; conservar una copia de las
+evidencias seleccionadas para el informe. La reproducción no se ejecutó durante
+este diagnóstico: comprobarla manualmente con el volumen inicialmente bajo.
+
+## 1.10. Demo de comparación analógica y concordancia porcentual
+
+| Campo | Decisión |
+|---|---|
+| Inicio | Salir de la terminal anterior y volver a abrir sesiones.py para cargar el código Python actualizado |
+| Comando PowerShell desde raíz | & proyecto_1_grupal/.venv/Scripts/python.exe proyecto_1_grupal/firmware/esp32/tools/sesiones.py --puerto COM12 --puerto-pico COM13 |
+| Comando dentro de asm | demo analogico |
+| Firmware | Usa PLAY existente de ESP32 y ADC1 existente de Pico; no requiere recompilar por esta demo |
+| Estímulo | Entrada del caso_1 del notebook, verificada contra su CSV; reutiliza una sesión compatible o la evalúa en ESP32 |
+| Frecuencias | Se leen de configuraciones.json: 440, 880, 1320 y 4000 Hz actualmente |
+| Ganancia de reproducción | Fija en 1 para ambos puntos, independiente de la ganancia de escucha configurada |
+| Pico instrumento | GP26/ADC0, pin físico 31; desconectar el micrófono antes de usar la sonda |
+| Medición antes | GP26 de Pico a GPIO25 de ESP32, antes del divisor; GND común |
+| Medición después | Mover solamente la sonda de GP26 al pin 7 del LM358; esperar a la instrucción de la terminal |
+| Rango | Verificar voltajes de entrada entre 0 y 3.3 V; nunca conectar 5 V ni salidas Lout/Rout al ADC |
+| Amplificador | Volumen al mínimo durante la prueba; conservar el circuito de reconstrucción conectado y alimentado |
+| Muestreo | 12 bloques solicitados por punto, 256 muestras por bloque, 16 kHz; hay huecos entre bloques |
+| Estabilización | Esperar 0.5 s desde el primer bloque aceptado por DAC antes de medir |
+| Cierre | Restablecer micrófono en GP26 antes de volver a usar capturar |
+
+La demo espera que el usuario cambie la sonda y confirme con Enter antes de cada
+reproducción. Abre el puerto de la Pico después de esa confirmación y lo cierra
+al terminar cada punto, de modo que desconectar USB durante el cambio no deje
+una conexión antigua abierta. Comprueba una respuesta ADC1 antes de iniciar el
+DAC. No ejecutarla con otra consola leyendo el puerto de la Pico. Es
+una comparación de amplitud por frecuencia: no compara la fase entre las dos
+capturas ni demuestra las imágenes de reconstrucción alrededor de 16 kHz.
+
+### 1.10.1. Uso del multímetro
+
+| Prueba | Procedimiento e interpretación |
+|---|---|
+| Alimentación | Modo voltaje DC, punta negra a GND y roja al pin 8 del LM358: aproximadamente 5 V; pin 4 a GND |
+| Centro de señal | Durante la reproducción estable de entrada del caso_1, medir GPIO25 respecto de GND: aproximadamente 1.65 V DC |
+| Salida del filtro | Durante la misma señal, medir pin 7 respecto de GND: aproximadamente 0.825 V DC por el divisor 1/2 |
+| Polaridad y tomas | Usar COM y V del multímetro, sin seleccionar corriente ni continuidad con el circuito alimentado |
+| Límite de la medida | Esas lecturas comprueban alimentación y centrado, no frecuencia de corte ni reducción de imágenes |
+| Voltaje AC | Solo interpretar amplitudes si el manual del multímetro especifica precisión y ancho de banda suficientes para las frecuencias medidas |
+
+Los valores DC son aproximados, dependen de la alimentación real y se miden
+durante la reproducción, no suponiendo un voltaje concreto con el DAC apagado.
+
+### 1.10.2. Qué se guarda
+
+| Ubicación/archivo | Contenido |
+|---|---|
+| resultados/sesiones/analogicas/identificador_unico | Carpeta nueva para cada intento; no sobrescribe medidas anteriores |
+| medicion_antes.csv | Códigos ADC crudos, voltios, ID de bloque, índice y tiempo local dentro del bloque, escala y contadores |
+| medicion_despues.csv | Lo mismo para la salida del filtro |
+| comparacion_analogica.csv | Amplitud antes/después por tono, ganancia medida, ganancia teórica, error y concordancia porcentual |
+| medicion.json | Componentes del modelo, fuente reproducida, resúmenes, dispersión, criterios, estado y causa si falla |
+| diagnostico_error.txt | Si falla, traza del error y su origen; medicion.json conserva la etapa de la prueba |
+| respuesta_analogica.png | Curva del modelo y puntos medidos, lista para el informe |
+| metadatos/filtro_analogico.json | Componentes y criterios editables; revisar que coincidan con el circuito real antes de medir |
+
+No se crea un WAV continuo con los bloques ADC separados. Se estiman juntas las
+amplitudes de los cuatro tonos y el nivel DC mediante ajuste de senos/cosenos en
+cada bloque; después se calcula su media y dispersión. Las fases iniciales pueden
+ser distintas y no se alinean artificialmente los bloques.
+
+### 1.10.3. Significado de accuracy o concordancia
+
+| Prueba | Porcentaje y referencia |
+|---|---|
+| Circuito analógico | Concordancia = max(0, 100 − error relativo de ganancia en %), por frecuencia; modelo Sallen-Key con divisor nominal |
+| Criterio analógico inicial | Error relativo <=15 % por tono; equivale a concordancia >=85 %, con medida válida. Es un criterio del equipo, no un valor impuesto por el profesor |
+| Validez analógica | Rechazar saturación, cambios en contadores de adquisición, amplitudes bajo el límite de detección o variabilidad mayor al 10 % |
+| Implementación digital | Concordancia = 100×max(0,1−RMSE/RMS del modelo Python), sobre las salidas PCM16 con la misma escala y retardo causal |
+| Silencio digital | Modelo y salida exactamente cero: 100 %. Modelo cero y salida distinta: porcentaje no disponible; se conserva el error RMS |
+| Fuente digital | La misma entrada PCM16 guardada se pasa por los modelos originales de FIR y espectral; también funciona en capturas sin referencia limpia |
+| Archivos digitales | validacion_python.json, validacion_python.csv y columnas adicionales en metricas.csv; resultado_esp32 permanece identificado como medida de placa |
+
+Un 100 % significa coincidencia con el modelo elegido; no significa eliminar
+el 100 % del ruido, conservar toda la señal útil ni conocer la incertidumbre
+absoluta del instrumento. MSE/SNR siguen requiriendo referencia limpia. La
+validación Python es independiente y se realiza después de la captura, sin
+sustituir el procesamiento de los microcontroladores. Se ejecuta automáticamente
+en capturar/evaluar y puede repetirse con validar sobre una sesión anterior.
+
+Fundamento del circuito: [Análisis de la arquitectura Sallen-Key, Texas Instruments](https://www.ti.com/lit/an/sloa024b/sloa024b.pdf).

@@ -7,6 +7,7 @@ import threading
 
 from .archivos import cargar_csv, abrir_sesion
 from .cliente import Cliente
+from .concordancia import validar_sesion
 
 
 def configuracion_inicial():
@@ -36,14 +37,19 @@ def configurar(actual, argumentos):
     return nueva
 
 
-def mostrar_metricas(informe):
-    """Presenta las cifras recibidas del microcontrolador, sin calcular sustitutos en PC."""
+def mostrar_metricas(informe, validacion=None):
+    """Presenta medidas de placa y, por separado, concordancia independiente calculada en PC."""
     for metodo in ("fir", "espectral"):
         ruta = informe[metodo]
         print(f"\n{metodo.upper()}:")
         for clave, valor in ruta.items():
             print(f"  {clave}: {'no disponible' if valor is None else valor}")
+        if validacion is not None:
+            porcentaje = validacion[metodo]["concordancia_modelo_python_pct"]
+            print(f"  concordancia_modelo_python_pct (validacion PC): {'no disponible' if porcentaje is None else f'{porcentaje:.4f}'}")
     print(f"Calculo maximo: {informe['calculo_max_us']} us. No equivale a latencia analogica.")
+    if validacion is not None:
+        print("Concordancia % compara ESP32 con Python; no indica el porcentaje de ruido eliminado.")
 
 
 def main(raiz_proyecto):
@@ -53,6 +59,7 @@ def main(raiz_proyecto):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--puerto")
     parser.add_argument("--listar", action="store_true")
+    parser.add_argument("--puerto-pico", help="Puerto del instrumento Pico; por defecto deteccion USB automatica")
     parser.add_argument("--salidas", type=Path, default=raiz_proyecto / "resultados/sesiones")
     argumentos = parser.parse_args()
     if argumentos.listar:
@@ -61,7 +68,7 @@ def main(raiz_proyecto):
         return
     if not argumentos.puerto:
         parser.error("Indique --puerto COMx; use --listar para ver los puertos")
-    puerto = serial.Serial(port=None, baudrate=2000000, timeout=0.05, write_timeout=1)
+    puerto = serial.Serial(port=None, baudrate=1000000, timeout=0.05, write_timeout=1)
     puerto.dtr = False
     puerto.rts = False
     puerto.port = argumentos.puerto
@@ -88,7 +95,12 @@ def main(raiz_proyecto):
                 resultado = cliente.registrar(argumentos.salidas, configuracion, mezcla, referencia,
                                               escala, "archivo", str(ruta.resolve()))
             ultima_sesion, informe = resultado
-            mostrar_metricas(informe)
+            try:
+                validacion = validar_sesion(ultima_sesion, raiz_proyecto)
+            except Exception as error:
+                validacion = None
+                print(f"La captura esta completa; no se pudo calcular concordancia PC: {error}")
+            mostrar_metricas(informe, validacion)
             print(f"\nSESION COMPLETA: {ultima_sesion}")
         except Exception as error:
             print(f"\nERROR: {error}")
@@ -102,6 +114,7 @@ def main(raiz_proyecto):
     ayuda = ("ayuda | estado | capturar | evaluar caso_1/caso_2/caso_3 o ruta.csv\n"
              "configurar segundos=6 minimo_hz=1600 ancho_hz=100 factor=0.1 umbral=0.05 ganancia=1\n"
              "abrir ruta_sesion | reproducir entrada/fir/espectral | detener | salir\n"
+             "validar (compara la sesion seleccionada con Python) | demo analogico (Pico como instrumento)\n"
              "No abra idf.py monitor al mismo tiempo. Capturar no reproduce sonido.")
     try:
         print(cliente.conectar())
@@ -141,6 +154,17 @@ def main(raiz_proyecto):
                 elif orden == "abrir" and len(partes) == 2:
                     ultima_sesion, _ = abrir_sesion(partes[1])
                     print(ultima_sesion)
+                elif orden == "validar":
+                    if ultima_sesion is None:
+                        raise ValueError("Primero capture, evalue o abra una sesion")
+                    resultados = validar_sesion(ultima_sesion, raiz_proyecto)
+                    for metodo, medidas in resultados.items():
+                        print(metodo.upper(), medidas)
+                    print("Es concordancia de implementacion, no porcentaje de ruido eliminado.")
+                elif orden == "demo" and len(partes) == 2 and partes[1].lower() == "analogico":
+                    from .demo_analogica import ejecutar_demo
+                    _, ultima_sesion = ejecutar_demo(cliente, raiz_proyecto, argumentos.salidas,
+                        configuracion, ultima_sesion, argumentos.puerto_pico)
                 elif orden in ("capturar", "evaluar", "reproducir"):
                     if orden != "capturar" and len(partes) != 2:
                         raise ValueError("Falta seleccionar archivo o senal")

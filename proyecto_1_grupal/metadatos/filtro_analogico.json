@@ -1,0 +1,14 @@
+{
+  "topologia": "Sallen-Key de ganancia unitaria con divisor y seguidor de entrada",
+  "resistencia_1_ohm": 4700,
+  "resistencia_2_ohm": 4700,
+  "capacitor_tierra_nf": 10,
+  "capacitor_realimentacion_nf": 22,
+  "ganancia_divisor": 0.5,
+  "capturas_por_punto": 12,
+  "espera_estabilizacion_s": 0.5,
+  "intervalo_capturas_s": 0.2,
+  "tolerancia_error_ganancia_pct": 15,
+  "variabilidad_maxima_amplitud_pct": 10,
+  "nota_criterio": "Criterio de trabajo del equipo, fijado antes de medir; no impuesto por el enunciado"
+}

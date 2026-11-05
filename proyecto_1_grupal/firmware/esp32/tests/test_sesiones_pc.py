@@ -148,3 +148,15 @@ def test_configuracion_atomica():
         configurar(actual, ["segundos=2", "factor=nan"])
     assert actual["muestras"] == 96000
     assert configurar(actual, ["segundos=1"])["muestras"] == 16128
+
+
+def test_paquete_tres_rutas_sin_perdida(tmp_path):
+    """El ahorro de cabeceras conserva cada bit PCM16 y el orden de las tres rutas."""
+    sesion = SesionArchivos(tmp_path, dict(muestras=512, escala=3.3, unidad="voltios"))
+    columnas = np.column_stack((np.arange(512), -np.arange(512), np.full(512, 32767))).astype("<i2")
+    sesion.agregar(Paquete(SALIDA, 1, canal=0, datos=columnas.tobytes()))
+    sesion.informe = {"fir": {"mse": None}, "espectral": {"mse": None}}
+    sesion.cerrar(completo=True)
+    for columna, nombre in enumerate(("entrada", "fir", "espectral")):
+        with wave.open(str(sesion.ruta / f"{nombre}.wav")) as archivo:
+            np.testing.assert_array_equal(np.frombuffer(archivo.readframes(512), dtype="<i2"), columnas[:, columna])

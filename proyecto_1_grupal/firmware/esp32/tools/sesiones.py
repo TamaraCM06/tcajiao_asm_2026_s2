@@ -4,6 +4,7 @@ import sys
 
 RAIZ_PROYECTO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(RAIZ_PROYECTO / "tarea1_grupo1"))
+sys.path.insert(0, str(RAIZ_PROYECTO))
 
 from pc.terminal import main
 

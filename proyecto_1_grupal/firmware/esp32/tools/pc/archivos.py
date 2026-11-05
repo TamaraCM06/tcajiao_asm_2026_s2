@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+from dataclasses import replace
 import uuid
 import wave
 
@@ -88,6 +89,17 @@ class SesionArchivos:
 
     def agregar(self, paquete):
         """Exige continuidad por canal; nunca une huecos como si fueran audio continuo."""
+        if paquete.canal == 0:
+            if not paquete.datos or len(paquete.datos) % 6:
+                raise ValueError("Longitud invalida del paquete de tres rutas")
+            if any(indice != paquete.indice for indice in self.contadores.values()):
+                raise ValueError("Perdida o duplicacion de muestras en paquete agrupado")
+            muestras = np.frombuffer(paquete.datos, dtype="<i2").reshape(-1, 3)
+            if paquete.indice + len(muestras) > self.metadatos["muestras"]:
+                raise ValueError("Salida mayor que el registro declarado")
+            for columna, canal in enumerate(NOMBRES):
+                self.agregar(replace(paquete, canal=canal, datos=muestras[:, columna].tobytes()))
+            return
         if paquete.canal not in self.contadores or len(paquete.datos) % 2:
             raise ValueError("Canal o longitud de salida invalido")
         if paquete.indice != self.contadores[paquete.canal]:

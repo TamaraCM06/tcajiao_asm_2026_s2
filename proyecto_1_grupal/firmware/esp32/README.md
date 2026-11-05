@@ -9,7 +9,7 @@ conexiones, instalación, comandos, formatos, métricas y límites actuales.
 
 | Modo | Uso |
 |---|---|
-| APLICACION_PC, predeterminado | Captura/almacenamiento PC y reproducción diferida; UART binaria a 2 Mbaud |
+| APLICACION_PC, predeterminado | Captura/almacenamiento PC y reproducción diferida; UART binaria a 1 Mbaud, tres rutas agrupadas |
 | APLICACION_VIVO | Integración anterior de escucha continua por GPIO25 |
 | APLICACION_DEMOSTRACION | Banco histórico del taller con señales incluidas en flash |
 

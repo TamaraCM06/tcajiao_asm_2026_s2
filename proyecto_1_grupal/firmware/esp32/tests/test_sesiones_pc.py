@@ -20,6 +20,8 @@ from pc.archivos import SesionArchivos, abrir_sesion, cargar_csv, cuantizar
 from pc.terminal import configurar, configuracion_inicial
 from src.filtros.filtrado_espectral import filtrar_senal
 from src.filtros.bloques_espectrales import aplicar_ganancias
+from src.datos.archivos import asegurar_muestras_caso
+from src.mediciones.metricas import calcular_metricas
 
 
 @pytest.fixture(scope="module")
@@ -29,12 +31,11 @@ def ejecutables(tmp_path_factory):
     compilador = shutil.which("gcc")
     assert compilador, "GCC requerido"
     comun = [compilador, "-std=c11", "-D__USE_MINGW_ANSI_STDIO=1", "-O2", "-Wall", "-Wextra", "-Werror"]
-    for modulo in ("procesamiento_vivo", "filtros_digitales", "evaluacion_digital", "senales_embebidas", "enlace_pc"):
+    for modulo in ("procesamiento_registro", "filtros_digitales", "evaluacion_digital", "enlace_pc"):
         comun += ["-I", str(COMPONENTES / modulo / "include")]
-    fuentes = [COMPONENTES / "procesamiento_vivo/procesamiento_registro.c",
+    fuentes = [COMPONENTES / "procesamiento_registro/procesamiento_registro.c",
                *sorted((COMPONENTES / "filtros_digitales").glob("*.c")),
-               COMPONENTES / "evaluacion_digital/metricas_digitales.c",
-               COMPONENTES / "senales_embebidas/datos/coeficientes_fir.c"]
+               COMPONENTES / "evaluacion_digital/metricas_digitales.c"]
     salidas = {}
     for nombre, archivos in (("registro", fuentes), ("codec", [COMPONENTES / "enlace_pc/protocolo_pc.c"])):
         salidas[nombre] = carpeta / f"{nombre}.exe"
@@ -100,6 +101,70 @@ def test_cierre_y_alineacion(ejecutables, tmp_path, longitud, factor):
         residual = calculadas[37:, metodo] - utiles[metodo]
         esperada = 10 * np.log10(np.sum((pares[:-37, 0] - referencia) ** 2) / np.sum(residual ** 2))
         assert atenuacion == pytest.approx(esperada, abs=0.03)
+
+
+# Contrasta todos los casos sobre el mismo PCM16 que recibe la aplicación vigente.
+@pytest.mark.parametrize("caso", ["P1", "P2", "P3", "P4", "P5", "P2_tonal"])
+def test_casos_notebook_en_procesador_pc(ejecutables, tmp_path, caso):
+    """Conserva comparación de salidas y métricas sin depender del banco flash retirado."""
+    archivo_csv = asegurar_muestras_caso(caso, PROYECTO / "tarea1_grupo1")
+    mezcla_pcm, referencia_pcm, escala, _ = cargar_csv(archivo_csv)
+    pares = np.column_stack((mezcla_pcm, referencia_pcm)).astype(np.float32)
+    pares *= np.float32(escala) / np.float32(32768)
+    entrada, salida = tmp_path / "entrada.f32", tmp_path / "salida.f32"
+    pares.astype("<f4").tofile(entrada)
+    resultado = subprocess.run([str(ejecutables["registro"]), str(entrada), str(salida), ".1", "1"],
+                              capture_output=True, text=True, check=True)
+    calculadas = np.fromfile(salida, dtype="<f4").reshape(-1, 2)
+    mezcla, referencia = pares.astype(float).T
+    coeficientes = np.loadtxt(
+        PROYECTO / "tarea1_grupo1/resultados/filtro_temporal/coeficientes_fir.csv",
+        delimiter=",", skiprows=1)[:, 1].astype(np.float32)
+    temporal = lfilter(coeficientes, [1], mezcla)
+    espectral, detalles = filtrar_senal(mezcla, 16000, devolver_detalles=True)
+    np.testing.assert_allclose(calculadas[:, 0], temporal, atol=3e-6, rtol=0)
+    np.testing.assert_allclose(calculadas[:, 1], np.r_[np.zeros(37), espectral[:-37]], atol=3e-6, rtol=0)
+    utiles = (lfilter(coeficientes, [1], referencia)[37:], aplicar_ganancias(referencia, detalles)[:-37])
+    assert len(calculadas) == len(mezcla_pcm)
+    for metodo, linea in enumerate(resultado.stdout.splitlines()):
+        cantidad, mse, snr, energia, atenuacion = map(float, linea.split(","))
+        esperadas = calcular_metricas(referencia[:-37], mezcla[:-37] - referencia[:-37],
+                                     calculadas[37:, metodo], utiles[metodo])
+        assert cantidad == len(mezcla) - 37
+        assert mse == pytest.approx(esperadas["mse"], abs=1e-8)
+        assert snr == pytest.approx(esperadas["snr_salida_dB"], abs=.03)
+        assert energia == pytest.approx(esperadas["energia_util_conservada_pct"], abs=.01)
+        assert atenuacion == pytest.approx(esperadas["atenuacion_ruido_dB"], abs=.03)
+
+
+# Comprueba silencio y reconstrucción unitaria en el mismo ejecutor que usa las sesiones.
+@pytest.mark.parametrize("longitud", [256, 768, 96000])
+@pytest.mark.parametrize("silencio", [True, False])
+def test_silencio_y_reconstruccion_unitaria(ejecutables, tmp_path, longitud, silencio):
+    """Incluye extremos y cierre parcial sin incorporar registros de señales en la flash."""
+    mezcla = np.zeros(longitud) if silencio else np.random.default_rng(93).uniform(-.8, .8, longitud)
+    pares = np.column_stack((mezcla, mezcla * .7)).astype("<f4")
+    entrada, salida = tmp_path / "entrada.f32", tmp_path / "salida.f32"
+    pares.tofile(entrada)
+    resultado = subprocess.run([str(ejecutables["registro"]), str(entrada), str(salida), "1", "1"],
+                              capture_output=True, text=True, check=True)
+    calculadas = np.fromfile(salida, dtype="<f4").reshape(-1, 2)
+    np.testing.assert_allclose(calculadas[:, 1], np.r_[np.zeros(37), pares[:-37, 0]], atol=3e-6, rtol=0)
+    assert len(calculadas) == longitud
+    assert all(int(linea.split(",")[0]) == longitud - 37 for linea in resultado.stdout.splitlines())
+    if silencio:
+        assert not np.any(calculadas)
+
+
+# Los parámetros no finitos o fuera de rango se rechazan antes de procesar.
+@pytest.mark.parametrize("factor", ["nan", "-0.1", "1.1"])
+def test_factor_invalido_en_registro(ejecutables, tmp_path, factor):
+    """Traslada el rechazo del banco retirado al procesador utilizado actualmente."""
+    entrada, salida = tmp_path / "entrada.f32", tmp_path / "salida.f32"
+    np.zeros((256, 2), dtype="<f4").tofile(entrada)
+    resultado = subprocess.run([str(ejecutables["registro"]), str(entrada), str(salida), factor, "1"],
+                              capture_output=True, text=True)
+    assert resultado.returncode == 3
 
 
 def test_sesion_incompleta_y_sin_sobrescritura(tmp_path):

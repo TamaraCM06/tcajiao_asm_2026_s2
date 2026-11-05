@@ -14,7 +14,7 @@
 \renewcommand{\arraystretch}{1.1}
 
 \title{\vspace{-1.5cm}Herramientas de ingeniería\\\large Proyecto Grupal 1: sistema distribuido de reducción adaptativa de ruido}
-\author{N. Florez, T. Cajiao, S. Robles, S. Boza --- CE 1110 Análisis de Señales Mixtas, II Semestre 2026}
+\author{N. Florez, T. Cajiao, S. Robles, S. Boza\\CE 1110 Análisis de Señales Mixtas, II Semestre 2026}
 \date{\vspace{-8mm}}
 
 \begin{document}
@@ -26,18 +26,19 @@ aliasing, latencia por bloque, memoria del microcontrolador, integridad del enla
 posibilidad de verificar el firmware contra una referencia.
 
 \noindent\small
-\begin{tabularx}{\linewidth}{@{}p{3.2cm}p{3.6cm}X@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X@{}}
 \toprule
 Categoría & Herramienta o recurso & Variable que atiende \\
 \midrule
 Modelado y simulación & Python 3, NumPy, SciPy, Matplotlib~\cite{numpy,scipy}, Jupyter & Diseño FIR/IIR, DFT directa frente a FFT, métricas y figuras reproducibles con semillas fijas. \\
 Firmware de adquisición & Pico SDK en C con ADC, DMA y TinyUSB~\cite{picosdk,rp2040} & Muestreo continuo a 16~kHz sin pérdidas, quitar DC, Hann y FFT de diagnóstico. \\
 Firmware de filtrado & ESP-IDF 5.5 (C, FreeRTOS) desde PowerShell, SPI esclavo, DAC continuo, ESP Timer~\cite{espidf,esp32} & Dos rutas independientes en un microcontrolador de doble núcleo; tiempo por bloque medido en~$\mu$s. \\
-Comunicación & SPI 2~MHz con trama propia y CRC-8~\cite{peterson}; USB serie a 2~Mbaud & Delimitación de bloques, detección de errores y pérdidas. \\
+Comunicación & SPI 2~MHz con trama propia y CRC-8~\cite{peterson}; USB serie a 1~Mbaud & Delimitación de bloques, detección de errores y pérdidas. \\
 Datasheets & RP2040 (ADC), ESP32 (DAC 8 bits), MAX4466~\cite{max4466}, LM358~\cite{lm358}, nota de Sallen-Key~\cite{sloa024} & Rango de entrada 0--3.3~V, resolución, alimentación y diseño del filtro de reconstrucción. \\
 Instrumentos & Multímetro digital ANENG DM850 & Alimentación de 5~V del LM358 y tensiones DC en sus pines durante la ejecución, de las que depende el filtro analógico. \\
 Verificación & pytest, GCC, scripts de prueba en Python & Más de 150 pruebas en Python (modelo, núcleo C de filtros frente a SciPy, trama SPI, protocolo PC y cierre del DAC) y pruebas en C del receptor (DC, Hann, FFT frente a DFT, CRC-8). \\
-Medición con la Pico & Pico como instrumento ADC por USB (\emph{demo analogico}); \emph{validar} en PC; esptool & Respuesta del filtro analógico (GPIO25 frente a pin 7 del LM358), concordancia placa--modelo Python y diagnóstico de la velocidad del puente USB. \\
+Medición con la Pico & \emph{pico\_instrumento.py}, \emph{capturas\_pico.py}, \emph{demo analogico} & ADC1 por USB: 12 bloques separados por punto, amplitudes de GPIO25 frente a pin 7 del LM358. \\
+Validación independiente & \emph{validar}, \emph{concordancia.py}; esptool & Mismo PCM16 contra Python, criterio digital $\geq90$\,\%; diagnóstico del puente USB. \\
 Documentación y gestión & Git (master/development, ramas por función), Mermaid, \LaTeX{} IEEEtran & Trabajo incremental, diagramas versionados y artículo. \\
 Inteligencia artificial & OpenAI Codex; Anthropic Claude & Desarrollo y depuración de bloques de código; investigación de fuentes y formato de documentación. \\
 \bottomrule
@@ -51,30 +52,37 @@ El trabajo siguió una cadena en la que cada etapa se valida con la anterior:
 casos con semillas, implementan la DFT por definición y la comparan con la FFT, diseñan
 un FIR Kaiser y tres IIR, y calculan MSE, SNR, energía y tiempo. Los parámetros se leen
 de archivos JSON, de modo que cada figura y tabla del artículo se regenera con un comando.
-\item \textbf{Paso de Python a C.} \texttt{exportar\_senales.py} convierte las muestras y
-los 75 coeficientes del FIR a arreglos de C. Así el firmware procesa exactamente los
-mismos datos que el modelo.
+\item \textbf{Paso de Python a C.} \texttt{exportar\_coeficientes.py} conserva los 75
+coeficientes FIR en float32. Las señales se transfieren desde CSV como PCM16 al
+procesador de registros; las pruebas usan la misma entrada cuantizada que la placa.
 \item \textbf{Verificación cruzada.} Las pruebas compilan con GCC el mismo núcleo C que
 corre en la ESP32 y lo comparan con Python: error por muestra $\leq3\times10^{-6}$ y
 diferencias de métricas $\leq0.03$~dB. En la placa, la SNR de salida coincidió con
-Python con diferencias $\leq0.0001$~dB.
+Python sobre la misma entrada PCM16: diferencia FIR $3.3\times10^{-5}$~dB y espectral
+$8.2\times10^{-8}$~dB; concordancias de 100 y 99.99966\,\%, respectivamente.
 \item \textbf{Cadena física y adquisición de datos.} Los datasheets fijaron el rango
 del ADC (0--3.3~V, 12 bits) y del DAC (8 bits, GPIO25). Con el multímetro ANENG DM850 se verificó,
 con el sistema en ejecución, que el LM358 recibe 5~V, condición para que el filtro
 analógico funcione; además, la entrada no inversora (pin~3) y la salida (pin~1) del
-primer amplificador marcaron 0.815~V, lo que confirma que la etapa seguidora copia su
-entrada. Para el filtro analógico, la Pico se reutilizó como instrumento: mide el
-mismo tono antes (GPIO25) y después (pin~7) del Sallen-Key y compara la ganancia por
-frecuencia con el modelo de 22~nF. El comando \emph{validar} reprocesa en la PC la misma
+primer amplificador marcaron 0.815~V. Para el filtro analógico, la Pico se reutilizó
+como instrumento: \emph{pico\_instrumento.py} coordina USB y
+\emph{capturas\_pico.py} interpreta ADC1. La demo mide los mismos tonos antes
+(GPIO25) y después (pin~7) sin concatenar huecos. El modelo usa 22~nF y retención DAC;
+los tres tonos útiles cumplen y 4~kHz queda inválido por variabilidad de 19.3\,\%.
+El comando \emph{validar} reprocesa en la PC la misma
 entrada guardada con los filtros de Python y calcula la concordancia con la salida de
 la ESP32, sin reemplazar el procesamiento de la placa. Con esptool se comprobó que el
-puente USB no respondía a 2~Mbaud, por lo que el enlace quedó en 1~Mbaud. La compilación, la programación y la ejecución se hicieron desde
+puente USB no respondía a una tasa superior, por lo que el enlace quedó en 1~Mbaud. La compilación, la programación y la ejecución se hicieron desde
 PowerShell; la PC solo recibe y muestra salidas. Los scripts llevan los datos del circuito a
 la PC: \texttt{graficar\_microfono.py} muestra en vivo la forma de onda y el espectro
 que captura la Pico; \texttt{sesiones.py} configura parámetros sin recompilar, ordena
 capturas y evaluaciones en la ESP32, guarda entrada, salida FIR y salida espectral como
 WAV con \texttt{sesion.json}, métricas y registro de eventos, y verifica integridad con
-CRC e índices.
+CRC e índices. \emph{respuesta\_fir\_medida.py} compara los WAV de placa con los
+coeficientes; \emph{resumen\_pruebas.py} produce medias, desviaciones y tabla \LaTeX{}
+por condición a partir de las sesiones completas, como exige el informe de
+repeticiones. No califica automáticamente el sistema. Registros completos locales
+y tablas/figuras seleccionadas para la entrega se mantienen separados.
 \item \textbf{Uso de IA.} Codex se usó para escribir y depurar bloques de código
 (controladores, protocolo y pruebas), y Claude para buscar fuentes, revisar la
 coherencia entre código y documentación y dar formato a los documentos. Toda salida se

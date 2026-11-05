@@ -13,16 +13,17 @@ from .archivos import abrir_sesion, cargar_csv, guardar_json
 from .concordancia import leer_pcm, validar_sesion
 from .pico_instrumento import abrir_pico, medir_punto
 from herramientas.capturas_pico import LectorPico
+from src.datos.archivos import asegurar_muestras_caso
 
 
 def cargar_modelo(raiz_proyecto):
     """Carga componentes y criterios visibles, fijados antes de tomar datos."""
     modelo = json.loads((raiz_proyecto / "metadatos/filtro_analogico.json").read_text(encoding="utf-8"))
     casos = json.loads((raiz_proyecto / "tarea1_grupo1/metadatos/configuraciones.json").read_text(encoding="utf-8"))
-    caso = casos["caso_1"]
+    caso = casos["P2_tonal"]
     frecuencias = sorted(set(caso["frecuencias_utiles_Hz"] + [caso["frecuencia_interferencia_Hz"]]))
     if caso["fs_Hz"] != 16000 or max(frecuencias) >= 8000:
-        raise ValueError("La demo requiere caso_1 a 16 kHz y frecuencias inferiores a Nyquist")
+        raise ValueError("La demo requiere P2_tonal a 16 kHz y frecuencias inferiores a Nyquist")
     if (not isinstance(modelo["capturas_por_punto"], int) or not 3 <= modelo["capturas_por_punto"] <= 16 or
             not 0 <= modelo["espera_estabilizacion_s"] <= 1 or
             not 0.1 <= modelo["intervalo_capturas_s"] <= 0.25 or
@@ -34,8 +35,8 @@ def cargar_modelo(raiz_proyecto):
 
 
 def preparar_fuente(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccion=None):
-    """Reutiliza una entrada caso_1 verificada o la procesa en ESP32 sin generar otro estimulo."""
-    archivo = raiz_proyecto / "tarea1_grupo1/resultados/muestras/caso_1_muestras.csv"
+    """Reutiliza una entrada P2_tonal verificada o la procesa en ESP32 sin generar otro estimulo."""
+    archivo = asegurar_muestras_caso("P2_tonal", raiz_proyecto / "tarea1_grupo1")
     mezcla, referencia, escala, _ = cargar_csv(archivo)
     candidatos = ([Path(seleccion)] if seleccion else [])
     candidatos.extend(sorted(raiz_sesiones.glob("*/sesion.json"), reverse=True))
@@ -75,13 +76,13 @@ def ejecutar_demo(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccio
         limite="Medicion de ganancia, sin calibrar ADC ni medir imagenes alrededor de 16 kHz")
     guardar_json(carpeta / "medicion.json", datos)
     try:
-        informar("\nDEMO ANALOGICA: caso_1 del notebook; se reproduce siempre entrada con ganancia 1.")
+        informar("\nDEMO ANALOGICA: P2_tonal del notebook; se reproduce siempre entrada con ganancia 1.")
         informar("Los bloques ADC estan separados por huecos; se guardan individualmente en CSV.")
         informar("Pico GP26/ADC0 es pin fisico 31; GND comun. No conectar 5 V ni salidas del parlante.")
         informar("Desconecte el microfono de GP26. Verifique con multimetro que ambos puntos esten entre 0 y 3.3 V.")
         informar("Volumen del GF1002 al minimo. El filtro LM358 permanece alimentado y conectado a GPIO25.")
         informar(f"Criterio fijado antes de medir: error de ganancia <= {modelo['tolerancia_error_ganancia_pct']} % por frecuencia.")
-        informar("Preparando/reutilizando el archivo original del caso_1...")
+        informar("Preparando/reutilizando el archivo original del P2_tonal...")
         fuente = preparar_fuente(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccion)
         datos["sesion_fuente"] = str(fuente)
         guardar_json(carpeta / "medicion.json", datos)

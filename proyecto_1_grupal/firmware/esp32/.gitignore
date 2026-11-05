@@ -1,3 +1,5 @@
 /build/
 /sdkconfig
 /sdkconfig.old
+# Restos binarios del banco retirado; pendientes de eliminacion fisica por bloqueo de herramienta.
+/components/senales_embebidas/

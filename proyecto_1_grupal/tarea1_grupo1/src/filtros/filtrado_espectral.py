@@ -199,7 +199,7 @@ def evaluar_filtro(clean, noise, fs, *, longitud_evaluacion=None, **parametros):
 
 def main():
     """Carga los casos y los evalúa; los archivos no forman parte del filtro."""
-    casos = {nombre: cargar_caso(nombre) for nombre in ("caso_1", "caso_2", "caso_3")}
+    casos = {nombre: cargar_caso(nombre) for nombre in ("P2_tonal", "P2", "P5")}
     print(f"{'Caso':8} {'SNR entrada':>12} {'SNR salida':>12} {'Delta SNR':>12} {'MSE':>12}")
     for nombre, datos in casos.items():
         m = evaluar_filtro(datos["clean"], datos["noise"], datos["fs"])
@@ -209,7 +209,7 @@ def main():
         )
 
     print("\nCaso 3: buscar desde 600 Hz invade la banda util.")
-    datos = casos["caso_3"]
+    datos = casos["P5"]
     for factor in (0.8, 0.1):
         m = evaluar_filtro(
             datos["clean"], datos["noise"], datos["fs"], frecuencia_minima=600, factor=factor

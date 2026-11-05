@@ -17,7 +17,7 @@
     "umbral_relativo": 0.05
   },
   "compromiso": {
-    "caso": "caso_3",
+    "caso": "P5",
     "frecuencia_minima": 600,
     "factores": [0.8, 0.1]
   },

@@ -44,7 +44,8 @@ def test_respuesta_y_porcentajes_analogicos():
     """Recupera la respuesta ideal pese a fases libres y a cuantizacion ADC de 12 bits."""
     modelo, frecuencias = cargar_modelo(PROYECTO)
     ganancias = ganancia_teorica(frecuencias, modelo)
-    np.testing.assert_allclose(ganancias, [0.501349, 0.501239, 0.487725, 0.159192], atol=0.0001)  # 22 nF
+    circuito_22_nf = np.array([0.501349, 0.501239, 0.487725, 0.159192])
+    np.testing.assert_allclose(ganancias, circuito_22_nf * np.sinc(np.array(frecuencias) / 16000), atol=1e-6)
     antes = resumir_capturas(capturas_sinteticas(frecuencias, np.ones(4), 1.65), frecuencias)
     despues = resumir_capturas(capturas_sinteticas(frecuencias, ganancias, .825), frecuencias)
     filas = comparar_respuesta(antes, despues, frecuencias, modelo)
@@ -53,6 +54,28 @@ def test_respuesta_y_porcentajes_analogicos():
     # Medir el mismo punto dos veces debe descubrir que falta el filtro.
     incorrectas = comparar_respuesta(antes, antes, frecuencias, modelo)
     assert not any(fila["cumple_criterio"] for fila in incorrectas)
+
+
+# La retencion vale uno en DC y atenúa 4 kHz sin ajustar componentes medidos.
+def test_retencion_dac_y_limite_dc():
+    """La retencion vale uno en DC y atenúa 4 kHz sin ajustar componentes medidos."""
+    modelo, _ = cargar_modelo(PROYECTO)
+    assert ganancia_teorica([0], modelo)[0] == pytest.approx(.5)
+    assert ganancia_teorica([4000], modelo)[0] == pytest.approx(.15919189772 * np.sinc(.25))
+    with pytest.raises(ValueError):
+        ganancia_teorica([440], dict(modelo, frecuencia_dac_hz=0))
+
+
+# La correccion sinc no relaja el limite de variabilidad del 10 por ciento.
+def test_imagen_aliasada_no_valida_amplitud_inestable():
+    """La correccion sinc no relaja el limite de variabilidad del 10 por ciento."""
+    modelo, frecuencias = cargar_modelo(PROYECTO)
+    antes = resumir_capturas(capturas_sinteticas(frecuencias, np.ones(4), 1.65), frecuencias)
+    despues = resumir_capturas(capturas_sinteticas(frecuencias, ganancia_teorica(frecuencias, modelo), .825), frecuencias)
+    despues["desviaciones_v"][-1] = .193 * despues["amplitudes_v"][-1]
+    ultima = comparar_respuesta(antes, despues, frecuencias, modelo)[-1]
+    assert not ultima["medida_valida"] and not ultima["cumple_criterio"]
+    assert ultima["concordancia_teorica_pct"] is None
 
 
 def test_saturacion_y_senal_debil_no_generan_accuracy():
@@ -127,6 +150,7 @@ def test_validacion_sesion_y_archivos(tmp_path):
     originales = {nombre: (sesion.ruta / f"{nombre}.wav").read_bytes() for nombre in ("entrada", "fir", "espectral")}
     resultados = validar_sesion(sesion.ruta, PROYECTO)
     assert all(resultado["concordancia_modelo_python_pct"] == 100 for resultado in resultados.values())
+    assert all(resultado["umbral_concordancia_pct"] == 90 and resultado["cumple_concordancia"] for resultado in resultados.values())
     for nombre, contenido in originales.items():
         assert (sesion.ruta / f"{nombre}.wav").read_bytes() == contenido
     with (sesion.ruta / "metricas.csv").open() as archivo:

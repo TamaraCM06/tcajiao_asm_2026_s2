@@ -21,7 +21,7 @@ TOLERANCIA = 1e-12
 @pytest.fixture(scope="module")
 def casos():
     return {caso: fe.cargar_caso(caso, RAIZ)
-            for caso in ("caso_1", "caso_2", "caso_3")}
+            for caso in ("P2_tonal", "P2", "P5")}
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +113,7 @@ def test_banda_util_protegida_y_mascaras_reales():
     assert np.mean((limpia[1024:-1024] - util[1024:-1024]) ** 2) < TOLERANCIA
 
 
-@pytest.mark.parametrize("caso", ["caso_1", "caso_2", "caso_3"])
+@pytest.mark.parametrize("caso", ["P2_tonal", "P2", "P5"])
 def test_casos_reales(caso, casos, metricas):
     m = metricas[caso]
     assert len(m["salida"]) == len(casos[caso]["clean"]) == 96000
@@ -121,7 +121,7 @@ def test_casos_reales(caso, casos, metricas):
     assert m["tiempo_por_bloque_us"] > 0
     assert m["memoria_trabajo_bytes"] > 0
 
-    if caso != "caso_3":
+    if caso != "P5":
         assert m["delta_snr_dB"] > 10
         assert m["energia_util_conservada_pct"] > 99
     else:
@@ -129,7 +129,7 @@ def test_casos_reales(caso, casos, metricas):
 
 
 def test_compromiso_ruido_distorsion(casos):
-    c = casos["caso_3"]
+    c = casos["P5"]
     suave = fe.evaluar_filtro(c["clean"], c["noise"], c["fs"],
                              frecuencia_minima=600, factor=0.8)
     fuerte = fe.evaluar_filtro(c["clean"], c["noise"], c["fs"],
@@ -141,7 +141,7 @@ def test_compromiso_ruido_distorsion(casos):
 
 
 def test_metricas_coinciden_con_referencia_directa(casos):
-    caso = casos["caso_1"]
+    caso = casos["P2_tonal"]
     m = fe.evaluar_filtro(caso["clean"], caso["noise"], caso["fs"],
                          factor=1)
     np.testing.assert_allclose(m["salida"], caso["noisy"], atol=TOLERANCIA)

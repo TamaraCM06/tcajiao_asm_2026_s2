@@ -42,7 +42,7 @@ threshold that preserves conjugate symmetry. The output is played through an 8-b
 followed by a second-order Sallen-Key reconstruction filter, and a host computer is
 used only for storage, parameter tuning and playback. A Python model with a direct DFT,
 FIR and IIR candidates and automatic figure generation guided the design; the embedded
-filters reproduce the model within 0.0001~dB of output SNR. For noise outside the useful
+stored PCM16 outputs agree with Python by more than 99.99\,\%. For noise outside the useful
 band the FIR filter improved the SNR by about 60~dB and the spectral method by about
 19~dB, with worst-case block times of 8.8~ms and 18.9~ms against budgets of 16~ms and
 32~ms. When noise overlaps the useful band neither method improves the SNR without
@@ -95,9 +95,9 @@ muestras~\cite{proakis2007}.
 $X[k]=\sum_{n=0}^{N-1}x[n]e^{-j2\pi kn/N}$, cuesta $O(N^2)$; la FFT radix-2 la calcula en
 $O(N\log_2N)$ si $N=2^m$~\cite{cooley1965}. La resolución es $\Delta f=f_s/N$. Truncar
 un bloque produce fuga espectral; la ventana Hann reduce los lóbulos laterales a cambio
-de un lóbulo principal más ancho~\cite{harris1978}, y con 50\,\% de solapamiento sus
-copias suman una constante, lo que permite reconstruir por superposición y
-suma~\cite{allen1977}. Para que la IFFT de un espectro modificado sea real se debe
+de un lóbulo principal más ancho~\cite{harris1978}. Al usar Hann simétrica en análisis
+y síntesis, la superposición se normaliza por la suma de sus cuadrados para
+reconstruir~\cite{allen1977}. Para que la IFFT de un espectro modificado sea real se debe
 conservar $X[N-k]=X^*[k]$.
 
 \textbf{Métricas.} Con referencia limpia $s[n]$ y salida alineada $\hat s[n]$ sobre $L$
@@ -130,7 +130,7 @@ ESP32, esclava SPI~\cite{espidf}, controla el flujo con una línea READY y recha
 con longitud, cabecera o CRC inválidos o con muestras no finitas; el identificador
 revela saltos, duplicados y retrocesos. Cualquier pérdida o cola llena aborta la
 captura y queda registrada. El enlace con la PC usa paquetes PCM16 con índice y CRC-32 a
-1~Mbaud; 2~Mbaud falló con el puente USB de la placa.
+1~Mbaud, tras fallar el diagnóstico del puente USB a una tasa superior.
 
 \textbf{Justificación conjunta.} Las componentes generadas no superan 4~kHz, por lo que
 $f_s=16$~kHz deja Nyquist en 8~kHz con margen~\cite{oppenheim2010}. El flujo útil es
@@ -167,9 +167,13 @@ Elíptico & 6 & 15 & 6.0--10.6 & 18.6 \\
 
 
 En la ESP32 el FIR procesa muestra a muestra con un anillo de 75 posiciones en float32
-y coeficientes exportados desde Python. La salida se convierte a PCM16 con saturación
+y coeficientes exportados desde Python, con $H(z)=\sum_{k=0}^{74}b_kz^{-k}$.
+La salida se convierte a PCM16 con saturación
 explícita y, para la reproducción, a 8~bits del DAC, lo que limita el rango dinámico a
-unos 48~dB. \pend{FIR medido vs calculado}
+unos 48~dB. En los WAV de la ESP32, un ajuste conjunto de senos y cosenos sobre 93
+bloques, excluyendo el arranque, difiere menos de 0.0035~dB de la respuesta calculada
+en 440/880/1320~Hz. A 4~kHz solo se resuelve una cota de $-58.4$~dB, frente a
+$-73.0$~dB calculados: la cuantización PCM16 limita esta medida digital antes del DAC.
 
 \subsection{Filtro espectral y evaluación (nodo 3)}
 El método procesa bloques de $N=1024$ ($\Delta f=15.625$~Hz) con salto de 512:
@@ -178,7 +182,8 @@ El método procesa bloques de $N=1024$ ($\Delta f=15.625$~Hz) con salto de 512:
 \item calcular la FFT radix-2~\cite{cooley1965};
 \item proteger los bins bajo $f_{min}$ (1.6~kHz);
 \item marcar como ruido cada bin no protegido cuya energía $|X[k]|^2$ supere un umbral
-relativo (0.05) a la máxima energía de esa región, junto con sus vecinos dentro de un
+relativo (0.05) a la máxima energía de esa región, con piso de 0.001 del pico global,
+junto con sus vecinos dentro de un
 ancho total de 100~Hz;
 \item multiplicar esos bins y sus conjugados por un factor real (0.1);
 \item calcular la IFFT, volver a aplicar Hann y reconstruir por superposición y suma
@@ -202,30 +207,38 @@ cambio produce un ligero realce de $+0.3$~\% bajo 1~kHz. Con el sistema en march
 midieron 5~V en la alimentación y 0.815~V en la entrada y la salida del seguidor, la
 mitad del nivel medio del DAC, como predice el divisor.
 
+Para comparar las amplitudes muestreadas se usa
+$|H_{med}(f)|=|H_{SK}(f)|\,|\mathrm{sinc}(f/16000)|$: la retención del DAC atenúa
+la fundamental~\cite{dacretencion}. La curva representa esa componente, sin ajustar
+los componentes físicos ni modelar imágenes que se pliegan al adquirir a 16~kHz.
+
 \section{Resultados y análisis}\label{sec:resultados}
 \textbf{Criterios de aceptación}, fijados antes de las pruebas finales: con ruido fuera
 de banda, $\Delta\mathrm{SNR}\geq10$~dB y energía útil conservada $\geq90$\,\%; en todos
 los casos, tiempo máximo por bloque menor que su duración (16~ms FIR, 32~ms espectral);
 cero pérdidas de bloque. Para el filtro analógico, error de ganancia $\leq15$\,\% por tono
 con variabilidad $\leq10$\,\%. La concordancia entre la salida de la placa y el modelo de
-Python, $100(1-\mathrm{RMSE}/\mathrm{RMS})$, debe ser $\geq90$\,\%: un error de
-implementación 20~dB por debajo de la señal es menor que el efecto que se mide (mejoras de
-18 a 60~dB) y deja margen para la cuantización PCM16 y el uso de float32 en la placa.
-\pend{confirmar con los resultados reales}
+Python, $100\max(0,1-\mathrm{RMSE}/\mathrm{RMS})$, debe ser $\geq90$\,\% para ambas
+rutas: admite NRMSE hasta 0.1 y comprueba equivalencia, no eliminación de ruido.
+El criterio analógico se fijó antes de medir; la corrección física de retención se
+documentó después como reanálisis, conservando las medidas y los criterios originales.
 
 \textbf{Equivalencia modelo--firmware.} Los mismos casos se evaluaron en Python
 (float64)~\cite{numpy2020,scipy2020} y en la ESP32 (float32) sobre 95\,963 muestras,
-tras compensar las 37 muestras del FIR. La SNR de salida coincide con diferencias
-$\leq0.0001$~dB y el MSE en sus tres cifras significativas (Tabla~\ref{tab:res}); más de 150
-pruebas automáticas en Python y las pruebas en C del receptor validan el núcleo C y la FFT propia contra NumPy.
-En la sesión con el sistema completo, el caso~1 procesado por la ruta espectral en vivo
-dio 29.9764~dB frente a 29.9760~dB del modelo. Una captura física de 6~s con el
-micrófono entregó 96\,000 muestras a 16\,000.26 muestras/s, sin bloques perdidos ni
-recortes, con un tiempo máximo de cálculo de 16.3~ms frente a 32~ms disponibles.
+tras compensar las 37 muestras del FIR. La sesión controlada del 5/11 procesó el CSV
+histórico multitono con interferencia tonal (P2 tonal), sin pasar por el ADC: SNR
+espectral 10.0017~$\rightarrow$~29.9764~dB en placa. Sobre el mismo PCM16, Python da
+29.97643172~dB, con diferencia $8.2\times10^{-8}$~dB; la concordancia es 100\,\% FIR y
+99.99966\,\% espectral. El valor anterior 29.9760~dB provenía del modelo sin esa
+cuantización de entrada. Una captura física distinta de 6~s con micrófono entregó
+375 bloques, 96\,000 muestras a 16\,000.26 muestras/s, sin pérdidas, errores SPI
+detectados ni recortes. Su máximo conjunto fue 16.323~ms frente al salto de 32~ms;
+sin referencia limpia no acredita SNR. Las tablas y figuras seleccionadas se
+\href{\repo/docs/final/evidencias/README.md}{adjuntan al proyecto}; los registros completos son locales.
 
 \begin{table}[H]
 \centering
-\caption{Resultados en ESP32 (95\,963 muestras, $f_s=16$ kHz, 160 MHz, 30/10/2026)}
+\caption{Resultados digitales ESP32, 95\,963 muestras a 16 kHz. Banco: 160 MHz, 30/10; PC: CSV en placa, 240 MHz, 5/11.}
 \label{tab:res}
 \setlength{\tabcolsep}{2pt}\footnotesize
 \begin{tabular}{llccccc}
@@ -233,42 +246,68 @@ recortes, con un tiempo máximo de cálculo de 16.3~ms frente a 32~ms disponible
 Caso & Método & SNR\textsubscript{in} & $\Delta$SNR & MSE & Útil & $t_{max}$ \\
  & & (dB) & (dB) & & (\%) & (ms) \\
 \midrule
-1: tono 4 kHz & FIR & 10.0 & 59.05 & $1.7\times10^{-8}$ & 100.0 & 8.83 \\
+P2 tonal: banco & FIR & 10.0 & 59.05 & $1.7\times10^{-8}$ & 100.0 & 8.83 \\
               & Espectral & 10.0 & 19.97 & $1.3\times10^{-4}$ & 100.0 & 18.86 \\
-2: banda 2.5--3.8 kHz & FIR & 5.0 & 60.14 & $1.5\times10^{-8}$ & 100.0 & 8.83 \\
+P2: banco & FIR & 5.0 & 60.14 & $1.5\times10^{-8}$ & 100.0 & 8.83 \\
               & Espectral & 5.0 & 18.35 & $2.3\times10^{-4}$ & 100.0 & 18.95 \\
-3: banda 0.6--1.5 kHz & FIR & 0.0 & 0.003 & $2.2\times10^{-2}$ & 100.0 & 8.80 \\
+P5: banco & FIR & 0.0 & 0.003 & $2.2\times10^{-2}$ & 100.0 & 8.80 \\
               & Espectral & 0.0 & 0.002 & $2.2\times10^{-2}$ & 100.0 & 18.84 \\
+\midrule
+P2 tonal: PC & FIR & 10.0017 & 59.0199 & $1.67\times10^{-8}$ & 100.0 & -- \\
+             & Espectral & 10.0017 & 19.9747 & $1.34\times10^{-4}$ & 100.0 & -- \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Comparación de métodos.} Con ruido fuera de banda (casos 1 y 2) el FIR mejora
+\textbf{Comparación de métodos.} Con ruido fuera de banda (P2 tonal y P2) el FIR mejora
 la SNR unos 60~dB porque atenúa al menos 60~dB toda la banda de rechazo, mientras el
 espectral queda limitado a unos 20~dB por su factor de 0.1. Ambos conservan
 prácticamente toda la energía útil. Los tiempos máximos (8.8~ms y 18.9~ms) cumplen sus
 presupuestos con margen a 160~MHz; la versión final corre a 240~MHz con el procesamiento
-en un núcleo distinto de las interrupciones. El banco de filtros ocupa 53\,272~bytes de
-memoria de trabajo compartida. La latencia algorítmica del FIR es su retardo de 2.3~ms
+en un núcleo distinto de las interrupciones. No se repitió ese banco completo: la
+evaluación PC tiene máximo conjunto de 25.694~ms y estado DSP de 80\,960~bytes,
+frente a los 53\,272 del banco anterior. Sus tiempos no son individuales por método.
+La latencia algorítmica del FIR es su retardo de 2.3~ms
 más el bloque de 16~ms; la del espectral es del orden de una ventana completa, 64~ms, más
 2.3~ms de retardo añadido para alinearla con el FIR.
 
-\textbf{Compromiso ruido--distorsión.} En el caso 3 el ruido comparte la banda útil y
+\textbf{Compromiso ruido--distorsión.} En P5 el ruido comparte la banda útil y
 ninguno de los dos métodos mejora la SNR, porque proteger la señal útil también protege
 el ruido superpuesto. Al bajar $f_{min}$ a 600~Hz, el espectral mejora 5.9~dB con factor
 0.1 pero conserva solo 72\,\% de la energía útil, frente a 1.8~dB y 90\,\% con factor 0.8
 (Fig.~\ref{fig:compromiso}, Anexo~\ref{sec:anexo}).
 
 
-\pend{Tabla de P1--P5 en hardware con promedio $\pm$ desviación de 3 repeticiones:
-tono (P1), tres tonos (P2), audio con ruido de banda ancha (P3), transitorio con ruido
-impulsivo (P4), superposición (P5); pérdidas de bloque y errores CRC observados}
+\textbf{Comparación analógica.} La captura del 5/11 a las 18:57 UTC cumple en los tres
+tonos útiles (Tabla~\ref{tab:analogica}). A 4~kHz la amplitud varía 19.3\,\%, por encima
+del 10\,\% fijado: ese punto no permite validar el criterio. La imagen del
+DAC en 12~kHz se pliega sobre 4~kHz al adquirir a 16~kHz; el modelo nominal estima una
+contribución cercana al 4\,\% de la fundamental filtrada. Es una limitación posible,
+sin atribuirle todo el error observado ni relajar los criterios.
+\begin{table}[H]\centering\footnotesize
+\caption{Ganancia analógica medida frente a Sallen-Key con retención DAC.}
+\label{tab:analogica}
+\begin{tabular}{rrrrl}\toprule
+Hz & Modelo & Medida & Error (\%) & Estado \\\midrule
+440 & 0.5007 & 0.4881 & 2.52 & Cumple \\
+880 & 0.4987 & 0.4958 & 0.59 & Cumple \\
+1320 & 0.4823 & 0.4343 & 9.95 & Cumple \\
+4000 & 0.1433 & 0.0972 & -- & Inválida \\\bottomrule
+\end{tabular}\end{table}
+
+\textbf{Cobertura pendiente.} P1 añade un tono; P3 usa el barrido sintético del
+notebook con ruido blanco; P4, transitorios con impulsos; P2 y P5 preservan los CSV
+históricos. Todavía faltan las repeticiones de P1--P5 y su escucha. Las evaluaciones
+CSV verifican filtros en placa, sin sustituir el ADC. También faltan demostrar
+antialiasing de entrada, medir latencia física y completar la atenuación de la
+interferencia principal, distinta del ruido total reportado. P6 se ejecuta en defensa.
+\input{tablas/pruebas_finales.tex}
 
 \section{Conclusiones}\label{sec:conclusiones}
-El sistema cumple la arquitectura distribuida pedida: la adquisición queda separada en
+La arquitectura implementada mantiene la adquisición separada en
 la Pico y la ESP32 ejecuta dos rutas de filtrado independientes dentro de su
 presupuesto de tiempo, con un enlace que delimita bloques, detecta errores y reporta
-pérdidas. La coincidencia entre el modelo de Python y el firmware muestra que el diseño
+pérdidas; su verificación integral física sigue pendiente. La coincidencia entre el modelo de Python y el firmware muestra que el diseño
 validado en simulación se trasladó al microcontrolador sin cambiar su comportamiento.
 Cuando el ruido está separado en frecuencia, el FIR ofrece la mayor reducción con fase
 lineal y menor latencia, mientras que el método espectral reduce menos pero se adapta
@@ -290,30 +329,29 @@ distinto de la ESP32 permitiría reducir la latencia de extremo a extremo.
 \bibliographystyle{IEEEtran}
 \bibliography{referencias}
 
-\onecolumn
 \appendices
 \section{Figuras complementarias}\label{sec:anexo}
 Figuras del sistema y del compromiso ruido--distorsión; además, figuras generadas por \emph{prototipo.py} y disponibles en el repositorio:
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[font=\small, node distance=5mm and 5mm,
-  b/.style={draw, rounded corners=2pt, align=center, minimum height=11mm, minimum width=17mm, inner sep=3pt},
+\begin{tikzpicture}[font=\footnotesize, node distance=5mm and 5mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=10mm, minimum width=17mm, inner sep=2pt},
   a/.style={-{Latex[length=2mm]}, thick}, l/.style={font=\footnotesize, fill=white, inner sep=1pt}]
-\node[b] (mic) {Micrófono\\MAX4466};
-\node[b, right=of mic] (pico) {Nodo 1: Pico\\ADC 16 kHz\\DC, Hann, FFT};
-\node[b, right=12mm of pico, yshift=10mm] (fir) {Nodo 2\\FIR 75 coef.};
-\node[b, right=12mm of pico, yshift=-10mm] (esp) {Nodo 3\\FFT/IFFT\\y métricas};
-\node[b, right=12mm of fir, yshift=-10mm] (pc) {PC\\WAV y\\parámetros};
-\node[b, right=9mm of pc] (dac) {DAC 8 bits\\GPIO25};
-\node[b, right=of dac] (sk) {Sallen-Key\\$f_c\approx2.3$ kHz};
-\node[b, right=of sk] (amp) {Amplificador\\y parlante};
+\node[b] (pico) {Nodo 1: Pico\\ADC 16 kHz\\DC, Hann, FFT};
+\node[b, left=7mm of pico] (mic) {Micrófono\\MAX4466};
+\node[b, below=12mm of pico, xshift=-17mm] (fir) {Nodo 2\\FIR 75 coef.};
+\node[b, below=12mm of pico, xshift=17mm] (esp) {Nodo 3\\FFT/IFFT\\y métricas};
+\node[b, below=34mm of pico] (pc) {PC: WAV y\\parámetros};
+\node[b, below=11mm of pc, xshift=-22mm] (dac) {DAC 8 bits\\GPIO25};
+\node[b, right=4mm of dac] (sk) {Sallen-Key\\$f_c\approx2.3$ kHz};
+\node[b, right=4mm of sk] (amp) {Amplificador\\y parlante};
 \node[draw, dashed, fit=(fir)(esp), inner sep=5pt, label={[font=\footnotesize]above:ESP32}] (e32) {};
 \draw[a] (mic) -- (pico);
-\draw[a] (pico.east) -- ++(6mm,0) |- node[l, pos=.25, left]{SPI} (fir.west);
-\draw[a] (pico.east) -- ++(6mm,0) |- (esp.west);
-\draw[a] (fir.east) -- ++(6mm,0) |- node[l, pos=.25, left]{USB} (pc.west);
-\draw[a] (esp.east) -- ++(6mm,0) |- (pc.west);
-\draw[a] (pc) -- node[l, above=2mm]{USB} (dac);
+\draw[a] (pico.south) -- ++(0,-5mm) -| node[l, pos=.25, above]{SPI} (fir.north);
+\draw[a] (pico.south) -- ++(0,-5mm) -| (esp.north);
+\draw[a] (fir.south) |- node[l, pos=.25, left]{USB} (pc.west);
+\draw[a] (esp.south) |- (pc.east);
+\draw[a] (pc.south) -- ++(0,-5mm) -| node[l, pos=.25, above]{USB} (dac.north);
 \draw[a] (dac) -- (sk);
 \draw[a] (sk) -- (amp);
 \end{tikzpicture}
@@ -323,8 +361,8 @@ Figuras del sistema y del compromiso ruido--distorsión; además, figuras genera
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.75\linewidth]{espectral_compromiso_ruido_distorsion}
-\caption{Caso 3 con $f_{min}=600$ Hz: más supresión implica menos energía útil conservada.}
+\includegraphics[width=\linewidth]{espectral_compromiso_ruido_distorsion}
+\caption{P5 con $f_{min}=600$ Hz: más supresión implica menos energía útil conservada.}
 \label{fig:compromiso}
 \end{figure}
 
@@ -332,6 +370,8 @@ Figuras del sistema y del compromiso ruido--distorsión; además, figuras genera
 \item \href{\repo/docs/final/paper/figuras/fir_polos_ceros.png}{Diagrama de polos y ceros del FIR Kaiser}.
 \item \href{\repo/docs/final/paper/figuras/fir_respuesta_frecuencia.png}{Respuesta en frecuencia del FIR Kaiser}.
 \item \href{\repo/docs/final/paper/figuras/caso_2_graficas.png}{Señales y espectros del caso 2}.
+\item \href{\repo/docs/final/evidencias/fir/respuesta_fir_medida.png}{Respuesta FIR calculada frente al WAV medido}.
+\item \href{\repo/docs/final/evidencias/analogica/respuesta_analogica.png}{Respuesta analógica con retención DAC y medidas válidas}.
 \end{itemize}
 
 

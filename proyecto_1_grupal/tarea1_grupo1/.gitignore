@@ -1,0 +1,6 @@
+# Copias de entrada regenerables; las fuentes historicas caso_N se conservan.
+/resultados/muestras/P[1-5]_muestras.csv
+/resultados/muestras/P2_tonal_muestras.csv
+# Preescucha sintetica opcional, generada por preparar_casos --audio.
+/pruebas/P[1-5]/
+/pruebas/P2_tonal/

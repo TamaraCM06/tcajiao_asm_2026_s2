@@ -1,0 +1,15 @@
+{
+  "responsable": "Equipo; Persona 3 implementa la comprobacion",
+  "alcance": "Criterios internos del equipo; el PDF exige definir y justificar criterios, pero no impone estos porcentajes ni 32 ms",
+  "concordancia_digital_minima_pct": 90,
+  "nota_concordancia": "Umbral de trabajo conservado por decision expresa del usuario el 2026-11-05; no implica porcentaje de ruido eliminado",
+  "repeticiones_minimas": 3,
+  "mejora_snr_minima_db": 10,
+  "energia_util_minima_pct": 90,
+  "pruebas_ruido_separado": ["P1", "P2"],
+  "calculo_conjunto_maximo_us": 32000,
+  "perdidas_maximas": 0,
+  "recortes_maximos": 0,
+  "nota_tiempo": "calculo_max_us es el maximo conjunto FIR+espectral, incluido el cierre; no es tiempo individual ni latencia analogica",
+  "latencia_fisica": "Pendiente medir y justificar criterio antes de las pruebas finales; el resumen conserva no disponible si no se ha medido"
+}

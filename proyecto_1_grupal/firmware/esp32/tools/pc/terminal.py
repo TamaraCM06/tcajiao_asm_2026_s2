@@ -8,6 +8,8 @@ import threading
 from .archivos import cargar_csv, abrir_sesion
 from .cliente import Cliente
 from .concordancia import validar_sesion
+from src.datos.casos import CASOS_FINALES, CASOS_ADICIONALES, EQUIVALENCIAS_HISTORICAS, resolver_caso
+from src.datos.archivos import asegurar_muestras_caso
 
 
 def configuracion_inicial():
@@ -37,6 +39,7 @@ def configurar(actual, argumentos):
     return nueva
 
 
+# Presenta medidas de placa y, por separado, concordancia independiente calculada en PC.
 def mostrar_metricas(informe, validacion=None):
     """Presenta medidas de placa y, por separado, concordancia independiente calculada en PC."""
     for metodo in ("fir", "espectral"):
@@ -47,6 +50,9 @@ def mostrar_metricas(informe, validacion=None):
         if validacion is not None:
             porcentaje = validacion[metodo]["concordancia_modelo_python_pct"]
             print(f"  concordancia_modelo_python_pct (validacion PC): {'no disponible' if porcentaje is None else f'{porcentaje:.4f}'}")
+            cumple = validacion[metodo]["cumple_concordancia"]
+            print(f"  criterio digital >= {validacion[metodo]['umbral_concordancia_pct']:g} %: "
+                  f"{'no disponible' if cumple is None else 'cumple' if cumple else 'no cumple'}")
     print(f"Calculo maximo: {informe['calculo_max_us']} us. No equivale a latencia analogica.")
     if validacion is not None:
         print("Concordancia % compara ESP32 con Python; no indica el porcentaje de ruido eliminado.")
@@ -78,6 +84,7 @@ def main(raiz_proyecto):
     ultima_sesion = None
     tarea = None
 
+    # Ejecuta una sesion; solo actualiza la seleccion cuando termino correctamente.
     def trabajar(operacion, seleccion=None):
         """Ejecuta una sesion; solo actualiza la seleccion cuando termino correctamente."""
         nonlocal ultima_sesion
@@ -88,8 +95,9 @@ def main(raiz_proyecto):
             if operacion == "capturar":
                 resultado = cliente.registrar(argumentos.salidas, configuracion)
             else:
-                ruta = raiz_proyecto / "tarea1_grupo1/resultados/muestras" / f"{seleccion}_muestras.csv" if seleccion in (
-                    "caso_1", "caso_2", "caso_3") else Path(seleccion)
+                ruta = (asegurar_muestras_caso(resolver_caso(seleccion), raiz_proyecto / "tarea1_grupo1")
+                        if seleccion in (*CASOS_FINALES, *CASOS_ADICIONALES, *EQUIVALENCIAS_HISTORICAS)
+                        else Path(seleccion))
                 mezcla, referencia, escala, recortes = cargar_csv(ruta)
                 print(f"Entrada: {len(mezcla)} muestras; recortes de preparacion: {recortes}")
                 resultado = cliente.registrar(argumentos.salidas, configuracion, mezcla, referencia,
@@ -111,7 +119,7 @@ def main(raiz_proyecto):
         finally:
             print("\nPuede escribir otro comando.")
 
-    ayuda = ("ayuda | estado | capturar | evaluar caso_1/caso_2/caso_3 o ruta.csv\n"
+    ayuda = ("ayuda | estado | capturar | evaluar P1/P2/P3/P4/P5/P2_tonal o ruta.csv\n"
              "configurar segundos=6 minimo_hz=1600 ancho_hz=100 factor=0.1 umbral=0.05 ganancia=1\n"
              "abrir ruta_sesion | reproducir entrada/fir/espectral | detener | salir\n"
              "validar (compara la sesion seleccionada con Python) | demo analogico (Pico como instrumento)\n"

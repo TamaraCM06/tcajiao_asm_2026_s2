@@ -1,6 +1,7 @@
 """Validacion independiente en PC de los resultados calculados por la ESP32."""
 import csv
 import hashlib
+import json
 from pathlib import Path
 import wave
 
@@ -33,11 +34,17 @@ def leer_pcm(ruta):
         return np.frombuffer(archivo.readframes(archivo.getnframes()), dtype="<i2").copy()
 
 
+# Compara ESP32 con los mismos modelos del notebook sobre la entrada PCM16 guardada.
 def validar_sesion(ruta, raiz_proyecto):
     """Compara ESP32 con los mismos modelos del notebook sobre la entrada PCM16 guardada."""
     from src.filtros.filtrado_espectral import filtrar_senal
+    from src.mediciones.metricas import snr_db
     ruta, metadatos = abrir_sesion(ruta)
     raiz_proyecto = Path(raiz_proyecto)
+    criterios = json.loads((raiz_proyecto / "metadatos/criterios_finales.json").read_text(encoding="utf-8"))
+    umbral_pct = float(criterios["concordancia_digital_minima_pct"])
+    if not np.isfinite(umbral_pct) or not 0 <= umbral_pct <= 100:
+        raise ValueError("Umbral de concordancia digital fuera de 0--100 %")
     escala = np.float32(metadatos["escala"])
     entrada = leer_pcm(ruta / "entrada.wav").astype(np.float32) * (escala / np.float32(32768))
     ruta_coeficientes = raiz_proyecto / "tarea1_grupo1/resultados/filtro_temporal/coeficientes_fir.csv"
@@ -47,15 +54,30 @@ def validar_sesion(ruta, raiz_proyecto):
         frecuencia_minima=metadatos["minimo_hz"], ancho_hz=metadatos["ancho_hz"],
         factor=metadatos["factor"], umbral_relativo=metadatos["umbral"])
     espectral = np.r_[np.zeros(37), espectral[:-37]]
+    referencia = (leer_pcm(ruta / "referencia.wav").astype(np.float32) * (escala / np.float32(32768))
+                  if metadatos.get("con_referencia") else None)
+    if referencia is not None and referencia.shape != entrada.shape:
+        raise ValueError("La referencia guardada tiene otra longitud")
     resultados = {}
     for nombre, teorica in (("fir", temporal), ("espectral", espectral)):
         teorica_pcm, recortes = cuantizar(teorica, escala)
         medida_pcm = leer_pcm(ruta / f"{nombre}.wav")
         medidas = concordancia_modelo(medida_pcm, teorica_pcm)
+        porcentaje = medidas["concordancia_modelo_python_pct"]
+        medidas.update(umbral_concordancia_pct=umbral_pct,
+                       cumple_concordancia=None if porcentaje is None else porcentaje >= umbral_pct)
         medidas.update(error_maximo_pcm=int(np.max(np.abs(medida_pcm.astype(int) - teorica_pcm.astype(int)))),
                        recortes_modelo_python=recortes, muestras_comparadas=len(medida_pcm))
+        snr_python = snr_db(referencia[:-37], teorica[37:]) if referencia is not None else None
+        if snr_python is not None and not np.isfinite(snr_python):
+            snr_python = None
+        snr_placa = metadatos.get("resultado_esp32", {}).get(nombre, {}).get("snr_salida_db")
+        medidas.update(snr_salida_python_float_db=snr_python,
+                       diferencia_snr_placa_python_db=snr_placa - snr_python
+                       if snr_placa is not None and snr_python is not None else None)
         resultados[nombre] = medidas
     validacion = dict(origen="validacion_independiente_PC", formula="100*max(0,1-RMSE/RMS_teorico)",
+        umbral_concordancia_pct=umbral_pct,
         significado="Concordancia de implementacion; no mide eliminacion de ruido ni el circuito analogico",
         dominio="WAV PCM16; misma escala y retardo causal de 37 muestras, sin ajustar ganancia o fase",
         coeficientes_sha256=hashlib.sha256(ruta_coeficientes.read_bytes()).hexdigest(), resultados=resultados)

@@ -3,8 +3,9 @@ import math
 import numpy as np
 
 
+# Incluye la retencion del DAC en la componente fundamental, sin modelar imagenes aliasadas.
 def ganancia_teorica(frecuencias, modelo):
-    """Calcula H(jw) del seguidor Sallen-Key con divisor de entrada independiente."""
+    """Incluye la retencion del DAC en la componente fundamental, sin modelar imagenes aliasadas."""
     resistencia_1 = float(modelo["resistencia_1_ohm"])
     resistencia_2 = float(modelo["resistencia_2_ohm"])
     tierra = float(modelo["capacitor_tierra_nf"]) * 1e-9
@@ -19,7 +20,10 @@ def ganancia_teorica(frecuencias, modelo):
     angular = 2 * np.pi * frecuencia
     denominador = 1 - angular ** 2 * resistencia_1 * resistencia_2 * tierra * realimentacion
     denominador = denominador + 1j * angular * tierra * (resistencia_1 + resistencia_2)
-    return np.abs(divisor / denominador)
+    frecuencia_dac_hz = float(modelo.get("frecuencia_dac_hz", 16000))
+    if not math.isfinite(frecuencia_dac_hz) or frecuencia_dac_hz <= 0:
+        raise ValueError("La frecuencia del DAC debe ser positiva y finita")
+    return np.abs(divisor / denominador) * np.abs(np.sinc(frecuencia / frecuencia_dac_hz))
 
 
 def amplitudes_componentes(voltios, frecuencia_muestreo, frecuencias):
@@ -102,6 +106,7 @@ def comparar_respuesta(antes, despues, frecuencias, modelo):
     return filas
 
 
+# Exporta una figura independiente sin abrir una ventana ni cambiar el backend global.
 def guardar_figura(ruta, filas, modelo):
     """Exporta una figura independiente sin abrir una ventana ni cambiar el backend global."""
     from matplotlib.figure import Figure
@@ -110,11 +115,16 @@ def guardar_figura(ruta, filas, modelo):
     FigureCanvasAgg(figura)
     eje = figura.subplots()
     frecuencias = np.geomspace(100, 7500, 500)
-    eje.semilogx(frecuencias, ganancia_teorica(frecuencias, modelo), label="Modelo del circuito")
+    eje.semilogx(frecuencias, ganancia_teorica(frecuencias, modelo), label="Divisor + Sallen-Key + retención DAC")
     validas = [fila for fila in filas if fila["medida_valida"]]
     if validas:
         eje.scatter([fila["frecuencia_hz"] for fila in validas],
                     [fila["ganancia_medida"] for fila in validas], color="tab:orange", label="Pico: amplitud después/antes")
+    invalidas = [fila for fila in filas if not fila["medida_valida"] and fila["ganancia_medida"] is not None]
+    if invalidas:
+        eje.scatter([fila["frecuencia_hz"] for fila in invalidas],
+                    [fila["ganancia_medida"] for fila in invalidas], marker="x", color="tab:red",
+                    label="Medida inválida: no acredita concordancia")
     eje.set(xlabel="Frecuencia [Hz]", ylabel="Ganancia de amplitud [V/V]",
             title="Filtro analógico: modelo y medición por componentes", ylim=(0, None))
     eje.grid(True, which="both", alpha=0.3)

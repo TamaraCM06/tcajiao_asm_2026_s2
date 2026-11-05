@@ -1,22 +1,13 @@
-/** Selecciona al arrancar el sistema vivo o la demostracion original de flash. */
-#include "demostracion.h"
-#include "sistema_vivo.h"
+/** Inicia la aplicación de captura en PC y reproducción diferida. */
 #include "esp_log.h"
-#include "sdkconfig.h"
 #include "sesiones_pc.h"
 
-static const char *ETIQUETA_REGISTRO = "emisor";
+static const char *ETIQUETA_REGISTRO = "sesiones";
 
-/** Inicia el modo elegido en menuconfig y publica fallos de inicializacion. */
+/** Inicia el servicio de sesiones y publica fallos de inicialización. */
 void app_main(void)
 {
-#if CONFIG_APLICACION_PC
     const esp_err_t resultado = sesiones_pc_ejecutar();
-#elif CONFIG_APLICACION_VIVO
-    const esp_err_t resultado = sistema_vivo_ejecutar();
-#else
-    const esp_err_t resultado = demostracion_ejecutar();
-#endif
     if (resultado != ESP_OK) {
         ESP_LOGE(ETIQUETA_REGISTRO, "Ejecucion incompleta: %s", esp_err_to_name(resultado));
     }

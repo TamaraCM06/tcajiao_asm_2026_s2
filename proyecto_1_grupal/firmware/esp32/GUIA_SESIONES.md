@@ -5,7 +5,7 @@
 | Campo | Valor |
 |---|---|
 | Responsable | Persona 3, aplicación ESP32; adquisición Pico de Persona 1 |
-| Modo predeterminado | Sesiones PC; al arrancar espera comandos, no reproduce automáticamente |
+| Aplicación | Sesiones PC; al arrancar espera comandos, no reproduce automáticamente |
 | Flujo físico | Pico → SPI → FIR y espectral en ESP32 → USB → archivos en PC |
 | Flujo de escucha | Archivo seleccionado → USB → ESP32 DAC → filtro analógico → GF1002 → parlante |
 | Evaluación controlada | CSV del notebook → mezcla/referencia PCM16 → filtros y métricas en ESP32 |
@@ -13,7 +13,7 @@
 | Duración inicial | 6 segundos, 96000 muestras; configurable entre 256 y 960000 muestras |
 | Memoria | Estado y colas acotados; ningún registro completo se almacena en RAM de la placa |
 | Ejecución | Optimización de rendimiento, CPU 240 MHz; sesiones/DSP en núcleo distinto de las ISR SPI/UART |
-| Verificación física parcial | Saludo y transferencia a 1 Mbaud, captura Pico de 6 s y evaluación de caso_1 comprobadas; DAC, escucha, niveles y respuesta analógica pendientes |
+| Verificación física parcial | Captura Pico de 6 s y evaluación de P2_tonal comprobadas; respuesta analógica válida en tres tonos útiles, 4 kHz inválido por inestabilidad; escucha y estabilidad prolongada pendientes |
 
 La aplicación completa dos filtros durante la captura y guarda sus resultados en la
 computadora. El programa Python no aplica filtros para sustituir a la ESP32.
@@ -72,14 +72,13 @@ máxima estimada del enlace se acerca al 97.4 %: comprobar la captura completa,
 porque el ensayo inicial de velocidad por sí solo no garantiza continuidad.
 El puente de la placa conectada falló a 2 Mbaud y respondió a 1 Mbaud en la
 comprobación directa con esptool; no aumentar la velocidad sin validarla.
-Ese control del enlace no sustituye la prueba física completa de 60 segundos.
+Ese control del enlace no sustituye una captura física completa. Un ensayo de
+60 segundos es un diagnóstico interno recomendado, no una duración exigida por el PDF.
 
 La compilación usa una copia temporal ASCII para evitar problemas de rutas con
 tildes. El comando flash utiliza la última compilación correcta registrada; hay
-que repetir build después de modificar código. El modo anterior con datos en
-flash se conserva mediante APLICACION_DEMOSTRACION; la configuración predeterminada
-del ayudante es APLICACION_PC. Quien use idf.py directamente debe seleccionar ese
-modo en menuconfig si conserva un sdkconfig antiguo.
+que repetir build después de modificar código. La aplicación inicia únicamente
+sesiones PC, también si se compila directamente con idf.py; no hay selección de modos.
 
 ## 1.4. Uso de la terminal
 
@@ -90,7 +89,7 @@ modo en menuconfig si conserva un sdkconfig antiguo.
 | configurar segundos=6 | Duración redondeada hacia arriba a bloques de 256; muestra duración efectiva |
 | configurar minimo_hz=1600 ancho_hz=100 factor=0.1 umbral=0.05 ganancia=1 | Parámetros iniciales; ganancia solo cambia la escucha |
 | capturar | Guarda la entrada Pico y los dos resultados sin reproducirlos |
-| evaluar caso_1 | Procesa el primer CSV existente del notebook; también caso_2 y caso_3 |
+| evaluar P1 | Procesa el CSV del notebook; admite P1, P2, P3, P4, P5 y la variante histórica P2_tonal |
 | evaluar "C:/ruta/prueba.csv" | CSV de cuatro columnas del notebook, o tiempo_s,contaminada sin referencia |
 | reproducir entrada | Reproduce la entrada guardada por el DAC |
 | reproducir fir | Reproduce el resultado FIR guardado |
@@ -223,7 +222,7 @@ este diagnóstico: comprobarla manualmente con el volumen inicialmente bajo.
 | Comando PowerShell desde raíz | & proyecto_1_grupal/.venv/Scripts/python.exe proyecto_1_grupal/firmware/esp32/tools/sesiones.py --puerto COM12 --puerto-pico COM13 |
 | Comando dentro de asm | demo analogico |
 | Firmware | Usa PLAY existente de ESP32 y ADC1 existente de Pico; no requiere recompilar por esta demo |
-| Estímulo | Entrada del caso_1 del notebook, verificada contra su CSV; reutiliza una sesión compatible o la evalúa en ESP32 |
+| Estímulo | Entrada histórica P2_tonal del notebook, antes caso 1; verificada contra su CSV, reutiliza una sesión compatible o la evalúa en ESP32 |
 | Frecuencias | Se leen de configuraciones.json: 440, 880, 1320 y 4000 Hz actualmente |
 | Ganancia de reproducción | Fija en 1 para ambos puntos, independiente de la ganancia de escucha configurada |
 | Pico instrumento | GP26/ADC0, pin físico 31; desconectar el micrófono antes de usar la sonda |
@@ -248,7 +247,7 @@ capturas ni demuestra las imágenes de reconstrucción alrededor de 16 kHz.
 | Prueba | Procedimiento e interpretación |
 |---|---|
 | Alimentación | Modo voltaje DC, punta negra a GND y roja al pin 8 del LM358: aproximadamente 5 V; pin 4 a GND |
-| Centro de señal | Durante la reproducción estable de entrada del caso_1, medir GPIO25 respecto de GND: aproximadamente 1.65 V DC |
+| Centro de señal | Durante la reproducción estable de entrada de P2_tonal, medir GPIO25 respecto de GND: aproximadamente 1.65 V DC |
 | Salida del filtro | Durante la misma señal, medir pin 7 respecto de GND: aproximadamente 0.825 V DC por el divisor 1/2 |
 | Polaridad y tomas | Usar COM y V del multímetro, sin seleccionar corriente ni continuidad con el circuito alimentado |
 | Límite de la medida | Esas lecturas comprueban alimentación y centrado, no frecuencia de corte ni reducción de imágenes |
@@ -279,10 +278,11 @@ ser distintas y no se alinean artificialmente los bloques.
 
 | Prueba | Porcentaje y referencia |
 |---|---|
-| Circuito analógico | Concordancia = max(0, 100 − error relativo de ganancia en %), por frecuencia; modelo Sallen-Key con divisor nominal |
+| Circuito analógico | Concordancia = max(0, 100 − error relativo de ganancia en %), por frecuencia; divisor × Sallen-Key × abs(sinc(f/16000)) para la fundamental |
 | Criterio analógico inicial | Error relativo <=15 % por tono; equivale a concordancia >=85 %, con medida válida. Es un criterio del equipo, no un valor impuesto por el profesor |
 | Validez analógica | Rechazar saturación, cambios en contadores de adquisición, amplitudes bajo el límite de detección o variabilidad mayor al 10 % |
 | Implementación digital | Concordancia = 100×max(0,1−RMSE/RMS del modelo Python), sobre las salidas PCM16 con la misma escala y retardo causal |
+| Criterio digital | ≥90 % en FIR y espectral, ratificado por el usuario el 5/11; validar escribe umbral y cumplimiento por método, con no disponible si el porcentaje no está definido |
 | Silencio digital | Modelo y salida exactamente cero: 100 %. Modelo cero y salida distinta: porcentaje no disponible; se conserva el error RMS |
 | Fuente digital | La misma entrada PCM16 guardada se pasa por los modelos originales de FIR y espectral; también funciona en capturas sin referencia limpia |
 | Archivos digitales | validacion_python.json, validacion_python.csv y columnas adicionales en metricas.csv; resultado_esp32 permanece identificado como medida de placa |
@@ -295,3 +295,56 @@ sustituir el procesamiento de los microcontroladores. Se ejecuta automáticament
 en capturar/evaluar y puede repetirse con validar sobre una sesión anterior.
 
 Fundamento del circuito: [Análisis de la arquitectura Sallen-Key, Texas Instruments](https://www.ti.com/lit/an/sloa024b/sloa024b.pdf).
+
+### 1.10.4. Retención DAC, imágenes y evidencia archivada
+
+| Aspecto | Modelo y límite |
+|---|---|
+| Retención de orden cero | Cada código permanece un periodo; la fundamental se atenúa por abs(sinc(f/16000)), donde sinc(x)=sin(pi×x)/(pi×x) |
+| Comparación | La sonda directa muestrea los escalones; después del filtro observa la fundamental reconstruida. Se modela esta diferencia, sin ajustar componentes a las medidas |
+| Atenuación DAC a 440/880/1320/4000 Hz | Aproximadamente 0.99876 / 0.99503 / 0.98884 / 0.90032 |
+| Imagen de 4 kHz | La imagen en 12 kHz se pliega sobre 4 kHz al adquirir a 16 kHz; contribución nominal aproximada de 4 % respecto a la fundamental filtrada, dependiente de fase |
+| Límite | El modelo de fundamental no incluye imágenes aliasadas ni demuestra sincronización exacta de relojes ADC/DAC; la corrección no elimina toda incertidumbre |
+| Criterios previos | Error ≤15 % y variabilidad ≤10 %, conservados desde antes de medir; la corrección sinc se identifica como reanálisis posterior |
+| Medición 20261105T185714Z_80cf289c | Tres tonos útiles cumplen con errores 2.52 / 0.59 / 9.95 %; 4 kHz tiene variabilidad de 19.3 % y no permite validar ese punto |
+| Archivo | [Resultados seleccionados](../../docs/final/evidencias/README.md); registros completos y reanálisis siguen locales |
+| Alcance del PDF | Documentar reconstrucción DAC, §5.6. Esta demo es complementaria y no demuestra antialias antes del ADC |
+
+Fundamento de retención: [DAC Output Response, Texas Instruments](https://www.ti.com/content/dam/videos/external-videos/en-us/2/3816841626001/5577272810001.mp4/subassets/TIPL4705-DAC-Output-Response.pdf).
+
+## 1.11. Casos de defensa y repetición
+
+| Identificador | Señal y ruido | Semilla |
+|---|---|---|
+| P1 | Tono 440 Hz e interferencia 4000 Hz, 10 dB | 4100 |
+| P2 | Multitono histórico y banda 2500–3800 Hz, 5 dB | 2000 |
+| P2_tonal | Multitono e interferencia 4000 Hz, 10 dB; antiguo caso 1 | 1000 |
+| P3 | Audio sintético: barrido 220–1320 Hz y ruido blanco, 5 dB | 4300 |
+| P4 | Transitorio 440 Hz e impulsos, 5 dB | 4400 |
+| P5 | Multitono y banda superpuesta 600–1500 Hz, 0 dB | 3000 |
+
+Todas duran 6 s a 16 kHz y usan el generador del notebook. Desde proyecto_1_grupal,
+python -m herramientas.preparar_casos prepara los CSV; cargar un caso también
+prepara automáticamente la copia faltante sin reescribir el JSON fuente.
+Abrir sesiones.py con --salidas resultados/pruebas_finales y ejecutar evaluar Pn
+tres veces de forma independiente. Luego, python -m herramientas.resumen_pruebas
+resultados/pruebas_finales --salida resultados/entrega genera estadísticas.
+No hace falta copiar WAV ni JSON a docs para resumir. Los resultados digitales
+CSV no sustituyen la adquisición física. El [manual de pruebas](../../docs/final/MANUAL_USUARIO.md)
+describe P1–P6, origen de las métricas, antialias y selección mínima para la entrega.
+P2_tonal es una variante adicional y no se contabiliza como P1. Los nombres
+históricos se admiten por compatibilidad. El banco flash conserva tres registros;
+los cinco casos de defensa se transfieren por PC, sin ampliar la flash necesaria.
+
+## 1.12. Compilación de la única aplicación
+
+| Desde la raíz del repositorio | Alcance |
+|---|---|
+| powershell.exe -NoProfile -ExecutionPolicy Bypass -File proyecto_1_grupal/firmware/esp32/ejecutar_idf.ps1 -Accion build | Compilar sesiones PC desde una copia temporal ASCII |
+| Mismo script con -Accion flash -Puerto COMx | Programar la última compilación correcta |
+| Mismo script con -Accion size | Consultar tamaño |
+| proyecto_1_grupal/firmware/esp32/tools/sesiones.py --puerto COMx | Abrir la terminal ASM2 con el Python del entorno |
+
+No hay selector de modos ni banco de señales flash. El procesador finito está en
+[procesamiento_registro](components/procesamiento_registro/), conserva los estados
+de los dos filtros y entrega sus resultados al servicio de sesiones.

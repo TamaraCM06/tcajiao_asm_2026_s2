@@ -5,6 +5,8 @@
   "capacitor_tierra_nf": 10,
   "capacitor_realimentacion_nf": 22,
   "ganancia_divisor": 0.5,
+  "frecuencia_dac_hz": 16000,
+  "modelo_medicion": "Ganancia de la componente fundamental: divisor * Sallen-Key * abs(sinc(f/frecuencia_dac_hz)); no incluye imagenes aliasadas ni fase",
   "capturas_por_punto": 12,
   "espera_estabilizacion_s": 0.5,
   "intervalo_capturas_s": 0.2,

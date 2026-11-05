@@ -1,127 +1,48 @@
-# TODO entrega final
+# 1. Trabajo pendiente para entregar
 
-Entrega y defensa: **6 de noviembre de 2026, 11:50 pm**. Enunciado: [ASM_Proyecto_Grupal1_v7.pdf](../references/ASM_Proyecto_Grupal1_v7.pdf).
+Fuente de verdad: [enunciado del proyecto](../references/ASM_Proyecto_Grupal1_v7.pdf).
+Solo aparecen acciones pendientes; los procedimientos están en el
+[manual de usuario y pruebas](MANUAL_USUARIO.md). No se hacen commits en este bloque.
 
-Solo queda lo pendiente. Está dividido en lo que necesita las placas y lo que se hace
-en la computadora sin hardware. Todo usa el montaje actual, sin reconectar nada.
+## 1.1. Funcionalidad que todavía debe comprobarse o completarse
 
-## Cómo se relacionan nuestros casos con las pruebas del enunciado
+| ID | Requisito del PDF | Qué falta realmente | Cómo cerrarlo y qué conservar | Responsable |
+|---|---|---|---|---|
+| F1 | §1–1.1: adquisición separada, dos rutas y salida reproducible en tiempo real o cuasi real | Se observó una captura de 6 s, pero falta comprobar integralmente adquisición, filtrado y escucha de ambas rutas mediante sesiones PC | Manual §1.3–1.4. Capturar la misma fuente, escuchar los dos WAV por DAC y anotar errores/colas/recortes. Medir y justificar el comportamiento temporal del flujo vigente; la reproducción es diferida y no se presenta como audio continuo | P1/P3 |
+| F2 | §2 y §4: P1–P5, tres repeticiones por condición, sonido, parámetros, promedios y variabilidad | Faltan las corridas finales. Las pruebas CSV no comprueban la adquisición ADC ni todo el circuito | Manual §1.5: 15 sesiones digitales mínimas y ensayos físicos de las mismas señales. Guardar sesiones localmente; obtener resumen con media y desviación y seleccionar resultados para el artículo. Si falta una fuente física controlada, resolverla antes de declarar el sistema completo | Equipo |
+| F3 | §2: justificar muestreo y demostrar que se evita aliasing en las condiciones previstas | Falta validar la banda de entrada antes del ADC. El Sallen-Key actual está después del DAC | Manual §1.6. Revisar acondicionamiento y limitación de banda de la fuente/entrada; verificar respuesta con estímulos conocidos. Un pico de 7 kHz al aplicar 9 kHz demuestra aliasing. La ausencia del pico por sí sola no demuestra que se evita. Reportar límites si no se resuelve | P1/P3 |
+| F4 | §3.5: atenuación de la interferencia principal | El firmware informa atenuación del ruido total, que no equivale siempre a la principal | Manual §1.7. En P1 medir el tono de 4 kHz con las salidas de placa y conservar CSV/espectros; a rechazo profundo reportar una cota. Para ruido de banda/superposición definir y justificar la región de interferencia y completar su medida; no renombrar ruido total como principal | P3/P4 |
+| F5 | §3.5: latencia por bloque, costo y memoria | Hay tiempos conjuntos de cálculo y memoria; falta caracterizar latencia por bloque y tiempos individuales actuales | Manual §1.7. Instrumentar marcas sincronizadas de llegada, procesamiento y publicación de cada bloque en sesiones PC; medir reproducción por separado. Separar cálculo, colas y espera voluntaria de escucha. No inferir latencia física de los WAV. Fijar y justificar el criterio antes de las corridas finales | P3/P4 |
+| F6 | §4, §6: P6 desconocida y ajuste sin recompilar | Falta ensayo operativo y ejecución real que definirá el profesor | Manual §1.8. Ensayar carga de CSV desconocido y cambios de parámetros; comunicar límites 16 kHz, entrada 256, FFT 1024, salto 512. P6 real solo se completa en la defensa; no inventar referencia limpia si no existe | Todos |
 
-Los tres casos usan la misma señal útil: tres tonos de 440, 880 y 1320 Hz.
+## 1.2. Documento, defensa y entrega
 
-- **caso_2** (ruido de banda 2.5–3.8 kHz, fuera de la banda útil) es exactamente **P2**:
-  tres tonos con ruido de alta frecuencia.
-- **caso_3** (ruido de banda 0.6–1.5 kHz, encima de los tonos) es exactamente **P5**:
-  superposición parcial de señal y ruido.
-- **caso_1** (interferencia sinusoidal de 4 kHz) tiene el ruido que pide **P1**, pero no
-  su señal: P1 pide un solo tono y caso_1 tiene tres. Basta con dejarle un solo tono
-  (440 Hz) para que sea P1.
-- **Faltan P3** (audio o señal arbitraria con ruido de banda ancha) **y P4** (señal
-  transitoria con ruido impulsivo).
+| ID | Requisito del PDF | Acción pendiente | Cierre |
+|---|---|---|---|
+| F7 | §3.3.5 y §8: respuesta calculada frente a medida, resultados y análisis | La respuesta FIR digital medida ya está disponible; falta integrar las repeticiones finales, latencia, atenuación principal y resultado de antialias | Seleccionar tablas/figuras pequeñas, sustituir pendientes del artículo y distinguir ADC, CSV en placa y simulación. El rechazo a 4 kHz está limitado por PCM16; no llamarlo medición analógica |
+| F8 | §8: artículo ≤4 páginas, abstract inglés 150–250 palabras, ≤6 palabras clave; herramientas ≤2 páginas | Compilar y revisar otra vez después de introducir los resultados finales | Manual §1.9. Referencias citadas, sin código fuente en los dos PDF; herramientas debe describir solo lo efectivamente utilizado |
+| F9 | §6–8: defensa ≤15 min, todos participan, sonido, P6 y explicación del código; ramas y tag | Falta ensayo completo, revisión grupal y release | Manual §1.9. Poder justificar cada módulo entregado; revisar commits incrementales, integrar mediante el flujo del equipo y crear tag al cerrar. Esta revisión no ejecuta commits, merge ni publicación |
 
----
+## 1.3. Qué no se añade como requisito
 
-## A. Con las placas
+| Elemento | Alcance correcto |
+|---|---|
+| Capturas de 60 s, tres veces | Diagnóstico interno recomendado si hay dudas de continuidad; el PDF no fija esa duración ni esa repetición para el enlace |
+| Demo analógica de cuatro tonos y error ≤15 % | Ayuda a documentar el filtro de reconstrucción, §5.6. El PDF no exige ese ensayo ni ese porcentaje. El punto de 4 kHz actual es inválido; repetirlo es opcional si se quiere usar como validación cuantitativa |
+| Concordancia Python ≥90 % | Criterio interno conservado por decisión del usuario; no sustituye las métricas y ensayos físicos obligatorios |
+| Copiar todos los WAV, JSON y logs a Git | No es requisito. Los registros completos se conservan localmente; en Git van fuentes, documentos y resultados seleccionados |
+| Resumen estadístico | Sí responde al §4, pero es una ayuda: puede calcularse de otra manera. No aprueba el proyecto automáticamente ni exige validación Python para promediar |
 
-### A1. Repetir P1 a P5 tres veces
-**Problema.** El enunciado (§4) pide al menos tres repeticiones por prueba, con promedio
-y variabilidad. Hoy hay una sola corrida por caso.
-**Solución.** Correrlas antes de la defensa, no durante ella: en la terminal,
-`evaluar P1` tres veces, y lo mismo para P2 a P5. Cada sesión se copia a
-`docs/final/evidencias/P1/rep_1/`, `rep_2/`, `rep_3/`, porque `resultados/` no se sube a
-Git. Después, `python -m herramientas.resumen_pruebas docs/final/evidencias` genera
-`resumen.csv` con media y desviación de cada métrica, y con eso se llena la tabla
-pendiente del paper. En la defensa basta mostrar una corrida en vivo.
+## 1.4. Limpieza local pendiente por bloqueo de herramienta
 
-### A2. Respuesta del FIR medida
-**Problema.** El enunciado (§3.3.5) pide comparar la respuesta calculada del FIR con la
-medida. Lo medido es lo que la placa hace con los tonos reales.
-**Solución.** No requiere una prueba nueva: se usa cualquier sesión de `evaluar` ya
-grabada. Corre `python -m herramientas.respuesta_fir_medida resultados/sesiones/<id>`,
-que mide en `entrada.wav` y `fir.wav` la amplitud de cada tono y la compara con la
-respuesta calculada desde los coeficientes. El resultado se guarda en
-`docs/final/evidencias/fir/` y se reporta en el paper: en banda de paso la diferencia
-debería ser menor a 0.5 dB, y a 4 kHz la salida debería quedar en el piso de ruido.
+La revisión automática rechazó la eliminación física por terminal con el motivo
+blocked by policy, incluso para un único archivo. El editor permitió retirar código
+y texto. No se considera completada la limpieza de estos grupos, ni se crearon respaldos.
 
-### A3. Aliasing
-**Qué es.** El aliasing es que una frecuencia mayor a la mitad de la frecuencia de
-muestreo (8 kHz, porque la Pico muestrea a 16 kHz) se "dobla" y aparece disfrazada de
-otra frecuencia más baja: un tono de 9 kHz se ve como uno de 16 − 9 = 7 kHz. Pasa al
-muestrear, así que solo lo evita un filtro analógico antes del ADC, y entre el
-micrófono y la Pico no tenemos uno.
-**Problema.** El enunciado (§2) pide demostrar que el sistema evita el aliasing.
-**Solución.** Poner un tono de 9 kHz desde un generador en el celular frente al
-micrófono y mirar la columna **Pico** de la consola de la Pico, que muestra la
-frecuencia dominante del bloque más fuerte. Si marca cerca de 7 kHz, hay aliasing y se
-reporta como limitación. Si no aparece nada fuerte, el micrófono y su circuito ya
-atenúan esas frecuencias, y esa es la evidencia. Se guarda una captura en
-`evidencias/aliasing/` y se escribe una frase en el paper.
-
-### A4. Enlace SPI de 60 s
-**Problema.** Solo hay una captura de 6 s sin pérdidas. El enunciado (§5) pide detectar
-errores e indicar pérdidas, y la guía pide 60 s.
-**Solución.** No hace falta un test nuevo: el firmware ya revisa cada bloque y aborta si
-uno llega mal. En la terminal, `configurar segundos=60` y `capturar`, tres veces. Si las
-tres terminan, en el paper va "11250 bloques, 0 errores CRC, 0 pérdidas"; si alguna se
-aborta, `eventos.log` dice por qué y se reporta.
-
-### A5. Escuchar y ensayar P6
-**Problema.** El enunciado pide revisar el sonido (§4) y resolver en vivo una prueba
-desconocida cambiando parámetros sin recompilar (§6).
-**Solución.** `reproducir entrada`, `fir` y `espectral` de P3, empezando con volumen
-bajo. Para P6, alguien arma un CSV sorpresa y el resto lo resuelve con
-`evaluar "ruta.csv"` y `configurar ...`. Lo que se cambió se anota en
-`evidencias/P6_ensayo.md`.
-
-### A6. Copiar la evidencia que ya existe
-**Problema.** La demo analógica y las sesiones del 5 de noviembre están solo en la otra
-computadora, dentro de `resultados/`, que no va a Git.
-**Solución.** Copiar a `docs/final/evidencias/` la carpeta de `resultados/sesiones/analogicas/`
-(con `comparacion_analogica.csv` y `respuesta_analogica.png`) y las dos sesiones del 5 de
-noviembre. La demo no se vuelve a correr (no la pide el enunciado). Si el tono de 4 kHz
-sale con más error que los demás, se justifica así: los escalones del DAC bajan cerca de
-10 % la amplitud a 4 kHz, la sonda "después" (pin 7) lo ve y la "antes" (GPIO25) no, y el
-modelo no lo incluye. No es un error del filtro.
-
-### A7. Confirmar el umbral de concordancia
-**Problema.** El paper fija una concordancia placa–Python de al menos 90 %, pero todavía
-no vemos los valores reales.
-**Solución.** Revisar `validacion_python.csv` de las sesiones. El caso 1 dio 29.9764 dB en
-la placa contra 29.9760 dB en Python, así que se espera mucho más de 99 %. Si algo da
-menos de 90 %, se investiga antes de entregar.
-
----
-
-## B. En la computadora, sin placas
-
-### B1. Crear P1, P3 y P4 y renombrar los casos (pendiente)
-**Solución.** En `configuraciones.json`: caso_1 pasa a P1 con un solo tono de 440 Hz,
-caso_2 pasa a P2, caso_3 pasa a P5, y se agregan P3 (audio propio con ruido de banda
-ancha; si es voz, con permiso) y P4 (ráfaga o escalón con ruido impulsivo). Después hay
-que regenerar las muestras y renombrar en el notebook, `prototipo.py`, el exportador, la
-terminal (`terminal.py` y `demo_analogica.py`), los datos del firmware y los tests, con
-un test nuevo `tarea1_grupo1/tests/test_casos_p.py`. Esto debe hacerse antes de A1.
-
-### B2. Repeticiones automáticas en la terminal (opcional)
-Si se quiere ahorrar tiempo en A1, se puede agregar a la terminal algo como
-`evaluar P1 3`, que repita la evaluación y guarde las tres sesiones. No es obligatorio:
-correr el comando tres veces da lo mismo.
-
-### B3. Hecho en esta revisión
-- El test del filtro analógico ahora espera 22 nF. Todas las pruebas pasan (153).
-- El modelo analógico no se tocó: queda igual que cuando se corrió la demo.
-- 🆕 `herramientas/respuesta_fir_medida.py` y 🆕 `herramientas/resumen_pruebas.py`, con
-  sus pruebas en `firmware/esp32/tests/test_herramientas_resultados.py`.
-- En el paper: las figuras 1 y 2 están en el anexo; la terminal de la PC queda declarada
-  como interfaz local del nodo 3; y los criterios de aceptación incluyen el analógico
-  (≤ 15 %) y la concordancia de al menos 90 %, con su justificación.
-
-### B4. Al final
-Quitar los pendientes en rojo del paper (aliasing, FIR medido, confirmar criterios y la
-tabla P1–P5), revisar que tenga como máximo 4 páginas y herramientas como máximo 2,
-hacer merge a `master` con su tag y ensayar la defensa.
-
-**Ojo con el espacio del paper.** Hoy cuerpo y referencias llenan exactamente 3 páginas
-y el anexo ocupa la 4. Cuando entre la tabla P1–P5 y los textos de aliasing y FIR medido,
-habrá que recortar: por ejemplo, pasar la Tabla I (candidatos FIR/IIR) al anexo o
-reemplazar la tabla del 30/10 por la de P1–P5.
+| Grupo | Pendiente y límite |
+|---|---|
+| Datos binarios del banco retirado | Eliminar los tres archivos float32 que aún quedan en firmware/esp32/components/senales_embebidas/datos; no se compilan ni pertenecen a la entrega |
+| Sesiones de diagnóstico no utilizadas | Eliminar todas salvo los originales 20261105T164053Z_77315ebc, 20261105T164327Z_614a343d, 20261105T165522Z_88f6f6f0 y la medición analógica 20261105T185714Z_80cf289c |
+| Copias y cálculos temporales | Eliminar copias completas bajo evidencias/sesiones y evidencias/analogicas, resultados/verificacion_final_pc y resultados/entrega; preservar las seis evidencias seleccionadas |
+| Cachés y herramientas duplicadas | Eliminar directorios python y python_directo, capturas PNG y logs de revisión bajo build/herramientas_tex; conservar tectonic.exe, fonts.conf y build/ruta_compilacion.txt |
+| Otros residuos regenerables | Eliminar preescuchas Pn, cachés y carpetas vacías retiradas; conservar .venv, entregas anteriores y resultados históricos |

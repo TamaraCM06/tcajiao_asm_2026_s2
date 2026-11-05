@@ -23,12 +23,16 @@
 /* Formato lógico: float IEEE-754 binario32, little-endian, en voltios sin DC.
  * Usar nodo1_empaquetar(): no depender de accesos float desalineados ni del
  * endianness del compilador. El relleno SPI queda fuera de esta estructura. */
+/* MinGW GCC 6 usa alineación MS por defecto: el pragma también fija los offsets
+ * en las pruebas host. El empaquetador sigue serializando campo por campo. */
+#pragma pack(push, 1)
 typedef struct __attribute__((packed)) {
     uint8_t cabecera[2];
     uint32_t id_bloque;
     float muestras[NODO1_N];
     uint8_t crc8;
 } nodo1_paquete_t;
+#pragma pack(pop)
 
 typedef struct {
     float hann[NODO1_N];

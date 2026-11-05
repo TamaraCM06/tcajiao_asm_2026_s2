@@ -35,7 +35,7 @@ typedef struct {
 } control_t;
 
 typedef struct {
-    uint64_t validos, huecos, rechazos[TRAMA_SPI_MUESTRA_NO_FINITA + 1];
+    uint64_t validos, huecos, rechazos[TRAMA_SPI_MUESTRA_FUERA_RANGO + 1];
     uint32_t duplicados, retrocesos, desbordamientos, reinicios, errores_spi;
     uint32_t ultimo_id, calculo_max_us;
     int64_t ultimo_valido_us;

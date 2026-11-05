@@ -9,7 +9,7 @@ from tools.graficar_microfono import decodificar, recibir
 
 
 def trama(codigos):
-    return ("ADC1,42,10000,3.300000,1,2,3,256," + ",".join(map(str, codigos)) + "\r\n").encode()
+    return ("ADC1,42,16000,3.300000,1,2,3,256," + ",".join(map(str, codigos)) + "\r\n").encode()
 
 
 class CapturasUSB(unittest.TestCase):
@@ -17,7 +17,7 @@ class CapturasUSB(unittest.TestCase):
         captura = decodificar(trama([0, 4095] * 128))
         self.assertIsNotNone(captura)
         self.assertEqual((captura.bloque, captura.fs, captura.perdidos, captura.errores, captura.reinicios),
-                         (42, 10000, 1, 2, 3))
+                         (42, 16000, 1, 2, 3))
         self.assertEqual(captura.voltios[:2], [0.0, 3.3])
 
     def test_rechaza_tabla_truncamiento_y_codigos_invalidos(self):
@@ -26,7 +26,8 @@ class CapturasUSB(unittest.TestCase):
                       trama([4096] * 256), trama([-1] * 256),
                       valida.replace(b"3.300000", b"nan"),
                       valida.replace(b",256,", b",255,", 1),
-                      valida.replace(b",10000,", b",0,", 1)):
+                      valida.replace(b",16000,", b",0,", 1),
+                      valida.replace(b",16000,", b",10000,", 1)):
             with self.subTest(linea=linea[:50]):
                 self.assertIsNone(decodificar(linea))
 

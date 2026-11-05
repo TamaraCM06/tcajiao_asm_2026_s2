@@ -1,8 +1,20 @@
-# 1. Emisor y evaluación digital en ESP32
+# 1. ESP32: sesiones PC y evaluación digital
 
 ## 1.1. Propósito
 
-Este firmware es el programa de la ESP32 para el taller de semana 12. Reproduce
+El modo predeterminado ahora captura desde la Pico, procesa ambos filtros en la
+ESP32 y guarda las tres señales en la computadora. Después permite reproducir
+una de ellas por comando. La [guía de sesiones](GUIA_SESIONES.md) contiene las
+conexiones, instalación, comandos, formatos, métricas y límites actuales.
+
+| Modo | Uso |
+|---|---|
+| APLICACION_PC, predeterminado | Captura/almacenamiento PC y reproducción diferida; UART binaria a 2 Mbaud |
+| APLICACION_VIVO | Integración anterior de escucha continua por GPIO25 |
+| APLICACION_DEMOSTRACION | Banco histórico del taller con señales incluidas en flash |
+
+Los apartados 1.2 en adelante describen el banco histórico de demostración.
+No son las instrucciones de arranque del modo PC. El banco reproduce
 las tres señales del notebook de Tarea 1 mediante el convertidor digital a
 analógico (DAC) de GPIO25. Después evalúa un filtro temporal de respuesta finita
 al impulso (FIR) y uno espectral en la propia ESP32, y muestra sus resultados
@@ -11,7 +23,7 @@ en la consola.
 La computadora prepara los datos, compila, programa la placa y muestra la
 consola. Durante la demostración, los filtros se calculan en la ESP32.
 
-## 1.2. Funcionamiento
+## 1.2. Funcionamiento del banco histórico de flash
 
 Al arrancar, la ESP32 recorre caso_1, caso_2 y caso_3. Para cada caso realiza
 estos pasos en orden:

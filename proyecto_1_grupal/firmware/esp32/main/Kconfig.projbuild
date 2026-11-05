@@ -2,7 +2,10 @@ menu "Aplicacion del proyecto grupal"
 
     choice APLICACION_MODO
         prompt "Modo de arranque"
-        default APLICACION_VIVO
+        default APLICACION_PC
+
+        config APLICACION_PC
+            bool "Captura a PC y reproduccion diferida por comandos"
 
         config APLICACION_VIVO
             bool "MAX4466/Pico -> SPI -> FIR y espectral -> audio seleccionable"

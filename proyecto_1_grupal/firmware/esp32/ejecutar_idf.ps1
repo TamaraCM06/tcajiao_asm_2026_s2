@@ -39,6 +39,10 @@ try {
         foreach ($nombre in @('components', 'main', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv')) {
             Copy-Item -LiteralPath (Join-Path $PSScriptRoot $nombre) -Destination $rutaCopia -Recurse
         }
+        $revision = & git -C $PSScriptRoot describe --always --dirty
+        if ($LASTEXITCODE -eq 0) {
+            Set-Content -LiteralPath (Join-Path $rutaCopia 'version.txt') -Value $revision -Encoding ASCII
+        }
     } else {
         if (-not (Test-Path -LiteralPath $rutaRegistro)) { throw 'Primero ejecuta una compilacion correcta.' }
         $rutaCopia = (Get-Content -LiteralPath $rutaRegistro -Raw).Trim()

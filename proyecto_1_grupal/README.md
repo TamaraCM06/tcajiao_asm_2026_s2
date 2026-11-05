@@ -5,7 +5,10 @@ Tarea 1 y el avance del taller de semana 12: prototipo Python del sistema
 completo, emisión de señales y evaluación digital de filtros en ESP32, y
 receptor en Raspberry Pi Pico con su estrategia de validación.
 
-Para preparar y ejecutar la demostración del taller, consultar el
+La integración actual permite capturar desde Pico a 16 kHz, ejecutar ambos filtros
+en ESP32, guardar las tres señales en la computadora y reproducirlas después por
+comando. Consultar la [guía de sesiones](firmware/esp32/GUIA_SESIONES.md).
+La demostración histórica del taller sigue disponible en el
 [README de ESP32](firmware/esp32/README.md). Esta guía general explica dónde está
 cada parte y cómo trabajar con el modelo Python.
 
@@ -17,7 +20,8 @@ cada parte y cómo trabajar con el modelo Python.
 | Taller: prototipo Python | Ejecuta los tres casos, el diseño FIR, el filtro espectral y las métricas sin abrir el notebook | [prototipo.py](prototipo.py) y [ajustes](metadatos/prototipo.json) |
 | Taller: ESP32 | Firmware C que emite tres señales por DAC, evalúa ambos filtros sobre 95963 muestras y reúne los seis resultados en tablas finales | [Instrucciones de ESP32](firmware/esp32/README.md) |
 | Preparación de señales | Exportador de los CSV del notebook a los datos incluidos en flash | [Exportador](herramientas/exportar_senales.py) |
-| Taller: receptor Pico | Firmware C que adquiere por ADC a 10 kHz, analiza bloques de 256 con Hann y FFT y reporta diagnóstico por USB | [Instrucciones del receptor](firmware/receptor/README.md) |
+| Receptor Pico | Firmware C que adquiere por ADC a 16 kHz, analiza bloques de 256 y transmite por SPI con la opción de integración habilitada | [Instrucciones del receptor](firmware/receptor/README.md) |
+| Sesiones PC y ESP32 | Captura, guardado, métricas controladas y reproducción diferida | [Guía](firmware/esp32/GUIA_SESIONES.md) y [terminal Python](firmware/esp32/tools/sesiones.py) |
 | Taller: informe | Proceso de diseño, criterios, validación y discusión del avance, con las fuentes de sus diagramas | [Informe](docs/avance2/informe.pdf) y [diagramas](docs/avance2/README.md) |
 | Requisitos de Tarea 1 | Enunciado académico de la primera entrega | [Enunciado](docs/references/ASM_Tarea1_v7.pdf) |
 

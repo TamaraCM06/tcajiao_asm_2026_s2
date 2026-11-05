@@ -59,6 +59,8 @@ trama_spi_resultado_t trama_spi_decodificar(const uint8_t *datos, size_t cantida
         if (!isfinite(leer_float32_le(datos + 6u + 4u * n))) {
             return TRAMA_SPI_MUESTRA_NO_FINITA;
         }
+        if (fabsf(leer_float32_le(datos + 6u + 4u * n)) > 3.3f)
+            return TRAMA_SPI_MUESTRA_FUERA_RANGO;
     }
     bloque->id = leer_u32_le(datos + 2u);
     for (size_t n = 0; n < TRAMA_SPI_MUESTRAS; ++n) {

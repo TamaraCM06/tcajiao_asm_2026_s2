@@ -84,6 +84,15 @@ static void probar_muestras_no_finitas(void)
     }
 }
 
+/** Un float finito imposible para el ADC no debe alcanzar los filtros. */
+static void probar_muestras_fuera_rango(void)
+{
+    preparar_trama();
+    muestras[NODO1_N - 1] = 1000000.0f;
+    assert(nodo1_empaquetar(1, muestras, trama));
+    comprobar_rechazo(NODO1_SPI_BYTES * 8u, TRAMA_SPI_MUESTRA_FUERA_RANGO);
+}
+
 /** Comprueba un paso de secuencia, su diagnostico y la nueva referencia. */
 static void comprobar_secuencia(trama_spi_secuencia_t *secuencia, uint32_t id,
                                 trama_spi_evento_t evento, uint32_t omitidos)
@@ -119,6 +128,7 @@ int main(void)
     probar_trama_valida();
     probar_errores_trama();
     probar_muestras_no_finitas();
+    probar_muestras_fuera_rango();
     probar_secuencia();
     puts("Tramas SPI: contrato Pico/ESP32, rechazos y secuencia OK (sin hardware).");
     return 0;

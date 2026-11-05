@@ -22,6 +22,7 @@ typedef enum {
     TRAMA_SPI_CABECERA_INVALIDA,
     TRAMA_SPI_CRC_INVALIDO,
     TRAMA_SPI_MUESTRA_NO_FINITA,
+    TRAMA_SPI_MUESTRA_FUERA_RANGO,
 } trama_spi_resultado_t;
 
 typedef struct {

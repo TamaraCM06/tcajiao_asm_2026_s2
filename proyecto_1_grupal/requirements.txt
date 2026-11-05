@@ -3,3 +3,4 @@ scipy>=1.10
 matplotlib>=3.7
 ipykernel>=6.0
 pytest>=7.0
+pyserial>=3.5

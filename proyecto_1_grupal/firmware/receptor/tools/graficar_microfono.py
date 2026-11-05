@@ -4,7 +4,6 @@
 import argparse
 from dataclasses import dataclass
 import math
-import grp
 import os
 import queue
 import shlex
@@ -36,7 +35,7 @@ def decodificar(linea: bytes):
         bloque, fs = int(campos[1]), int(campos[2])
         vref = float(campos[3])
         perdidos, errores, reinicios, n = map(int, campos[4:8])
-        if n != 256 or len(campos) != 8 + n or fs != 10000:
+        if n != 256 or len(campos) != 8 + n or fs != 16000:
             return None
         if not math.isfinite(vref) or not 0 < vref <= 5:
             return None
@@ -86,7 +85,7 @@ def crear_figura():
     ac.axhline(0, color="gray", linewidth=0.6)
     for eje in (adc, ac):
         eje.grid(True, alpha=0.25)
-        eje.set_xlim(0, 25.6)
+        eje.set_xlim(0, 16)
     estado = figura.text(0.02, 0.02, "", fontsize=9)
     figura.tight_layout(rect=(0, 0.10, 1, 0.93))
     return figura, adc, ac, linea_adc, linea_ac, estado
@@ -108,7 +107,7 @@ def mostrar(captura, elementos, numero=None):
     titulo = (f"GPIO26 | bloque {captura.bloque} | DC {media:.3f} V | "
               f"RMS {rms:.2f} mV | Vpp {(max(voltios) - min(voltios)) * 1000:.2f} mV")
     figura.suptitle(titulo if numero is None else titulo + f" | captura #{numero}")
-    estado.set_text(f"{captura.fs} muestras/s · 256 muestras = 25.6 ms · ~5 capturas/s (hay huecos entre bloques)\n"
+    estado.set_text(f"{captura.fs} muestras/s · 256 muestras = {256000 / captura.fs:g} ms · ~5 capturas/s (hay huecos entre bloques)\n"
                     f"Saturadas: {saturadas}/256 | Perdidos: {captura.perdidos} | Errores ADC: {captura.errores} | "
                     f"Reinicios: {captura.reinicios} | Escala AC automática; compare RMS y Vpp.")
 
@@ -143,8 +142,9 @@ def main():
         puerto = serial.Serial(nombre, 115200, timeout=0.1, write_timeout=0.5, exclusive=True)
     except (serial.SerialException, OSError) as exc:
         consejo = "Cierre cat/otras terminales y revise permisos del puerto.\n"
-        if exc.errno == 13:
+        if exc.errno == 13 and os.name == "posix":
             try:
+                import grp
                 grupo = grp.getgrgid(os.stat(nombre).st_gid).gr_name
                 consejo = (f'Agregue su usuario al grupo del puerto: sudo usermod -aG {shlex.quote(grupo)} "$USER"\n'
                            "Cierre sesion de Linux y vuelva a entrar; luego ejecute sin sudo.\n")

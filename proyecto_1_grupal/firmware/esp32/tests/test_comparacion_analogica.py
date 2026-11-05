@@ -44,7 +44,7 @@ def test_respuesta_y_porcentajes_analogicos():
     """Recupera la respuesta ideal pese a fases libres y a cuantizacion ADC de 12 bits."""
     modelo, frecuencias = cargar_modelo(PROYECTO)
     ganancias = ganancia_teorica(frecuencias, modelo)
-    np.testing.assert_allclose(ganancias, [0.499715, 0.495501, 0.478396, 0.168667], atol=0.0001)
+    np.testing.assert_allclose(ganancias, [0.501349, 0.501239, 0.487725, 0.159192], atol=0.0001)  # 22 nF
     antes = resumir_capturas(capturas_sinteticas(frecuencias, np.ones(4), 1.65), frecuencias)
     despues = resumir_capturas(capturas_sinteticas(frecuencias, ganancias, .825), frecuencias)
     filas = comparar_respuesta(antes, despues, frecuencias, modelo)

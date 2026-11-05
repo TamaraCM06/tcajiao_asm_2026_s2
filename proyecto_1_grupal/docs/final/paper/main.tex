@@ -1,0 +1,338 @@
+% Artículo del Proyecto Grupal 1. Formato IEEE, máximo 4 páginas con referencias.
+% \pend{...} marca texto o datos que dependen de pruebas en hardware aún no realizadas.
+% Para la versión final: \renewcommand{\pend}[1]{} solo cuando no quede ninguno.
+\documentclass[conference]{IEEEtran}
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{float}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\repo}{https://github.com/TamaraCM06/tcajiao_asm_2026_s2/blob/master/proyecto_1_grupal}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit}
+\graphicspath{{figuras/}}
+\newcommand{\pend}[1]{\textcolor{red}{[PENDIENTE: #1]}}
+
+\begin{document}
+
+\title{Sistema distribuido de reducción adaptativa de ruido con filtrado FIR y espectral sobre microcontroladores}
+
+\author{\IEEEauthorblockN{Nicolás Florez Jiménez, Tamara Vanessa Cajiao Molina, Santiago Robles Obando, Santiago Boza Quiros}
+\IEEEauthorblockA{Escuela de Ingeniería en Computadores, Instituto Tecnológico de Costa Rica, Cartago, Costa Rica\\
+CE 1110 Análisis de Señales Mixtas, II Semestre 2026}}
+
+\maketitle
+
+\begin{abstract}
+This paper presents a three-node wired system that acquires a noisy signal,
+characterizes its noise and reduces it in quasi real time with two independent
+strategies. An RP2040 acquisition node samples the input at 16~kHz with DMA, removes
+the DC component, applies a Hann window and a 256-point FFT for diagnosis, and streams
+256-sample blocks to an ESP32 through SPI frames that carry a header, a sequence
+identifier and a CRC-8 checksum. The ESP32 runs two processing paths with separate
+state: a 75-tap Kaiser FIR low-pass filter with linear phase and a block spectral
+method based on a 1024-point radix-2 FFT, 50\,\% overlap-add and an adaptive relative
+threshold that preserves conjugate symmetry. The output is played through an 8-bit DAC
+followed by a second-order Sallen-Key reconstruction filter, and a host computer is
+used only for storage, parameter tuning and playback. A Python model with a direct DFT,
+FIR and IIR candidates and automatic figure generation guided the design; the embedded
+filters reproduce the model within 0.0001~dB of output SNR. For noise outside the useful
+band the FIR filter improved the SNR by about 60~dB and the spectral method by about
+19~dB, with worst-case block times of 8.8~ms and 18.9~ms against budgets of 16~ms and
+32~ms. When noise overlaps the useful band neither method improves the SNR without
+removing useful energy, which quantifies the trade-off between noise reduction and
+distortion.
+\end{abstract}
+
+\begin{IEEEkeywords}
+noise reduction, FIR filter, spectral filtering, FFT, embedded systems, distributed acquisition
+\end{IEEEkeywords}
+
+\section{Introducción}
+Toda señal adquirida desde un sensor llega acompañada de interferencias: tonos de
+equipos cercanos, ruido de banda ancha del propio circuito o perturbaciones
+impulsivas. Reducirlas en el mismo sistema embebido que adquiere la señal, sin
+depender de una computadora, exige elegir con cuidado la frecuencia de muestreo, el
+tamaño de bloque, el formato numérico y el método de filtrado, porque memoria, tiempo
+de cálculo y ancho de banda del enlace son limitados~\cite{enunciado}.
+
+Este trabajo diseña, implementa y evalúa un sistema de tres nodos cableados: un nodo de
+adquisición y análisis en una Raspberry Pi Pico y dos rutas de procesamiento
+independientes en una ESP32, una temporal (FIR) y otra espectral (FFT/IFFT) con
+cálculo de métricas. Ambos métodos se diseñaron primero en un modelo de Python que
+también sirve de referencia para validar el firmware.
+
+La Sección~\ref{sec:teoria} resume los fundamentos teóricos. La
+Sección~\ref{sec:diseno} describe la arquitectura, el enlace entre nodos y el diseño de
+ambos filtros. La Sección~\ref{sec:resultados} presenta y analiza los resultados, y las
+Secciones~\ref{sec:conclusiones} y~\ref{sec:recomendaciones} cierran con conclusiones y
+recomendaciones.
+
+\section{Marco teórico}\label{sec:teoria}
+\textbf{Convolución y respuesta en frecuencia.} Un sistema lineal e invariante en el
+tiempo responde con $y[n]=x[n]*h[n]$, que en frecuencia equivale a
+$Y(e^{j\omega})=X(e^{j\omega})H(e^{j\omega})$~\cite{oppenheim2010}. La respuesta
+$H(e^{j\omega})=|H(e^{j\omega})|e^{j\angle H(e^{j\omega})}$ es compleja: la magnitud
+fija la atenuación de cada frecuencia y la fase su retardo.
+
+\textbf{FIR, IIR y transformada Z.} La ecuación de diferencias
+\begin{equation}
+y[n]=\sum_{k=0}^{M} b_k x[n-k]-\sum_{k=1}^{N} a_k y[n-k]
+\end{equation}
+tiene función de transferencia $H(z)=\sum b_k z^{-k}/(1+\sum a_k z^{-k})$. Un sistema
+causal es estable si todos sus polos están dentro del círculo unitario, con región de
+convergencia $|z|>\max_k|p_k|$. Un FIR ($a_k=0$) solo tiene polos en $z=0$, es siempre
+estable y, con coeficientes simétricos, tiene fase lineal y retardo constante de $M/2$
+muestras~\cite{proakis2007}.
+
+\textbf{DFT, FFT y ventanas.} La DFT de $N$ muestras,
+$X[k]=\sum_{n=0}^{N-1}x[n]e^{-j2\pi kn/N}$, cuesta $O(N^2)$; la FFT radix-2 la calcula en
+$O(N\log_2N)$ si $N=2^m$~\cite{cooley1965}. La resolución es $\Delta f=f_s/N$. Truncar
+un bloque produce fuga espectral; la ventana Hann reduce los lóbulos laterales a cambio
+de un lóbulo principal más ancho~\cite{harris1978}, y con 50\,\% de solapamiento sus
+copias suman una constante, lo que permite reconstruir por superposición y
+suma~\cite{allen1977}. Para que la IFFT de un espectro modificado sea real se debe
+conservar $X[N-k]=X^*[k]$.
+
+\textbf{Métricas.} Con referencia limpia $s[n]$ y salida alineada $\hat s[n]$ sobre $L$
+muestras:
+\begin{equation}
+\mathrm{MSE}=\tfrac{1}{L}\textstyle\sum(s-\hat s)^2,\quad
+\mathrm{SNR_{dB}}=10\log_{10}\dfrac{\sum s^2}{\sum (s-\hat s)^2},
+\end{equation}
+y $E_x=\sum|x[n]|^2$. La mejora es $\Delta\mathrm{SNR}=\mathrm{SNR}_{out}-\mathrm{SNR}_{in}$.
+
+\section{Diseño e implementación}\label{sec:diseno}
+
+\subsection{Arquitectura y flujo de datos}
+La Fig.~\ref{fig:sistema} (Anexo~\ref{sec:anexo}) muestra el sistema. El nodo~1 (RP2040) muestrea la entrada
+por su ADC de 12~bits a $f_s=16$~kHz con DMA, en bloques de $N=256$ (16~ms,
+$\Delta f=62.5$~Hz)~\cite{rp2040}. Elimina la media de cada bloque y, sobre una copia,
+aplica Hann y FFT para estimar el nivel, la frecuencia dominante y la saturación. Las
+muestras sin componente DC se envían a la ESP32, donde dos rutas con estado
+independiente ejecutan el FIR (nodo~2) y el método espectral (nodo~3), permitido por
+el enunciado al ser un microcontrolador de doble núcleo~\cite{enunciado,esp32ds}. La
+computadora solo almacena, ajusta parámetros y solicita la reproducción; no filtra. La
+terminal de la PC funciona como interfaz local del nodo~3: muestra el método activo, la
+energía conservada, el MSE y la SNR antes y después que calcula la ESP32.
+
+
+\textbf{Enlace entre nodos.} Cada bloque viaja por SPI a 2~MHz en una trama de
+1032~bytes: cabecera (2), identificador de secuencia (4), 256 muestras en float32 (1024),
+CRC-8 con polinomio $x^8+x^2+x+1$ (1) y un byte de relleno~\cite{peterson1961}. La
+ESP32, esclava SPI~\cite{espidf}, controla el flujo con una línea READY y rechaza tramas
+con longitud, cabecera o CRC inválidos o con muestras no finitas; el identificador
+revela saltos, duplicados y retrocesos. Cualquier pérdida o cola llena aborta la
+captura y queda registrada. El enlace con la PC usa paquetes PCM16 con índice y CRC-32 a
+1~Mbaud; 2~Mbaud falló con el puente USB de la placa.
+
+\textbf{Justificación conjunta.} Las componentes generadas no superan 4~kHz, por lo que
+$f_s=16$~kHz deja Nyquist en 8~kHz con margen~\cite{oppenheim2010}. El flujo útil es
+$16\,000\times4$~B $=64$~kB/s, holgado frente a los 250~kB/s del SPI a 2~MHz. Hacia la
+PC viajan tres señales PCM16 (96~kB/s) sobre unos 99~kB/s útiles a 1~Mbaud: una
+ocupación cercana al 97\,\%, verificada con una captura completa sin pérdidas. Los bloques de 256 (FIR) y 1024
+con salto de 512 (espectral) son potencias de dos~\cite{enunciado}.
+\pend{evidencia de antialias antes del ADC con micrófono real}
+
+\subsection{Filtro temporal (nodo 2)}
+Con banda de paso hasta 1.6~kHz, rechazo desde 2.4~kHz, rizado de 0.1~dB y atenuación
+mínima de 60~dB se compararon un FIR por ventana Kaiser~\cite{kaiser1974} y tres IIR
+(Tabla~\ref{tab:filtros}). Se eligió el FIR de orden~74: es incondicionalmente estable
+(sus 74 polos están en $z=0$, ROC $|z|>0$), tiene fase lineal con retardo constante de
+37~muestras (2.3~ms) y obtuvo la mayor SNR. Los IIR requieren menos operaciones, pero
+su retardo de grupo varía en la banda útil y deforma los transitorios. Su diagrama de polos y ceros y su respuesta en
+frecuencia están en el Anexo~\ref{sec:anexo}.
+
+\begin{table}[H]
+\centering
+\caption{Candidatos de filtro temporal (simulación, caso 2)}
+\label{tab:filtros}
+\begin{tabular}{lcccc}
+\toprule
+Filtro & Orden & MAC & Retardo & SNR (dB) \\
+\midrule
+FIR Kaiser & 74 & 75 & 37 & 65.1 \\
+Butterworth & 20 & 50 & 18.4--24.7 & 15.5 \\
+Chebyshev I & 10 & 25 & 13.3--20.6 & 14.8 \\
+Elíptico & 6 & 15 & 6.0--10.6 & 18.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+En la ESP32 el FIR procesa muestra a muestra con un anillo de 75 posiciones en float32
+y coeficientes exportados desde Python. La salida se convierte a PCM16 con saturación
+explícita y, para la reproducción, a 8~bits del DAC, lo que limita el rango dinámico a
+unos 48~dB. \pend{FIR medido vs calculado}
+
+\subsection{Filtro espectral y evaluación (nodo 3)}
+El método procesa bloques de $N=1024$ ($\Delta f=15.625$~Hz) con salto de 512:
+\begin{enumerate}
+\item multiplicar el bloque por Hann;
+\item calcular la FFT radix-2~\cite{cooley1965};
+\item proteger los bins bajo $f_{min}$ (1.6~kHz);
+\item marcar como ruido cada bin no protegido cuya energía $|X[k]|^2$ supere un umbral
+relativo (0.05) a la máxima energía de esa región, junto con sus vecinos dentro de un
+ancho total de 100~Hz;
+\item multiplicar esos bins y sus conjugados por un factor real (0.1);
+\item calcular la IFFT, volver a aplicar Hann y reconstruir por superposición y suma
+normalizada por $\sum w^2$~\cite{allen1977}.
+\end{enumerate}
+El umbral se recalcula en cada bloque, por lo que la selección sigue la interferencia
+si cambia de frecuencia o de nivel~\cite{boll1979}. Los cuatro parámetros se cambian en
+ejecución desde la terminal, sin recompilar. El mismo nodo acumula, en doble precisión,
+MSE, SNR de entrada y salida, energía útil conservada, atenuación de la interferencia y
+tiempo por bloque.
+
+\subsection{Reconstrucción analógica}
+La salida del DAC pasa por un divisor de 10~k$\Omega$/10~k$\Omega$, un seguidor (LM358,
+amplificador~A) y un Sallen-Key pasabajos de ganancia unitaria (amplificador~B) con
+$R_1=R_2=4.7$~k$\Omega$, $C_1=22$~nF de realimentación y $C_2=10$~nF a
+tierra~\cite{sallen1955,sloa024,lm358}, alimentado a 5~V. Su frecuencia de corte
+$f_c=1/(2\pi\sqrt{R_1R_2C_1C_2})\approx2283$~Hz y su $Q=\tfrac12\sqrt{C_1/C_2}\approx0.74$
+atenúan las imágenes del DAC antes del amplificador. Se usó 22~nF, valor comercial
+disponible, en lugar de los 20~nF de un Butterworth exacto ($Q=0.707$, 2394~Hz); el
+cambio produce un ligero realce de $+0.3$~\% bajo 1~kHz. Con el sistema en marcha se
+midieron 5~V en la alimentación y 0.815~V en la entrada y la salida del seguidor, la
+mitad del nivel medio del DAC, como predice el divisor.
+
+\section{Resultados y análisis}\label{sec:resultados}
+\textbf{Criterios de aceptación}, fijados antes de las pruebas finales: con ruido fuera
+de banda, $\Delta\mathrm{SNR}\geq10$~dB y energía útil conservada $\geq90$\,\%; en todos
+los casos, tiempo máximo por bloque menor que su duración (16~ms FIR, 32~ms espectral);
+cero pérdidas de bloque. Para el filtro analógico, error de ganancia $\leq15$\,\% por tono
+con variabilidad $\leq10$\,\%. La concordancia entre la salida de la placa y el modelo de
+Python, $100(1-\mathrm{RMSE}/\mathrm{RMS})$, debe ser $\geq90$\,\%: un error de
+implementación 20~dB por debajo de la señal es menor que el efecto que se mide (mejoras de
+18 a 60~dB) y deja margen para la cuantización PCM16 y el uso de float32 en la placa.
+\pend{confirmar con los resultados reales}
+
+\textbf{Equivalencia modelo--firmware.} Los mismos casos se evaluaron en Python
+(float64)~\cite{numpy2020,scipy2020} y en la ESP32 (float32) sobre 95\,963 muestras,
+tras compensar las 37 muestras del FIR. La SNR de salida coincide con diferencias
+$\leq0.0001$~dB y el MSE en sus tres cifras significativas (Tabla~\ref{tab:res}); más de 150
+pruebas automáticas en Python y las pruebas en C del receptor validan el núcleo C y la FFT propia contra NumPy.
+En la sesión con el sistema completo, el caso~1 procesado por la ruta espectral en vivo
+dio 29.9764~dB frente a 29.9760~dB del modelo. Una captura física de 6~s con el
+micrófono entregó 96\,000 muestras a 16\,000.26 muestras/s, sin bloques perdidos ni
+recortes, con un tiempo máximo de cálculo de 16.3~ms frente a 32~ms disponibles.
+
+\begin{table}[H]
+\centering
+\caption{Resultados en ESP32 (95\,963 muestras, $f_s=16$ kHz, 160 MHz, 30/10/2026)}
+\label{tab:res}
+\setlength{\tabcolsep}{2pt}\footnotesize
+\begin{tabular}{llccccc}
+\toprule
+Caso & Método & SNR\textsubscript{in} & $\Delta$SNR & MSE & Útil & $t_{max}$ \\
+ & & (dB) & (dB) & & (\%) & (ms) \\
+\midrule
+1: tono 4 kHz & FIR & 10.0 & 59.05 & $1.7\times10^{-8}$ & 100.0 & 8.83 \\
+              & Espectral & 10.0 & 19.97 & $1.3\times10^{-4}$ & 100.0 & 18.86 \\
+2: banda 2.5--3.8 kHz & FIR & 5.0 & 60.14 & $1.5\times10^{-8}$ & 100.0 & 8.83 \\
+              & Espectral & 5.0 & 18.35 & $2.3\times10^{-4}$ & 100.0 & 18.95 \\
+3: banda 0.6--1.5 kHz & FIR & 0.0 & 0.003 & $2.2\times10^{-2}$ & 100.0 & 8.80 \\
+              & Espectral & 0.0 & 0.002 & $2.2\times10^{-2}$ & 100.0 & 18.84 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Comparación de métodos.} Con ruido fuera de banda (casos 1 y 2) el FIR mejora
+la SNR unos 60~dB porque atenúa al menos 60~dB toda la banda de rechazo, mientras el
+espectral queda limitado a unos 20~dB por su factor de 0.1. Ambos conservan
+prácticamente toda la energía útil. Los tiempos máximos (8.8~ms y 18.9~ms) cumplen sus
+presupuestos con margen a 160~MHz; la versión final corre a 240~MHz con el procesamiento
+en un núcleo distinto de las interrupciones. El banco de filtros ocupa 53\,272~bytes de
+memoria de trabajo compartida. La latencia algorítmica del FIR es su retardo de 2.3~ms
+más el bloque de 16~ms; la del espectral es del orden de una ventana completa, 64~ms, más
+2.3~ms de retardo añadido para alinearla con el FIR.
+
+\textbf{Compromiso ruido--distorsión.} En el caso 3 el ruido comparte la banda útil y
+ninguno de los dos métodos mejora la SNR, porque proteger la señal útil también protege
+el ruido superpuesto. Al bajar $f_{min}$ a 600~Hz, el espectral mejora 5.9~dB con factor
+0.1 pero conserva solo 72\,\% de la energía útil, frente a 1.8~dB y 90\,\% con factor 0.8
+(Fig.~\ref{fig:compromiso}, Anexo~\ref{sec:anexo}).
+
+
+\pend{Tabla de P1--P5 en hardware con promedio $\pm$ desviación de 3 repeticiones:
+tono (P1), tres tonos (P2), audio con ruido de banda ancha (P3), transitorio con ruido
+impulsivo (P4), superposición (P5); pérdidas de bloque y errores CRC observados}
+
+\section{Conclusiones}\label{sec:conclusiones}
+El sistema cumple la arquitectura distribuida pedida: la adquisición queda separada en
+la Pico y la ESP32 ejecuta dos rutas de filtrado independientes dentro de su
+presupuesto de tiempo, con un enlace que delimita bloques, detecta errores y reporta
+pérdidas. La coincidencia entre el modelo de Python y el firmware muestra que el diseño
+validado en simulación se trasladó al microcontrolador sin cambiar su comportamiento.
+Cuando el ruido está separado en frecuencia, el FIR ofrece la mayor reducción con fase
+lineal y menor latencia, mientras que el método espectral reduce menos pero se adapta
+por bloque a interferencias cambiantes sin rediseñar coeficientes. Cuando ruido y señal
+comparten frecuencias, ningún filtro lineal ni ganancia espectral puede separarlos sin
+quitar información útil, y la elección de parámetros pasa a ser una decisión de
+compromiso entre ruido residual y distorsión.
+
+\section{Recomendaciones}\label{sec:recomendaciones}
+Se recomienda colocar un filtro antialias analógico antes del ADC de la Pico y medir su
+respuesta, ya que la protección contra aliasing hoy depende del contenido de la señal.
+Un DAC externo de mayor resolución o una salida PWM de alta frecuencia mejoraría el
+rango dinámico de la reproducción, limitado por los 8~bits del DAC interno. En el
+método espectral convendría estimar el piso de ruido durante silencios y aplicar
+sustracción espectral con un suelo mínimo de ganancia, para mejorar el caso de ruido
+superpuesto sin introducir ruido musical. Finalmente, ejecutar cada ruta en un núcleo
+distinto de la ESP32 permitiría reducir la latencia de extremo a extremo.
+
+\bibliographystyle{IEEEtran}
+\bibliography{referencias}
+
+\onecolumn
+\appendices
+\section{Figuras complementarias}\label{sec:anexo}
+Figuras del sistema y del compromiso ruido--distorsión; además, figuras generadas por \emph{prototipo.py} y disponibles en el repositorio:
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small, node distance=5mm and 5mm,
+  b/.style={draw, rounded corners=2pt, align=center, minimum height=11mm, minimum width=17mm, inner sep=3pt},
+  a/.style={-{Latex[length=2mm]}, thick}, l/.style={font=\footnotesize, fill=white, inner sep=1pt}]
+\node[b] (mic) {Micrófono\\MAX4466};
+\node[b, right=of mic] (pico) {Nodo 1: Pico\\ADC 16 kHz\\DC, Hann, FFT};
+\node[b, right=12mm of pico, yshift=10mm] (fir) {Nodo 2\\FIR 75 coef.};
+\node[b, right=12mm of pico, yshift=-10mm] (esp) {Nodo 3\\FFT/IFFT\\y métricas};
+\node[b, right=12mm of fir, yshift=-10mm] (pc) {PC\\WAV y\\parámetros};
+\node[b, right=9mm of pc] (dac) {DAC 8 bits\\GPIO25};
+\node[b, right=of dac] (sk) {Sallen-Key\\$f_c\approx2.3$ kHz};
+\node[b, right=of sk] (amp) {Amplificador\\y parlante};
+\node[draw, dashed, fit=(fir)(esp), inner sep=5pt, label={[font=\footnotesize]above:ESP32}] (e32) {};
+\draw[a] (mic) -- (pico);
+\draw[a] (pico.east) -- ++(6mm,0) |- node[l, pos=.25, left]{SPI} (fir.west);
+\draw[a] (pico.east) -- ++(6mm,0) |- (esp.west);
+\draw[a] (fir.east) -- ++(6mm,0) |- node[l, pos=.25, left]{USB} (pc.west);
+\draw[a] (esp.east) -- ++(6mm,0) |- (pc.west);
+\draw[a] (pc) -- node[l, above=2mm]{USB} (dac);
+\draw[a] (dac) -- (sk);
+\draw[a] (sk) -- (amp);
+\end{tikzpicture}
+\caption{Arquitectura y flujo de datos. Los nodos 2 y 3 comparten la ESP32 con rutas y estado independientes; la PC solo almacena, ajusta parámetros y pide la reproducción.}
+\label{fig:sistema}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{espectral_compromiso_ruido_distorsion}
+\caption{Caso 3 con $f_{min}=600$ Hz: más supresión implica menos energía útil conservada.}
+\label{fig:compromiso}
+\end{figure}
+
+\begin{itemize}
+\item \href{\repo/docs/final/paper/figuras/fir_polos_ceros.png}{Diagrama de polos y ceros del FIR Kaiser}.
+\item \href{\repo/docs/final/paper/figuras/fir_respuesta_frecuencia.png}{Respuesta en frecuencia del FIR Kaiser}.
+\item \href{\repo/docs/final/paper/figuras/caso_2_graficas.png}{Señales y espectros del caso 2}.
+\end{itemize}
+
+
+\end{document}

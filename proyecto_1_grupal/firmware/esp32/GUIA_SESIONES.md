@@ -42,8 +42,9 @@ son números de señal, no números de posición física del conector.
 
 El filtro acordado usa divisor 10 kΩ/10 kΩ, primer operacional como seguidor,
 Sallen-Key con R1=R2=4.7 kΩ, capacitor a tierra de 10 nF y realimentación de
-20 nF, segundo operacional como seguidor, desacoplo de alimentación de 100 nF.
-Su corte teórico es 2394 Hz y el divisor reduce amplitud a la mitad. Documentar
+22 nF, segundo operacional como seguidor, desacoplo de alimentación de 100 nF.
+Su corte teórico es 2283 Hz (Q ≈ 0.74; 22 nF por disponibilidad en lugar de 20 nF)
+y el divisor reduce amplitud a la mitad. Documentar
 la medición real; no representa una respuesta analógica ya verificada.
 El capacitor de alimentación del GF1002 marcado 10 V no autoriza alimentarlo a 10 V.
 

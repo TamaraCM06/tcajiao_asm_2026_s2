@@ -12,6 +12,7 @@ from .analisis_analogico import comparar_respuesta, ganancia_teorica, guardar_fi
 from .archivos import abrir_sesion, cargar_csv, guardar_json
 from .concordancia import leer_pcm, validar_sesion
 from .pico_instrumento import abrir_pico, medir_punto
+from .presentacion import dato_disponible, tabla, valor_visible
 from herramientas.capturas_pico import LectorPico
 from src.datos.archivos import asegurar_muestras_caso
 
@@ -81,7 +82,9 @@ def ejecutar_demo(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccio
         informar("Pico GP26/ADC0 es pin fisico 31; GND comun. No conectar 5 V ni salidas del parlante.")
         informar("Desconecte el microfono de GP26. Verifique con multimetro que ambos puntos esten entre 0 y 3.3 V.")
         informar("Volumen del GF1002 al minimo. El filtro LM358 permanece alimentado y conectado a GPIO25.")
-        informar(f"Criterio fijado antes de medir: error de ganancia <= {modelo['tolerancia_error_ganancia_pct']} % por frecuencia.")
+        informar(tabla("CRITERIO ANALOGICO FIJADO ANTES DE MEDIR", ("Dato", "Valor"), (
+            ("Error de ganancia maximo [%]", valor_visible(modelo["tolerancia_error_ganancia_pct"])),
+            ("Ganancia de reproduccion", "1"), ("Estimulo", "Entrada P2_tonal del notebook"))))
         informar("Preparando/reutilizando el archivo original del P2_tonal...")
         fuente = preparar_fuente(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccion)
         datos["sesion_fuente"] = str(fuente)
@@ -106,7 +109,9 @@ def ejecutar_demo(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccio
                 resumenes[punto] = resumir_capturas(capturas, frecuencias)
                 datos[punto] = dict(resumenes[punto], reproduccion=reproduccion)
                 guardar_json(carpeta / "medicion.json", datos)
-                informar(f"DC medio: {resumenes[punto]['nivel_dc_v']:.3f} V; saturadas: {resumenes[punto]['saturadas']}.")
+                informar(tabla(f"ADQUISICION ANALOGICA: {punto.upper()}", ("Dato", "Valor"), (
+                    ("Nivel DC medio [V]", valor_visible(resumenes[punto]["nivel_dc_v"], ".3f")),
+                    ("Muestras saturadas", valor_visible(resumenes[punto]["saturadas"])))))
         filas = comparar_respuesta(resumenes["antes"], resumenes["despues"], frecuencias, modelo)
         with (carpeta / "comparacion_analogica.csv").open("w", encoding="utf-8", newline="") as archivo:
             escritor = csv.DictWriter(archivo, fieldnames=list(filas[0]))
@@ -116,13 +121,21 @@ def ejecutar_demo(cliente, raiz_proyecto, raiz_sesiones, configuracion, seleccio
         datos.update(estado="completa", etapa="finalizada", resultados=filas,
                      cumple_criterio=all(fila["cumple_criterio"] for fila in filas))
         guardar_json(carpeta / "medicion.json", datos)
-        informar("\nHz | ganancia teorica | ganancia medida | concordancia % | criterio")
+        filas_visibles = []
+        filas_revision = []
         for fila in filas:
-            porcentaje = "no disponible" if fila["concordancia_teorica_pct"] is None else f"{fila['concordancia_teorica_pct']:.2f}"
-            ganancia = "no disponible" if fila["ganancia_medida"] is None else f"{fila['ganancia_medida']:.4f}"
             estado = "CUMPLE" if fila["cumple_criterio"] else (
                 "REVISAR: fuera de tolerancia" if fila["medida_valida"] else "REVISAR: " + fila["observacion"])
-            informar(f"{fila['frecuencia_hz']:g} | {fila['ganancia_teorica']:.4f} | {ganancia} | {porcentaje} | {estado}")
+            if all(dato_disponible(fila[clave]) for clave in ("ganancia_medida", "concordancia_teorica_pct")):
+                filas_visibles.append((valor_visible(fila["frecuencia_hz"], ".0f"),
+                    valor_visible(fila["ganancia_teorica"], ".4f"), valor_visible(fila["ganancia_medida"], ".4f"),
+                    valor_visible(fila["concordancia_teorica_pct"], ".2f"), estado))
+            else:
+                filas_revision.append((valor_visible(fila["frecuencia_hz"], ".0f"), estado))
+        informar(tabla("RESPUESTA ANALOGICA", ("Hz", "Ganancia modelo", "Ganancia medida", "Concordancia [%]", "Criterio"),
+                       filas_visibles, (0, 1, 2, 3)))
+        if filas_revision:
+            informar(tabla("MEDICIONES ANALOGICAS A REVISAR", ("Hz", "Observacion"), filas_revision, (0,)))
         informar(f"MEDICION GUARDADA: {carpeta}")
         informar("Antes de volver a capturar sonidos, desconecte la sonda y restablezca el microfono en GP26.")
         return carpeta, fuente

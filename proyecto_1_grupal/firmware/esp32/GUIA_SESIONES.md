@@ -95,6 +95,8 @@ sesiones PC, también si se compila directamente con idf.py; no hay selección d
 | reproducir fir | Reproduce el resultado FIR guardado |
 | reproducir espectral | Reproduce el resultado espectral guardado |
 | abrir "C:/ruta/sesion" | Selecciona una sesión completa anterior después de verificar integridad |
+| metricas | Tablas FIR/espectral, tiempos y recursos de la sesion seleccionada; usa resultados ESP32 y validacion guardada sin recalcular ni cambiar archivos |
+| Presentacion | Omite filas sin valores y tablas vacias; conserva ceros, negativos, incumplimientos y observaciones de mediciones invalidas. Los JSON/CSV mantienen la informacion original |
 | detener | Cancela una operación; una captura parcial permanece incompleta |
 | validar | Compara la sesión seleccionada con el modelo Python sobre la misma entrada PCM16 |
 | demo analogico | Guía la comparación de GPIO25 y pin 7 del LM358 usando la Pico por USB |

@@ -8,6 +8,8 @@ import threading
 from .archivos import cargar_csv, abrir_sesion, anotar_sesion
 from .cliente import Cliente
 from .concordancia import validar_sesion
+from .presentacion import (ayuda_terminal, mostrar_configuracion, mostrar_metricas,
+                           mostrar_validacion, tabla, valor_visible)
 from src.datos.casos import CASOS_FINALES, CASOS_ADICIONALES, EQUIVALENCIAS_HISTORICAS, resolver_caso
 from src.datos.archivos import asegurar_muestras_caso
 
@@ -48,27 +50,28 @@ def configurar(actual, argumentos):
     return nueva
 
 
-# Presenta medidas de placa y, por separado, concordancia independiente calculada en PC.
-def mostrar_metricas(informe, validacion=None):
-    """Presenta medidas de placa y, por separado, concordancia independiente calculada en PC."""
-    for metodo in ("fir", "espectral"):
-        ruta = informe[metodo]
-        print(f"\n{metodo.upper()}:")
-        for clave, valor in ruta.items():
-            print(f"  {clave}: {'no disponible' if valor is None else valor}")
-        if validacion is not None:
-            porcentaje = validacion[metodo]["concordancia_modelo_python_pct"]
-            print(f"  concordancia_modelo_python_pct (validacion PC): {'no disponible' if porcentaje is None else f'{porcentaje:.4f}'}")
-            cumple = validacion[metodo]["cumple_concordancia"]
-            print(f"  criterio digital >= {validacion[metodo]['umbral_concordancia_pct']:g} %: "
-                  f"{'no disponible' if cumple is None else 'cumple' if cumple else 'no cumple'}")
-    print(f"Calculo maximo: {informe['calculo_max_us']} us. No equivale a latencia analogica.")
-    for prefijo in ("cola", "latencia_bloque", "latencia_arranque", "latencia_cierre", "evaluacion", "publicacion"):
-        print(f"  {prefijo}: cantidad={informe.get(prefijo + '_cantidad', 'no disponible')}; "
-              f"media={informe.get(prefijo + '_medio_us')} us; max={informe.get(prefijo + '_max_us')} us")
-    print("Latencia digital: recepcion ESP32 hasta aceptacion UART; excluye ADC, PC y DAC.")
-    if validacion is not None:
-        print("Concordancia % compara ESP32 con Python; no indica el porcentaje de ruido eliminado.")
+# Consulta exclusivamente archivos de la sesion: no ordena adquisicion ni recalcula validacion.
+def mostrar_metricas_sesion(ruta):
+    """Recupera resultados ESP32 y validacion guardada sin modificar la evidencia."""
+    if ruta is None:
+        raise ValueError("Primero capture, evalue o abra una sesion; despues use metricas")
+    ruta, metadatos = abrir_sesion(ruta)
+    informe = metadatos.get("resultado_esp32")
+    if not isinstance(informe, dict) or not all(isinstance(informe.get(metodo), dict)
+                                               for metodo in ("fir", "espectral")):
+        raise ValueError("La sesion no contiene un informe ESP32 de ambas rutas")
+    fuente = metadatos.get("fuente")
+    nombre_fuente = Path(str(fuente).replace("\\", "/")).name if fuente else "Captura Pico"
+    print(tabla("SESION SELECCIONADA", ("Dato", "Valor"), (
+        ("Identificador", ruta.name), ("Fuente", nombre_fuente),
+        ("Estado", metadatos.get("estado")),
+        ("Muestreo [Hz]", valor_visible(metadatos.get("frecuencia_hz"))),
+        ("Escala por sesion", valor_visible(metadatos.get("escala"))),
+        ("Unidad de amplitud", metadatos.get("unidad")),
+    )))
+    validacion = metadatos.get("validacion_python") or {}
+    mostrar_metricas(informe, validacion.get("resultados"))
+    print(f"Archivos de la sesion: {ruta}")
 
 
 def main(raiz_proyecto):
@@ -82,8 +85,8 @@ def main(raiz_proyecto):
     parser.add_argument("--salidas", type=Path, default=raiz_proyecto / "resultados/sesiones")
     argumentos = parser.parse_args()
     if argumentos.listar:
-        for puerto in list_ports.comports():
-            print(puerto.device, puerto.description)
+        puertos = [(puerto.device, puerto.description or "Puerto serie") for puerto in list_ports.comports()]
+        print(tabla("PUERTOS DISPONIBLES", ("Puerto", "Descripcion"), puertos) if puertos else "No se detectaron puertos serie.")
         return
     if not argumentos.puerto:
         parser.error("Indique --puerto COMx; use --listar para ver los puertos")
@@ -103,7 +106,10 @@ def main(raiz_proyecto):
         nonlocal ultima_sesion
         try:
             if operacion == "reproducir":
-                print(cliente.reproducir(ultima_sesion, seleccion, configuracion["ganancia"]))
+                resultado_audio = cliente.reproducir(ultima_sesion, seleccion, configuracion["ganancia"])
+                print(tabla("REPRODUCCION FINALIZADA", ("Dato", "Valor"), [
+                    ("Ruta", seleccion), ("Ganancia", valor_visible(configuracion["ganancia"])),
+                    *[(clave, valor_visible(valor)) for clave, valor in resultado_audio.items()]]))
                 return
             if operacion == "capturar":
                 resultado = cliente.registrar(argumentos.salidas, configuracion)
@@ -112,16 +118,16 @@ def main(raiz_proyecto):
                         if seleccion in (*CASOS_FINALES, *CASOS_ADICIONALES, *EQUIVALENCIAS_HISTORICAS)
                         else Path(seleccion))
                 mezcla, referencia, escala, recortes = cargar_csv(ruta)
-                print(f"Entrada: {len(mezcla)} muestras; recortes de preparacion: {recortes}")
+                print(tabla("ENTRADA PREPARADA", ("Dato", "Valor"), (
+                    ("Muestras", str(len(mezcla))), ("Recortes de preparacion", str(recortes)))))
                 resultado = cliente.registrar(argumentos.salidas, configuracion, mezcla, referencia,
                                               escala, "archivo", str(ruta.resolve()))
-            ultima_sesion, informe = resultado
+            ultima_sesion, _ = resultado
             try:
-                validacion = validar_sesion(ultima_sesion, raiz_proyecto)
+                validar_sesion(ultima_sesion, raiz_proyecto)
             except Exception as error:
-                validacion = None
                 print(f"La captura esta completa; no se pudo calcular concordancia PC: {error}")
-            mostrar_metricas(informe, validacion)
+            mostrar_metricas_sesion(ultima_sesion)
             print(f"\nSESION COMPLETA: {ultima_sesion}")
         except Exception as error:
             print(f"\nERROR: {error}")
@@ -132,16 +138,12 @@ def main(raiz_proyecto):
         finally:
             print("\nPuede escribir otro comando.")
 
-    ayuda = ("ayuda | estado | capturar | evaluar P1/P2/P3/P4/P5/P2_tonal o ruta.csv\n"
-             "configurar segundos=6 minimo_hz=1600 ancho_hz=100 factor=0.1 umbral=0.05 ganancia=1\n"
-             "abrir ruta_sesion | reproducir entrada/fir/espectral | detener | salir\n"
-             "nota texto (observacion de la sesion seleccionada)\n"
-             "configurar interferencia_min_hz=2500 interferencia_max_hz=3800; interferencia_min_hz=auto para restablecer\n"
-             "validar (compara la sesion seleccionada con Python) | demo analogico (Pico como instrumento)\n"
-             "No abra idf.py monitor al mismo tiempo. Capturar no reproduce sonido.")
+    ayuda = ayuda_terminal()
     try:
-        print(cliente.conectar())
-        print(f"Enlace verificado: {cliente.comprobar_enlace():.0f} bytes/s")
+        saludo = cliente.conectar()
+        velocidad = cliente.comprobar_enlace()
+        print(tabla("CONEXION ESP32", ("Dato", "Valor"), (
+            ("Estado", saludo), ("Enlace verificado [bytes/s]", f"{velocidad:.0f}"))))
         print(ayuda)
         while True:
             try:
@@ -157,8 +159,7 @@ def main(raiz_proyecto):
                 if orden == "ayuda":
                     print(ayuda)
                 elif orden == "estado":
-                    print("OCUPADO" if ocupada else cliente.conectar())
-                    print(configuracion, "sesion:", ultima_sesion)
+                    mostrar_configuracion(configuracion, ultima_sesion, "OCUPADO" if ocupada else cliente.conectar())
                 elif orden == "detener":
                     if ocupada:
                         cliente.cancelar()
@@ -173,21 +174,27 @@ def main(raiz_proyecto):
                     print("Hay una operacion activa. Espere o escriba detener.")
                 elif orden == "configurar":
                     configuracion = configurar(configuracion, partes[1:])
-                    print(configuracion, f"Duracion efectiva: {configuracion['muestras'] / 16000:.3f} s")
+                    mostrar_configuracion(configuracion, ultima_sesion)
                 elif orden == "abrir" and len(partes) == 2:
                     ultima_sesion, _ = abrir_sesion(partes[1])
-                    print(ultima_sesion)
+                    print(tabla("SESION ABIERTA", ("Dato", "Valor"), (
+                        ("Identificador", ultima_sesion.name), ("Consulta", "metricas"),
+                        ("Escucha", "reproducir entrada / fir / espectral"))))
+                    print(f"Archivos de la sesion: {ultima_sesion}")
+                elif orden == "metricas":
+                    if len(partes) != 1:
+                        raise ValueError("Use metricas sin argumentos; abrir selecciona la sesion")
+                    mostrar_metricas_sesion(ultima_sesion)
                 elif orden == "validar":
                     if ultima_sesion is None:
                         raise ValueError("Primero capture, evalue o abra una sesion")
                     resultados = validar_sesion(ultima_sesion, raiz_proyecto)
-                    for metodo, medidas in resultados.items():
-                        print(metodo.upper(), medidas)
-                    print("Es concordancia de implementacion, no porcentaje de ruido eliminado.")
+                    mostrar_validacion(resultados)
                 elif orden == "nota":
                     if ultima_sesion is None:
                         raise ValueError("Primero capture, evalue o abra una sesion completa")
-                    print(anotar_sesion(ultima_sesion, " ".join(partes[1:])))
+                    ruta_nota = anotar_sesion(ultima_sesion, " ".join(partes[1:]))
+                    print(tabla("OBSERVACION GUARDADA", ("Dato", "Valor"), (("Archivo", str(ruta_nota)),)))
                 elif orden == "demo" and len(partes) == 2 and partes[1].lower() == "analogico":
                     from .demo_analogica import ejecutar_demo
                     _, ultima_sesion = ejecutar_demo(cliente, raiz_proyecto, argumentos.salidas,

@@ -132,13 +132,16 @@ revela saltos, duplicados y retrocesos. Cualquier pérdida o cola llena aborta l
 captura y queda registrada. El enlace con la PC usa paquetes PCM16 con índice y CRC-32 a
 1~Mbaud, tras fallar el diagnóstico del puente USB a una tasa superior.
 
-\textbf{Justificación conjunta.} Las componentes generadas no superan 4~kHz, por lo que
+\textbf{Justificación conjunta.} Los tonos y bandas generados no superan 4~kHz, por lo que
 $f_s=16$~kHz deja Nyquist en 8~kHz con margen~\cite{oppenheim2010}. El flujo útil es
 $16\,000\times4$~B $=64$~kB/s, holgado frente a los 250~kB/s del SPI a 2~MHz. Hacia la
 PC viajan tres señales PCM16 (96~kB/s) sobre unos 99~kB/s útiles a 1~Mbaud: una
 ocupación cercana al 97\,\%, verificada con una captura completa sin pérdidas. Los bloques de 256 (FIR) y 1024
 con salto de 512 (espectral) son potencias de dos~\cite{enunciado}.
-\pend{evidencia de antialias antes del ADC con micrófono real}
+Los estímulos se sintetizan a 16~kHz, por lo que su espectro queda acotado por
+construcción bajo Nyquist y las pruebas no presentan aliasing; una componente externa
+sobre 8~kHz sí se plegaría, pues el Sallen-Key filtra la salida del DAC, no la entrada
+del ADC~\cite{oppenheim2010}.
 
 \subsection{Filtro temporal (nodo 2)}
 Con banda de paso hasta 1.6~kHz, rechazo desde 2.4~kHz, rizado de 0.1~dB y atenuación
@@ -302,7 +305,7 @@ históricos. Todavía faltan las repeticiones de P1--P5 y su escucha. Las evalua
 CSV verifican filtros en placa, sin sustituir el ADC. La versión preparada agrega
 costos individuales, latencia recepción ESP32--aceptación UART y atenuación regional
 de los residuos; faltan sus corridas. La captura acústica usa parlante y micrófono;
-antialiasing de entrada y retardo analógico quedan sin comprobar. P6 se ejecuta en defensa.
+no se usa filtro antialias de entrada y el retardo analógico no se midió. P6 se ejecuta en defensa.
 \input{tablas/pruebas_finales.tex}
 
 \section{Conclusiones}\label{sec:conclusiones}

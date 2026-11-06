@@ -104,12 +104,12 @@ La latencia digital comienza al recibir la trama completa en ESP32 y termina
 cuando UART acepta el paquete de salida; no incluye ADC, viaje UART, computadora
 ni DAC. Los costos FIR y espectral incluyen calculo de referencia y se expresan
 por 256 y 512 muestras nuevas respectivamente. Ver comandos, regiones y estados
-no disponibles en el [manual, apartado 1.7](../../docs/final/MANUAL_USUARIO.md#17-obtener-tiempos-y-atenuacion-sin-modificar-codigo).
+no disponibles en el [manual, apartado 1.6](../../docs/final/MANUAL_USUARIO.md#16-qué-guarda-cada-corrida).
 
 | Desde proyecto_1_grupal | Comando |
 |---|---|
 | Verificación conjunta | python -m pytest tarea1_grupo1/tests firmware/esp32/tests -q |
-| Métodos Pico en PC | Procedimiento GCC del [manual](../../docs/final/MANUAL_USUARIO.md#11-preparar-el-entorno-sin-placas) |
+| Métodos Pico en PC | gcc -std=c11 -Wall -Wextra -Werror -I firmware/receptor firmware/receptor/nodo1_metodos.c firmware/receptor/tests/test_metodos.c -lm -o firmware/receptor/build/test_metodos.exe |
 
 ## 1.6. Continuidad y referencias
 

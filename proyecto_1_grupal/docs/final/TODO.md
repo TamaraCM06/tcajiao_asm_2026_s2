@@ -61,8 +61,8 @@ y texto. No se considera completada la limpieza de estos grupos, ni se crearon r
 | Cachés y herramientas duplicadas | Eliminar directorios python y python_directo, capturas PNG y logs de revisión bajo build/herramientas_tex; conservar tectonic.exe, fonts.conf y build/ruta_compilacion.txt |
 | Otros residuos regenerables | Eliminar preescuchas Pn, cachés y carpetas vacías retiradas; conservar .venv, entregas anteriores y resultados históricos |
 
-La lista exacta de 21 carpetas, 356.14 MiB, y las exclusiones estan en el
-[manual, apartado 1.11](MANUAL_USUARIO.md#111-limpieza-manual-opcional-de-residuos-bloqueados).
+Las 21 carpetas (356.14 MiB) se eliminan desde el explorador; conservar
+resultados/sesiones originales, evidencias seleccionadas, .venv y entregas anteriores.
 No impide ejecutar el manual; no se declara espacio liberado.
 
 ## 1.5. Verificacion tecnica completada

@@ -149,13 +149,21 @@ reproductor tampoco garantiza el mismo volumen eléctrico que el DAC.
 | Referencia espectral | Se filtra con las ganancias estimadas desde la mezcla; nunca decide la detección |
 | Tiempo de cálculo | Suma, media y máximo del procesamiento conjunto, incluido el cierre; excluye envío serial |
 | Tiempo de sesión | Incluye esperas y transferencia; no es latencia analógica extremo a extremo |
+| Version de medidas | version_mediciones=2 agrega tiempos por ruta, cola, publicacion y latencia digital con arranque/cierre separados |
+| Costos individuales | ruta_cantidad/medio_us/max_us en cada metodo; FIR por 256 y espectral por salto de 512; incluyen calculo de referencia |
+| Latencia digital | latencia_bloque_medio_us/max_us: trama completa recibida en ESP32 hasta aceptacion UART de sus indices de salida; excluye ADC, viaje serial, escritura PC y DAC |
+| Evaluacion adicional | evaluacion_cantidad/medio_us/max_us incluye metricas y medida regional; publicacion incluye cuantizacion y entrega UART |
+| Region | atenuacion_interferencia_db por metodo, region_minima_hz/maxima_hz y region_muestras; FFT 1024 con Hann, sin solapamiento, bloques completos del intervalo valido |
 | Memoria | Tamaño del estado DSP y heap libre/mínimo; no implica disponer de toda la RAM del chip |
 
-La atenuación reportada corresponde al ruido total, no a una medida independiente
-de la interferencia principal. Los valores matemáticamente indefinidos se escriben
-como null; no se sustituyen por cero. La referencia física sincronizada, las
-repeticiones P1–P5, P6 y la caracterización analógica siguen requiriendo trabajo
-experimental. La aceptación de escucha diferida debe contrastarse con la defensa.
+atenuacion_ruido_total_db se conserva como energia total del residuo. La nueva
+atenuacion_interferencia_db usa una region explicita del mismo residuo real de
+placa: entrada menos limpia y salida menos util filtrada. Las ganancias utiles
+espectrales se obtienen de la mezcla. Si no existe referencia, region o energia
+resoluble, estado_atenuacion_regional explica el null; no se sustituye por cero.
+El final parcial de la medida regional se excluye y region_muestras lo identifica.
+Sin osciloscopio ni generador, los ensayos fisicos elegidos son parlante hacia
+microfono; antialiasing de entrada y retardo analogico no quedan comprobados.
 
 ## 1.7. Verificación final
 
@@ -183,6 +191,9 @@ experimental. La aceptación de escucha diferida debe contrastarse con la defens
 | Tipos | 1 comando, 2 ACK, 3 entrada, 4 salida, 5 resultado JSON, 6 error, 7 audio, 8 sonda, 9 fin |
 | Canales de salida | 0: entrada/FIR/espectral PCM16 intercalados por muestra; el lector también acepta los canales individuales 1/2/3 |
 | Evaluación | Un paquete de 256 muestras, mezcla/referencia intercaladas si existe referencia; esperar ACK antes del siguiente |
+| Comando EVALUATE | EVALUATE longitud referencia escala minimo ancho factor umbral; admite dos limites regionales opcionales al final, minimo_hz maximo_hz. La forma anterior sigue valida, sin region |
+| Region en terminal | configurar interferencia_min_hz=2500 interferencia_max_hz=3800; configurar interferencia_min_hz=auto restablece regiones por caso. No modifica los parametros del filtro |
+| Notas | nota texto agrega notas.txt fechado a la sesion seleccionada; no modifica metadatos, WAV ni metricas |
 | Audio | Paquetes de hasta 1536 muestras, ventana de dos paquetes pendientes; ACK libera capacidad |
 | enlace_pc | UART, cola RX y codec portable |
 | procesamiento_registro | FIR/FFT, historia corta, alineación, métricas y vaciado finito |

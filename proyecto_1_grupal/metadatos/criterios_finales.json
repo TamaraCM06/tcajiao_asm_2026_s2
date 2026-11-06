@@ -11,5 +11,5 @@
   "perdidas_maximas": 0,
   "recortes_maximos": 0,
   "nota_tiempo": "calculo_max_us es el maximo conjunto FIR+espectral, incluido el cierre; no es tiempo individual ni latencia analogica",
-  "latencia_fisica": "Pendiente medir y justificar criterio antes de las pruebas finales; el resumen conserva no disponible si no se ha medido"
+  "latencia_fisica": "No medida: el equipo utiliza audios sin osciloscopio ni generador; declarar limitacion. latencia_bloque_medio_us/max_us mide recepcion en ESP32 hasta aceptacion UART, excluyendo ADC, PC y DAC"
 }

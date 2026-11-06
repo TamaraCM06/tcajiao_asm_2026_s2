@@ -3,6 +3,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "esp_timer.h"
+
+typedef struct { pc_paquete_t paquete; int64_t recepcion_us; } entrada_uart_t;
 
 static QueueHandle_t paquetes, eventos;
 static volatile bool fallo_recepcion;
@@ -14,7 +17,7 @@ static void recibir_uart(void *contexto)
 {
     (void)contexto;
     uint8_t trama[PC_TRAMA_MAX], fragmento[256];
-    pc_paquete_t paquete;
+    entrada_uart_t entrada;
     size_t usados = 0;
     bool descartando = false;
     while (true) {
@@ -36,8 +39,9 @@ static void recibir_uart(void *contexto)
             for (int posicion = 0; posicion < recibidos; ++posicion) {
                 if (fragmento[posicion] == 0) {
                     if (!descartando && usados) {
-                        if (!pc_decodificar(trama, usados, &paquete) ||
-                            xQueueSend(paquetes, &paquete, 0) != pdTRUE) fallo_recepcion = true;
+                        entrada.recepcion_us = esp_timer_get_time();
+                        if (!pc_decodificar(trama, usados, &entrada.paquete) ||
+                            xQueueSend(paquetes, &entrada, 0) != pdTRUE) fallo_recepcion = true;
                     }
                     usados = 0; descartando = false;
                 } else if (!descartando) {
@@ -54,7 +58,7 @@ esp_err_t enlace_pc_iniciar(void)
     const uart_config_t configuracion = {.baud_rate = 1000000, .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE, .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE, .source_clk = UART_SCLK_DEFAULT};
-    paquetes = xQueueCreate(4, sizeof(pc_paquete_t));
+    paquetes = xQueueCreate(4, sizeof(entrada_uart_t));
     if (!paquetes) return ESP_ERR_NO_MEM;
     esp_err_t resultado = uart_param_config(UART_NUM_0, &configuracion);
     if (resultado != ESP_OK) return resultado;
@@ -84,8 +88,18 @@ esp_err_t enlace_pc_enviar(pc_paquete_t *paquete)
 /** Prioriza los fallos sobre los datos para no declarar continua una captura corrupta. */
 esp_err_t enlace_pc_recibir(pc_paquete_t *paquete, unsigned espera_ms)
 {
+    return enlace_pc_recibir_marcado(paquete, espera_ms, NULL);
+}
+/** La marca usa esp_timer igual que SPI, calculo y publicacion. */
+esp_err_t enlace_pc_recibir_marcado(pc_paquete_t *paquete, unsigned espera_ms, int64_t *recepcion_us)
+{
     if (fallo_recepcion) { fallo_recepcion = false; return ESP_ERR_INVALID_CRC; }
-    const BaseType_t recibido = xQueueReceive(paquetes, paquete, pdMS_TO_TICKS(espera_ms));
+    entrada_uart_t entrada;
+    const BaseType_t recibido = xQueueReceive(paquetes, &entrada, pdMS_TO_TICKS(espera_ms));
     if (fallo_recepcion) { fallo_recepcion = false; return ESP_ERR_INVALID_CRC; }
+    if (recibido == pdTRUE) {
+        *paquete = entrada.paquete;
+        if (recepcion_us) *recepcion_us = entrada.recepcion_us;
+    }
     return recibido == pdTRUE ? ESP_OK : ESP_ERR_TIMEOUT;
 }

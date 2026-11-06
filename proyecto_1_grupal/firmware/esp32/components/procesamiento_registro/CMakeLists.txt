@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "procesamiento_registro.c"
+    SRCS "procesamiento_registro.c" "tiempos_registro.c"
     INCLUDE_DIRS "include"
     REQUIRES filtros_digitales evaluacion_digital
 )

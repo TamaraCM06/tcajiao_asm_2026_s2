@@ -8,6 +8,7 @@ import numpy as np
 
 from . import protocolo as protocolo
 from .archivos import SesionArchivos, abrir_sesion
+from .mediciones import configuracion_medicion
 
 
 class Cliente:
@@ -130,6 +131,7 @@ class Cliente:
         if origen == "pico" and not self.enlace_comprobado:
             self.comprobar_enlace()
         escala = float(np.float32(escala))
+        configuracion = configuracion_medicion(configuracion, fuente if origen == "archivo" else None)
         longitud = configuracion["muestras"] if mezcla is None else len(mezcla)
         metadatos = dict(configuracion, muestras=longitud, duracion_s=longitud / 16000,
                          escala=escala, unidad="voltios" if origen == "pico" else "normalizada",
@@ -141,6 +143,8 @@ class Cliente:
             parametros = " ".join(str(configuracion[clave]) for clave in ("minimo_hz", "ancho_hz", "factor", "umbral"))
             orden = f"CAPTURE {longitud} {parametros}" if origen == "pico" else (
                 f"EVALUATE {longitud} {int(referencia is not None)} {escala:.9g} {parametros}")
+            if origen != "pico" and configuracion.get("interferencia_min_hz") is not None:
+                orden += f" {configuracion['interferencia_min_hz']} {configuracion['interferencia_max_hz']}"
             self.comando(orden)
             enviados = 0
             ultimo_latido = 0.0

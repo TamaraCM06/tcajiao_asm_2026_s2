@@ -13,7 +13,13 @@ from tarea1_grupo1.src.datos.casos import CASOS_FINALES, resolver_caso
 PROYECTO = Path(__file__).resolve().parents[1]
 METRICAS = ("mse", "snr_entrada_db", "snr_salida_db", "mejora_snr_db", "energia_util_pct",
             "atenuacion_ruido_total_db", "distorsion_util_db", "calculo_medio_us", "calculo_max_us",
-            "latencia_bloque_us", "estado_dsp_bytes", "heap_minimo_bytes", "perdidas",
+            "atenuacion_interferencia_db", "ruta_medio_us", "ruta_max_us",
+            "latencia_bloque_medio_us", "latencia_bloque_max_us",
+            "latencia_arranque_medio_us", "latencia_arranque_max_us",
+            "latencia_cierre_medio_us", "latencia_cierre_max_us",
+            "cola_medio_us", "cola_max_us", "evaluacion_medio_us", "evaluacion_max_us",
+            "publicacion_medio_us", "publicacion_max_us", "region_muestras",
+            "estado_dsp_bytes", "heap_minimo_bytes", "perdidas",
             "recortes_entrada", "recortes_salida", "concordancia_modelo_python_pct")
 
 
@@ -44,8 +50,10 @@ def describir_condicion(metadatos):
     """Incluye parámetros, versión, referencia y huella de entrada controlada."""
     parametros = {clave: metadatos.get(clave) for clave in
                   ("origen", "con_referencia", "frecuencia_hz", "muestras", "escala",
-                   "minimo_hz", "ancho_hz", "factor", "umbral")}
+                   "minimo_hz", "ancho_hz", "factor", "umbral",
+                   "interferencia_min_hz", "interferencia_max_hz")}
     parametros["firmware"] = metadatos.get("resultado_esp32", {}).get("firmware")
+    parametros["version_mediciones"] = metadatos.get("resultado_esp32", {}).get("version_mediciones")
     if metadatos.get("origen") == "archivo":
         parametros["entrada_sha256"] = metadatos.get("sha256", {}).get("entrada")
     texto = json.dumps(parametros, sort_keys=True, ensure_ascii=False)

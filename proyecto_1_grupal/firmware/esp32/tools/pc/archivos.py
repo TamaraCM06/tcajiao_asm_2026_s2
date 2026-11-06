@@ -162,3 +162,15 @@ def abrir_sesion(ruta):
                     1, 2, 16000, metadatos["muestras"]):
                 raise ValueError("WAV incompatible")
     return ruta, metadatos
+
+
+# Guarda observaciones fuera de los metadatos y WAV que identifican la medicion original.
+def anotar_sesion(ruta, texto):
+    """Agrega una nota fechada, sin modificar hashes, metricas ni resultados ESP32."""
+    ruta, _ = abrir_sesion(ruta)
+    texto = texto.strip()
+    if not texto or len(texto) > 2000:
+        raise ValueError("Escriba una nota de 1 a 2000 caracteres")
+    with (ruta / "notas.txt").open("a", encoding="utf-8") as archivo:
+        archivo.write(f"{datetime.now(timezone.utc).isoformat()} {texto}\n")
+    return ruta / "notas.txt"

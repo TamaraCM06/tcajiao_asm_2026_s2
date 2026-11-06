@@ -10,7 +10,7 @@ FIRMWARE = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(FIRMWARE / "tools"))
 from pc import protocolo
 from pc.cliente import Cliente
-from pc.archivos import abrir_sesion
+from pc.archivos import abrir_sesion, anotar_sesion
 from pc.terminal import configuracion_inicial
 
 
@@ -25,6 +25,7 @@ class PuertoSimulado:
         self.longitud = 0
         self.fallo = fallo
         self.operaciones = []
+        self.comandos = []
         self.audio_recibido = bytearray()
 
     @property
@@ -55,6 +56,7 @@ class PuertoSimulado:
         self.sesion = paquete.sesion
         if paquete.tipo == protocolo.COMANDO:
             orden = paquete.datos.decode().split()
+            self.comandos.append(orden)
             self.operaciones.append(orden[0])
             if orden[0] in ("HELLO", "LINK_OK", "STOP"):
                 self.publicar(protocolo.ACK, b"ASM2 enlace=1" if orden[0] == "HELLO" else orden[0].encode())
@@ -124,3 +126,26 @@ def test_cancelacion_envia_stop():
     cliente = Cliente(puerto)
     cliente.cancelar()
     assert cliente.cancelado.is_set() and puerto.operaciones == ["STOP"]
+
+
+# Prueba la orden real enviada y la separacion de notas respecto del registro medido.
+def test_region_en_orden_y_notas_inmutables(tmp_path):
+    """La forma antigua permanece para archivos desconocidos; los casos incluyen su region."""
+    puerto = PuertoSimulado()
+    cliente = Cliente(puerto)
+    muestras = np.zeros(256, dtype="<i2")
+    ruta, _ = cliente.registrar(tmp_path, configuracion_inicial(), muestras, muestras, 1, "archivo", "P2_muestras.csv")
+    orden = next(orden for orden in puerto.comandos if orden[0] == "EVALUATE")
+    assert orden[-2:] == ["2500.0", "3800.0"]
+    assert len(orden) == 10
+    originales = {archivo.name: archivo.read_bytes() for archivo in ruta.iterdir()}
+    notas = anotar_sesion(ruta, "FIR claro; espectral con ruido; ganancia 0.1")
+    anotar_sesion(ruta, "Segunda escucha")
+    assert len(notas.read_text(encoding="utf-8").splitlines()) == 2
+    for nombre, contenido in originales.items():
+        assert (ruta / nombre).read_bytes() == contenido
+    with pytest.raises(ValueError):
+        anotar_sesion(ruta, " ")
+    puerto.comandos.clear()
+    cliente.registrar(tmp_path, configuracion_inicial(), muestras, muestras, 1, "archivo", "desconocida.csv")
+    assert len(next(orden for orden in puerto.comandos if orden[0] == "EVALUATE")) == 8

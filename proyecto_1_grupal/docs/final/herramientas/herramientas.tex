@@ -55,6 +55,9 @@ de archivos JSON, de modo que cada figura y tabla del artículo se regenera con 
 \item \textbf{Paso de Python a C.} \texttt{exportar\_coeficientes.py} conserva los 75
 coeficientes FIR en float32. Las señales se transfieren desde CSV como PCM16 al
 procesador de registros; las pruebas usan la misma entrada cuantizada que la placa.
+La instrumentación agrega costos por ruta y latencia digital hasta aceptación UART;
+la atenuación regional usa residuos y ganancias reales de la ESP32. La terminal
+guarda notas y prepara audios de estímulo sin recortes para parlante--micrófono.
 \item \textbf{Verificación cruzada.} Las pruebas compilan con GCC el mismo núcleo C que
 corre en la ESP32 y lo comparan con Python: error por muestra $\leq3\times10^{-6}$ y
 diferencias de métricas $\leq0.03$~dB. En la placa, la SNR de salida coincidió con

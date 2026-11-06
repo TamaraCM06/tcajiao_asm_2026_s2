@@ -15,6 +15,7 @@ from herramientas.respuesta_fir_medida import comparar, respuesta_calculada
 from herramientas.resumen_pruebas import escribir_latex, leer_repeticiones, resumir
 from herramientas.graficar_sesion import graficar, medir_tonos
 from herramientas.exportar_coeficientes import exportar_coeficientes
+from herramientas.preparar_casos import exportar_estimulo
 from pc.archivos import SesionArchivos
 from pc.protocolo import Paquete, SALIDA
 
@@ -28,6 +29,23 @@ def test_coeficientes_exportados_coinciden_con_firmware(tmp_path):
     destino = exportar_coeficientes(destino=tmp_path / "coeficientes_fir.c")
     vigente = PROYECTO / "firmware/esp32/components/filtros_digitales/coeficientes_fir.c"
     assert destino.read_text(encoding="utf-8") == vigente.read_text(encoding="utf-8")
+
+
+# El audio acustico mantiene la mezcla y evita recortes aun si las amplitudes superan uno.
+def test_estimulo_escala_comun_sin_recortes(tmp_path):
+    """La misma ganancia conserva SNR y proporciones de los componentes del notebook."""
+    limpia = np.array([0, 2, -2, 0], dtype=float)
+    ruido = np.array([0, 1, -1, 0], dtype=float)
+    datos = dict(clean=limpia, noise=ruido, noisy=limpia + ruido, fs=16000)
+    carpeta = exportar_estimulo(tmp_path, "P1", datos)
+    metadatos = json.loads((carpeta / "estimulo.json").read_text())
+    assert metadatos["ganancia_comun"] == pytest.approx(.8 / 3)
+    for nombre, senal in (("01_referencia_limpia.wav", limpia), ("02_ruido.wav", ruido),
+                          ("03_entrada_contaminada.wav", limpia + ruido)):
+        with wave.open(str(carpeta / nombre)) as archivo:
+            muestras = np.frombuffer(archivo.readframes(4), dtype="<i2")
+        assert np.max(np.abs(muestras.astype(float))) < 30000
+        np.testing.assert_allclose(muestras / 32767, senal * .8 / 3, atol=1 / 16000)
 
 
 def escribir_wav(ruta, muestras):
@@ -69,6 +87,21 @@ def crear_repeticion(raiz, numero, snr=20, factor=.1, completa=True, fuente="P1_
         for metodo in ("fir", "espectral"):
             escritor.writerow([metodo, .001, snr, snr-10, 99, 16000])
     return carpeta
+
+
+# Las regiones y las versiones de medicion forman parte de la condicion, no solo del texto.
+def test_resumen_separa_region_y_version(tmp_path):
+    """No promedia medidas regionales incompatibles ni supone medidas nuevas en sesiones viejas."""
+    for numero in range(3):
+        carpeta = crear_repeticion(tmp_path, numero)
+        archivo = carpeta / "sesion.json"
+        datos = json.loads(archivo.read_text())
+        datos.update(interferencia_min_hz=3900 + numero * 10, interferencia_max_hz=4100)
+        datos["resultado_esp32"] = dict(firmware="misma_version", version_mediciones=numero)
+        archivo.write_text(json.dumps(datos), encoding="utf-8")
+    filas = resumir(leer_repeticiones(tmp_path))
+    assert len(filas) == 6
+    assert all(fila["atenuacion_interferencia_db_cantidad"] == 0 for fila in filas)
 
 
 # El requisito de media y desviación no depende de otro análisis de concordancia.

@@ -5,7 +5,7 @@ from pathlib import Path
 import shlex
 import threading
 
-from .archivos import cargar_csv, abrir_sesion
+from .archivos import cargar_csv, abrir_sesion, anotar_sesion
 from .cliente import Cliente
 from .concordancia import validar_sesion
 from src.datos.casos import CASOS_FINALES, CASOS_ADICIONALES, EQUIVALENCIAS_HISTORICAS, resolver_caso
@@ -22,6 +22,9 @@ def configurar(actual, argumentos):
     nueva = actual.copy()
     for argumento in argumentos:
         clave, texto = argumento.split("=", 1)
+        if clave in ("interferencia_min_hz", "interferencia_max_hz") and texto.lower() == "auto":
+            nueva["interferencia_min_hz"] = nueva["interferencia_max_hz"] = None
+            continue
         valor = float(texto)
         if not math.isfinite(valor):
             raise ValueError("Parametros no finitos")
@@ -29,13 +32,19 @@ def configurar(actual, argumentos):
             if not 0.016 <= valor <= 60:
                 raise ValueError("Duracion entre 0.016 y 60 segundos")
             nueva["muestras"] = math.ceil(valor * 16000 / 256) * 256
-        elif clave in ("minimo_hz", "ancho_hz", "factor", "umbral", "ganancia"):
+        elif clave in ("minimo_hz", "ancho_hz", "factor", "umbral", "ganancia",
+                        "interferencia_min_hz", "interferencia_max_hz"):
             nueva[clave] = valor
         else:
             raise ValueError(f"Parametro desconocido: {clave}")
     if not (0 <= nueva["minimo_hz"] < 8000 and 0 <= nueva["ancho_hz"] <= 8000 and
             0 <= nueva["factor"] <= 1 and 0 < nueva["umbral"] <= 1 and 0 <= nueva["ganancia"] <= 100):
         raise ValueError("Parametros fuera de los limites admitidos")
+    minimo = nueva.get("interferencia_min_hz")
+    maximo = nueva.get("interferencia_max_hz")
+    if (minimo is None) != (maximo is None) or (minimo is not None and not (
+            0 <= minimo < maximo <= 8000 and math.ceil(minimo / 15.625) <= math.floor(maximo / 15.625))):
+        raise ValueError("Indique ambos limites de interferencia, 0 <= minimo < maximo <= 8000, con un bin FFT")
     return nueva
 
 
@@ -54,6 +63,10 @@ def mostrar_metricas(informe, validacion=None):
             print(f"  criterio digital >= {validacion[metodo]['umbral_concordancia_pct']:g} %: "
                   f"{'no disponible' if cumple is None else 'cumple' if cumple else 'no cumple'}")
     print(f"Calculo maximo: {informe['calculo_max_us']} us. No equivale a latencia analogica.")
+    for prefijo in ("cola", "latencia_bloque", "latencia_arranque", "latencia_cierre", "evaluacion", "publicacion"):
+        print(f"  {prefijo}: cantidad={informe.get(prefijo + '_cantidad', 'no disponible')}; "
+              f"media={informe.get(prefijo + '_medio_us')} us; max={informe.get(prefijo + '_max_us')} us")
+    print("Latencia digital: recepcion ESP32 hasta aceptacion UART; excluye ADC, PC y DAC.")
     if validacion is not None:
         print("Concordancia % compara ESP32 con Python; no indica el porcentaje de ruido eliminado.")
 
@@ -122,6 +135,8 @@ def main(raiz_proyecto):
     ayuda = ("ayuda | estado | capturar | evaluar P1/P2/P3/P4/P5/P2_tonal o ruta.csv\n"
              "configurar segundos=6 minimo_hz=1600 ancho_hz=100 factor=0.1 umbral=0.05 ganancia=1\n"
              "abrir ruta_sesion | reproducir entrada/fir/espectral | detener | salir\n"
+             "nota texto (observacion de la sesion seleccionada)\n"
+             "configurar interferencia_min_hz=2500 interferencia_max_hz=3800; interferencia_min_hz=auto para restablecer\n"
              "validar (compara la sesion seleccionada con Python) | demo analogico (Pico como instrumento)\n"
              "No abra idf.py monitor al mismo tiempo. Capturar no reproduce sonido.")
     try:
@@ -169,6 +184,10 @@ def main(raiz_proyecto):
                     for metodo, medidas in resultados.items():
                         print(metodo.upper(), medidas)
                     print("Es concordancia de implementacion, no porcentaje de ruido eliminado.")
+                elif orden == "nota":
+                    if ultima_sesion is None:
+                        raise ValueError("Primero capture, evalue o abra una sesion completa")
+                    print(anotar_sesion(ultima_sesion, " ".join(partes[1:])))
                 elif orden == "demo" and len(partes) == 2 and partes[1].lower() == "analogico":
                     from .demo_analogica import ejecutar_demo
                     _, ultima_sesion = ejecutar_demo(cliente, raiz_proyecto, argumentos.salidas,

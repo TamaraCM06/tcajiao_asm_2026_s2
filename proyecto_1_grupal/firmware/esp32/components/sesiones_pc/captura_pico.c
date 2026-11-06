@@ -59,7 +59,7 @@ void captura_pico_activar(bool nueva_activa)
     portEXIT_CRITICAL(&bloqueo);
 }
 /** Rechaza discontinuidades, duplicados, errores de trama y saturacion de cola. */
-esp_err_t captura_pico_leer(trama_spi_bloque_t *bloque)
+esp_err_t captura_pico_leer(trama_spi_bloque_t *bloque, int64_t *recepcion_us)
 {
     entrada_pico_t entrada;
     if (xQueueReceive(entradas, &entrada, pdMS_TO_TICKS(200)) != pdTRUE) return ESP_ERR_TIMEOUT;
@@ -72,6 +72,7 @@ esp_err_t captura_pico_leer(trama_spi_bloque_t *bloque)
     if (continuidad.evento != TRAMA_SPI_PRIMER_BLOQUE && continuidad.evento != TRAMA_SPI_CONTINUO)
         return ESP_ERR_INVALID_RESPONSE;
     *bloque = entrada.bloque;
+    if (recepcion_us) *recepcion_us = entrada.instante_us;
     if (!bloques_leidos) primer_bloque_us = entrada.instante_us;
     ultimo_bloque_us = entrada.instante_us;
     ++bloques_leidos;

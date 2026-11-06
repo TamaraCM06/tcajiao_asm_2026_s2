@@ -33,9 +33,9 @@ def ejecutables(tmp_path_factory):
     comun = [compilador, "-std=c11", "-D__USE_MINGW_ANSI_STDIO=1", "-O2", "-Wall", "-Wextra", "-Werror"]
     for modulo in ("procesamiento_registro", "filtros_digitales", "evaluacion_digital", "enlace_pc"):
         comun += ["-I", str(COMPONENTES / modulo / "include")]
-    fuentes = [COMPONENTES / "procesamiento_registro/procesamiento_registro.c",
+    fuentes = [*sorted((COMPONENTES / "procesamiento_registro").glob("*.c")),
                *sorted((COMPONENTES / "filtros_digitales").glob("*.c")),
-               COMPONENTES / "evaluacion_digital/metricas_digitales.c"]
+               *sorted((COMPONENTES / "evaluacion_digital").glob("*.c"))]
     salidas = {}
     for nombre, archivos in (("registro", fuentes), ("codec", [COMPONENTES / "enlace_pc/protocolo_pc.c"])):
         salidas[nombre] = carpeta / f"{nombre}.exe"
@@ -43,6 +43,40 @@ def ejecutables(tmp_path_factory):
                                    "-lm", "-o", str(salidas[nombre])], capture_output=True, text=True)
         assert resultado.returncode == 0, resultado.stdout + resultado.stderr
     return salidas
+
+
+# Comprueba integracion regional y que observar tiempos no cambia una sola muestra de salida.
+def test_instrumentacion_y_region_del_registro(ejecutables, tmp_path):
+    """Usa las ganancias de la mezcla del modelo independiente para contrastar residuos reales."""
+    tiempos = np.arange(4096) / 16000
+    referencia = .2 * np.sin(2 * np.pi * 440 * tiempos)
+    mezcla = referencia + .03 * np.random.default_rng(62).normal(size=4096)
+    pares = np.column_stack((mezcla, referencia)).astype("<f4")
+    entrada = tmp_path / "entrada.f32"
+    pares.tofile(entrada)
+    salidas = []
+    for medida in (False, True):
+        salida = tmp_path / f"salida_{medida}.f32"
+        resultado = subprocess.run([str(ejecutables["registro"]), str(entrada), str(salida), ".1", "1",
+                                   *(["600", "1500"] if medida else [])], capture_output=True, text=True, check=True)
+        salidas.append(salida.read_bytes())
+    assert salidas[0] == salidas[1]
+    muestras, *energias_c = map(float, resultado.stderr.splitlines()[0].split(","))
+    assert muestras == 3072
+    calculadas = np.frombuffer(salidas[1], dtype="<f4").reshape(-1, 2)
+    coeficientes = np.loadtxt(PROYECTO / "tarea1_grupo1/resultados/filtro_temporal/coeficientes_fir.csv",
+                             delimiter=",", skiprows=1)[:, 1].astype(np.float32)
+    _, detalles = filtrar_senal(pares[:, 0].astype(float), 16000, devolver_detalles=True)
+    utiles = [lfilter(coeficientes, [1], pares[:, 1])[37:], aplicar_ganancias(pares[:, 1], detalles)[:-37]]
+    residuos = np.column_stack((pares[:-37, 0] - pares[:-37, 1],
+                                calculadas[37:, 0] - utiles[0], calculadas[37:, 1] - utiles[1]))[:3072]
+    espectros = np.fft.rfft(residuos.reshape(3, 1024, 3) * np.hanning(1024)[None, :, None], axis=1)
+    frecuencias = np.fft.rfftfreq(1024, 1 / 16000)
+    mascara = (frecuencias >= 600) & (frecuencias <= 1500)
+    esperadas = np.sum(2 * np.abs(espectros[:, mascara]) ** 2, axis=(0, 1))
+    np.testing.assert_allclose(energias_c, esperadas, rtol=3e-4, atol=1e-7)
+    fir, espectral, arranque, cierre = map(int, resultado.stderr.splitlines()[1].split(","))
+    assert fir >= 16 and espectral >= 8 and arranque == 2 and cierre > 0
 
 
 @pytest.mark.parametrize("cantidad", [0, 1, 254, 255, 512, 4096])

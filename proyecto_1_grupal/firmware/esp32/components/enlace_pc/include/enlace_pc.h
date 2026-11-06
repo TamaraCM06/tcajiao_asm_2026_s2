@@ -8,3 +8,5 @@ esp_err_t enlace_pc_iniciar(void);
 esp_err_t enlace_pc_enviar(pc_paquete_t *paquete);
 /** Recibe una copia; corrupcion o desbordamiento se comunican como error. */
 esp_err_t enlace_pc_recibir(pc_paquete_t *paquete, unsigned espera_ms);
+/** Devuelve tambien el instante de trama validada, anterior a su espera en cola. */
+esp_err_t enlace_pc_recibir_marcado(pc_paquete_t *paquete, unsigned espera_ms, int64_t *recepcion_us);

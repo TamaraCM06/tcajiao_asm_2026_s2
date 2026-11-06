@@ -4,6 +4,21 @@
 #include "esp_timer.h"
 #include "esp_app_desc.h"
 #include <stdlib.h>
+#include <stdio.h>
+
+/** Mantiene campos planos para el CSV y null cuando no hubo observaciones. */
+static void agregar_tiempo(cJSON *objeto, const char *prefijo, const tiempo_acumulado_t *medida)
+{
+    char clave[80];
+    snprintf(clave, sizeof(clave), "%s_cantidad", prefijo);
+    cJSON_AddNumberToObject(objeto, clave, medida->cantidad);
+    snprintf(clave, sizeof(clave), "%s_medio_us", prefijo);
+    if (medida->cantidad) cJSON_AddNumberToObject(objeto, clave, (double)medida->total_us / medida->cantidad);
+    else cJSON_AddNullToObject(objeto, clave);
+    snprintf(clave, sizeof(clave), "%s_max_us", prefijo);
+    if (medida->cantidad) cJSON_AddNumberToObject(objeto, clave, medida->maximo_us);
+    else cJSON_AddNullToObject(objeto, clave);
+}
 
 /** Agrega una metrica o null; cJSON representa los valores no finitos como null. */
 static void agregar_numero(cJSON *objeto, const char *nombre, double valor, bool disponible)
@@ -21,6 +36,18 @@ esp_err_t informe_pc_enviar(uint32_t sesion, const procesamiento_registro_t *reg
     cJSON_AddStringToObject(informe, "origen", fisica ? "pico" : "archivo");
     cJSON_AddStringToObject(informe, "firmware", esp_app_get_description()->version);
     cJSON_AddStringToObject(informe, "esp_idf", esp_app_get_description()->idf_ver);
+    cJSON_AddNumberToObject(informe, "version_mediciones", 2);
+    cJSON_AddStringToObject(informe, "limite_latencia", "recepcion_esp32_a_aceptacion_uart_no_analogica");
+    cJSON_AddBoolToObject(informe, "calculo_rutas_incluye_referencia", true);
+    agregar_tiempo(informe, "cola", &registro->tiempos.cola);
+    agregar_tiempo(informe, "latencia_bloque", &registro->tiempos.latencia);
+    agregar_tiempo(informe, "latencia_arranque", &registro->tiempos.arranque);
+    agregar_tiempo(informe, "latencia_cierre", &registro->tiempos.cierre);
+    agregar_tiempo(informe, "evaluacion", &registro->tiempos.evaluacion);
+    agregar_tiempo(informe, "publicacion", &registro->tiempos.publicacion);
+    agregar_numero(informe, "region_minima_hz", registro->regional.minimo_hz, registro->regional.habilitada);
+    agregar_numero(informe, "region_maxima_hz", registro->regional.maximo_hz, registro->regional.habilitada);
+    cJSON_AddNumberToObject(informe, "region_muestras", registro->regional.bloques * FFT_LONGITUD);
     agregar_numero(informe, "tasa_bloques_estimada_hz", tasa_adquisicion, fisica && tasa_adquisicion > 0);
     cJSON_AddBoolToObject(informe, "con_referencia", registro->con_referencia);
     cJSON_AddNumberToObject(informe, "muestras", registro->longitud);
@@ -39,6 +66,11 @@ esp_err_t informe_pc_enviar(uint32_t sesion, const procesamiento_registro_t *reg
         const metricas_resultado_t resultado = metricas_finalizar(&registro->metricas[metodo]);
         cJSON *ruta = cJSON_AddObjectToObject(informe, metodo == 0 ? "fir" : "espectral");
         if (!ruta) { cJSON_Delete(informe); return ESP_ERR_NO_MEM; }
+        agregar_tiempo(ruta, "ruta", metodo == 0 ? &registro->tiempos.fir : &registro->tiempos.espectral);
+        agregar_numero(ruta, "atenuacion_interferencia_db",
+            regional_atenuacion(&registro->regional, metodo, registro->con_referencia), true);
+        const char *motivo = regional_motivo(&registro->regional, metodo, registro->con_referencia);
+        cJSON_AddStringToObject(ruta, "estado_atenuacion_regional", motivo ? motivo : "disponible");
         agregar_numero(ruta, "mse", resultado.mse, registro->con_referencia);
         agregar_numero(ruta, "snr_entrada_db", resultado.snr_entrada_db, registro->con_referencia);
         agregar_numero(ruta, "snr_salida_db", resultado.snr_salida_db, registro->con_referencia);

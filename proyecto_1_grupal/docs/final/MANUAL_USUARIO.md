@@ -3,6 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Fuente de verdad | [PDF del proyecto](../references/ASM_Proyecto_Grupal1_v7.pdf) |
+| Criterios de evaluacion | [Rubrica de defensa y cobertura](RUBRICA_DEFENSA.md); funcionamiento observado y justificacion, ademas de pruebas de software |
 | Alcance | Operar lo implementado, obtener resultados y reconocer lo que todavía falta |
 | Responsable | P1: Pico/entrada; P2: temporal; P3: ESP32/espectral/audio; P4: medidas/documentos |
 | Punto de partida de los comandos | PowerShell abierto en proyecto_1_grupal, salvo indicación contraria |
@@ -21,7 +22,7 @@ Los nombres COM12/COM13 son ejemplos del diagnóstico anterior: comprobar los ac
 | Instalar dependencias | & '.venv/Scripts/python.exe' -m pip install -r requirements.txt | NumPy, SciPy, Matplotlib, pytest y PySerial |
 | Preparar los seis CSV | & '.venv/Scripts/python.exe' -m herramientas.preparar_casos | CSV P1–P5 y P2_tonal en tarea1_grupo1/resultados/muestras; el JSON fuente no cambia |
 | Cambié parámetros del JSON | & '.venv/Scripts/python.exe' -m herramientas.preparar_casos --regenerar | Actualiza solamente las copias Pn locales; preserva los archivos históricos caso_N |
-| Preescucha sintética opcional | & '.venv/Scripts/python.exe' -m herramientas.preparar_casos --audio | WAV de limpia, ruido y mezcla; no son salidas de la placa |
+| Audios para ensayos acusticos | & '.venv/Scripts/python.exe' -m herramientas.preparar_casos --audio | WAV sin recortes en resultados/estimulos/Pn; ganancia comun para limpia, ruido y mezcla; no son salidas de la placa |
 | Ejecutar simulación reproducible | & '.venv/Scripts/python.exe' prototipo.py --caso todos --salida resultados/simulacion_final | Figuras y tablas de los seis registros, en una carpeta separada de los históricos |
 | Pruebas de software | & '.venv/Scripts/python.exe' -m pytest tarea1_grupo1/tests firmware/esp32/tests -q | Todas pasan; no acredita ADC, SPI o audio físicos |
 
@@ -83,6 +84,7 @@ Cerrar el monitor ESP-IDF y cualquier otra aplicación que use el mismo puerto.
 | asm | reproducir fir | Escuchar FIR, esperando fin de cada reproducción |
 | asm | reproducir espectral | Escuchar espectral sobre la misma entrada |
 | asm | validar | Concordancia con Python; es comprobación complementaria, no porcentaje de ruido eliminado |
+| asm | nota Entrada audible; FIR ...; espectral ...; volumen ... | Guarda notas.txt fechado, sin modificar medidas |
 | asm | detener / salir | Cancelar operación o cerrar puerto, respectivamente |
 
 Cada captura de 6 s debe tener 96000 muestras en las tres rutas y estado completo.
@@ -138,18 +140,24 @@ Para ampliar P5, factor=0.8 permite estudiar menos distorsión y menos supresió
 si se reporta esa condición, también requiere tres corridas y se resume por separado.
 Restaurar minimo_hz=1600 y factor=0.1 al terminar.
 
-### 1.5.2. Ensayos físicos
+### 1.5.2. Ensayos fisicos con parlante y microfono
 
-| Paso | Acción | Registro mínimo |
+Usar los audios del notebook y el montaje existente. No se necesitan instrumentos
+nuevos ni se conecta electricamente una salida de audio al ADC.
+
+| Paso | Accion | Registro minimo |
 |---|---|---|
-| Fuente | P1 coordina una fuente conocida, acondicionada y limitada en banda; usar las señales del notebook | Fuente, escala, conexión y banda efectiva; no aplicar audio bipolar directamente al ADC |
-| Adquirir | Aplicar cada condición y capturar/escuchar ambos métodos; para agrupar capturas físicas puede abrirse sesiones.py con --salidas resultados/pruebas_finales/P1, cambiando el Pn según corresponda | Tres sesiones por condición física utilizada; no mezclar esas métricas con las del CSV |
-| Referencia | Si se requieren MSE/SNR físicos, resolver adquisición/referencia sincronizada y alineación | El firmware físico actual tiene mezcla sola; no asignar la referencia del CSV a un micrófono por conveniencia |
-| Sonido | Probar ambas rutas del mismo estímulo, volumen comparable y sin realimentación | Notas breves por prueba: ruido residual, distorsión, pérdidas y cambios de parámetros |
+| Preparar | Ejecutar preparar_casos --audio del apartado 1.1 | resultados/estimulos/P1 hasta P5; usar 03_entrada_contaminada.wav |
+| Fuente | Abrir el WAV en el reproductor de la computadora y activar repeticion | Fijar volumen, distancia y orientacion del parlante frente al microfono |
+| Capturar | Abrir sesiones.py con --salidas resultados/pruebas_finales/P1, conservando los puertos de 1.3; ejecutar capturar mientras suena el WAV | Esperar SESION COMPLETA y detener el reproductor |
+| Escuchar | Ejecutar reproducir entrada, reproducir fir y reproducir espectral por separado, a igual ganancia | No reproducir la salida durante captura: evita realimentacion |
+| Anotar | nota Fuente P1; volumen ...; distancia ...; entrada ...; FIR ...; espectral ... | notas.txt fechado de la captura; incluir ruido residual y distorsion |
+| Repetir | Tres capturas nuevas por condicion, cambiando Pn y WAV para P2 a P5 | Tres identificadores distintos. P5: minimo_hz=600 factor=0.1; restaurar 1600 al terminar |
 
-Las métricas digitales controladas y la demostración física se reportan como
-evidencias distintas. Si no se dispone todavía del montaje/referencia, esa parte
-sigue pendiente; no se cierra con tres evaluaciones CSV.
+La captura acustica tiene mezcla sola: MSE/SNR y atenuacion regional con referencia
+no estan disponibles. El WAV limpio sintetico no esta sincronizado con el ADC.
+Las metricas controladas del apartado 1.5.1 proceden de CSV evaluados en ESP32;
+se reportan por separado. Parlante, habitacion y microfono alteran banda y nivel.
 
 ### 1.5.3. Media, variabilidad, espectros y atenuación
 
@@ -169,43 +177,55 @@ vacíos no son cero. Que haya tres corridas no significa que el desempeño cumpl
 comparar las métricas con los criterios previamente fijados y discutir límites.
 Guardar parámetros y notas de sonido junto al resumen local.
 
-## 1.6. Verificar muestreo y prevención de aliasing
+## 1.6. Muestreo y limites analogicos declarados
 
-| Ensayo | Procedimiento | Interpretación correcta |
+| Comprobacion | Accion ejecutable | Interpretacion |
 |---|---|---|
-| Banda prevista | Documentar máximas frecuencias útiles/ruido y cómo se limita la banda que llega a GP26 | A 16 kHz, Nyquist es 8 kHz. Una fuente realmente limitada bajo ese valor ayuda a cumplir las condiciones previstas |
-| Entrada analógica | Medir la respuesta de la fuente/acondicionamiento/filtro antes del ADC con señal conocida y nivel comprobado | El circuito de reconstrucción situado después de GPIO25 no evita aliasing ocurrido antes en la Pico |
-| Diagnóstico sobre Nyquist | Si se dispone de fuente e instrumento adecuados, aplicar un tono conocido sobre 8 kHz a nivel seguro y comparar antes/después del acondicionamiento de entrada | Un tono de 9 kHz aparece alrededor de 7 kHz al muestrear a 16 kHz si no se atenúa. Ese resultado demuestra un problema, no cumplimiento |
-| Sin pico observado | Verificar que la fuente sí entregó el tono con amplitud conocida antes de concluir | Un celular que no emite suficiente nivel o un micrófono que no lo recoge no validan automáticamente el filtro |
+| Estimulos | Preparar --audio y conservar estimulo.json | WAV a 16000 Hz, escala comun sin recortes; fuente acustica sin calibracion analogica |
+| Cadencia | Revisar tasa_bloques_estimada_hz en sesion.json | Estima llegada SPI en ESP32; no calibra el reloj ADC |
+| Espectros | Ejecutar graficar_sesion para las capturas | Contenido digital hasta 8000 Hz; no identifica componentes plegadas por si solo |
+| Cobertura del articulo | Declarar que no se midio rechazo analogico sobre Nyquist | No afirmar prevencion de aliasing con estas pruebas |
+| Reconstruccion | Mantener modelo, esquema y resultados del Sallen-Key | Esta despues del DAC; no protege la entrada ADC |
 
-Este es un diagnóstico de muestreo, no una nueva batería que sustituya las señales
-del notebook. Si falta protección/validación de la entrada, resolverla con P1 y
-documentar el límite; no afirmar que se evitó aliasing solo por usar 16 kHz.
+Por decision del equipo no se realizan ensayos con osciloscopio ni generador.
+La prevencion de aliasing y el retardo analogico extremo a extremo quedan como
+limitaciones de cobertura del enunciado. Ejecutar el manual no las acredita.
 
-## 1.7. Completar las métricas y contrastes obligatorios
+## 1.7. Obtener tiempos y atenuacion sin modificar codigo
 
-| Magnitud | Lo disponible | Cómo completar el requisito |
+Programar el firmware del apartado 1.2 antes de las corridas finales.
+version_mediciones=2 identifica las medidas nuevas; las sesiones antiguas se
+pueden abrir y reproducir, con campos ausentes no disponibles.
+
+| Magnitud | Accion | Resultado y significado |
 |---|---|---|
-| MSE, SNR, ΔSNR, energía útil | ESP32 los calcula con referencia en evaluar; sin referencia están no disponibles | Reportar condiciones, escala y alineación. No inventar referencia física |
-| Atenuación principal | ESP32 informa ruido total; graficar_sesion mide tonos conocidos en sus WAV | P1: reportar la componente de 4 kHz. Rechazo bajo PCM16: cota, no atenuación exacta. P2/P5: definir región y método de separación; completar su evaluación, sin confundirla con energía total |
-| Respuesta FIR | herramienta respuesta_fir_medida usa tonos presentes y los coeficientes existentes | Ejecutar comando siguiente sobre una sesión P2_tonal; conservar CSV/figura y explicar piso PCM16. Es respuesta digital antes del DAC |
-| Costo y memoria | Cálculo conjunto, estado DSP y heap en sesion.json/metricas.csv | Reportarlos con firmware/configuración; no dividir el máximo conjunto entre dos para inventar costos individuales |
-| Latencia | No medida físicamente en los archivos actuales | Instrumentar llegada, procesamiento y publicación de bloques en sesiones PC con marcas sincronizadas; medir el trayecto DAC por separado con un instrumento. Anotar criterio, configuración, colas y dispersión; los WAV y el tiempo total de sesión no son latencia física |
+| MSE, SNR, mejora y energia util | evaluar P1 hasta P5 | Referencia PCM16 y alineacion fija de 37 muestras |
+| Atenuacion regional | Evaluar los casos conocidos | atenuacion_interferencia_db y estado_atenuacion_regional por ruta, calculados en ESP32 |
+| Region para CSV propio | configurar interferencia_min_hz=2500 interferencia_max_hz=3800; despues evaluar ruta.csv | Ambos limites juntos; sin referencia permanece no disponible |
+| Region automatica | configurar interferencia_min_hz=auto | P1/P2_tonal: 3950--4050 Hz; P2: 2500--3800 Hz; P3/P4: 0--8000 Hz; P5: 600--1500 Hz |
+| Costo individual | Revisar ruta_cantidad, ruta_medio_us y ruta_max_us en FIR y espectral | FIR por 256 muestras; espectral por ventana 1024/salto 512. Incluyen calculo de referencia, incluso ceros sin referencia |
+| Evaluacion y publicacion | Revisar evaluacion y publicacion con sufijos cantidad, medio_us y max_us | Evaluacion: metricas y FFT regional. Publicacion: cuantizacion y entrega al controlador UART |
+| Espera en cola | Revisar cola_cantidad, cola_medio_us y cola_max_us | Desde recepcion SPI/UART hasta consumo del bloque; incluye preparacion anterior al DSP |
+| Latencia digital | Revisar latencia_bloque_cantidad, latencia_bloque_medio_us y latencia_bloque_max_us | Desde bloque completo recibido en ESP32 hasta aceptacion UART de sus indices de salida; excluye ADC, viaje UART, escritura PC y DAC |
+| Bordes | Revisar latencia_arranque y latencia_cierre con los mismos sufijos | Primera publicacion y vaciado separados del estado estable |
+| Memoria y presupuesto | Revisar estado_dsp_bytes, heap_minimo_bytes y calculo_max_us | Presupuesto conjunto interno 32000 us; incluye evaluacion, no equivale a latencia fisica |
+| Notas de escucha | nota FIR ...; espectral ...; ganancia ... | notas.txt de la sesion seleccionada |
 
-| Comando desde proyecto_1_grupal | Resultado |
+La medida regional utiliza ruido de entrada mezcla menos limpia, y residuos de
+salida menos componente util filtrada con las ganancias reales de ESP32.
+Usa FFT de 1024, Hann simetrica y bloques completos no solapados del intervalo
+valido; region_muestras explicita su longitud. El final parcial se excluye.
+P3/P4 tienen interferencia de banda ancha; no se inventa un tono principal.
+Los estados sin_referencia, sin_region, sin_bloques_completos, sin_energia_entrada
+y residuo_no_resuelto explican los resultados no disponibles.
+
+| Contraste adicional desde proyecto_1_grupal | Comando |
 |---|---|
-| & '.venv/Scripts/python.exe' -m herramientas.respuesta_fir_medida resultados/sesiones/20261105T164327Z_614a343d --salida resultados/entrega/fir | Reutiliza la sesión histórica local de cuatro tonos y genera respuesta_fir_medida.csv/png y procedencia local; usar otra sesión compatible si esa no está en la PC |
+| Respuesta FIR digital | & '.venv/Scripts/python.exe' -m herramientas.respuesta_fir_medida resultados/sesiones/20261105T164327Z_614a343d --salida resultados/entrega/fir |
+| Atenuacion tonal P1 | graficar_sesion con --tonos 440 4000 del apartado 1.5.3 |
 
-Para completar la atenuación de banda, el modelo ya dispone de
-[atenuacion_interferencia](../../tarea1_grupo1/src/mediciones/metricas.py) y su uso
-en [evaluar_espectral](../../tarea1_grupo1/src/mediciones/evaluacion.py). P4 debe
-integrar la medida correspondiente a las salidas reales: identificar la región
-principal desde el ruido de entrada mezcla menos limpia; obtener ruido de salida
-restando la componente útil filtrada, con las ganancias estimadas desde la mezcla;
-y comparar energía de esa misma región antes/después. En P2 la banda conocida es
-2500–3800 Hz; en P5 hay superposición y la referencia/alineación son necesarias
-para separar ruido y útil. No aplicar ese análisis a un micrófono sin referencia
-ni presentar el resultado del modelo como medida de placa.
+Los contrastes sobre WAV son anteriores al DAC y tienen piso PCM16. La medida
+regional nueva precede a esa cuantizacion. Ninguno mide respuesta analogica.
 
 ## 1.8. Ensayar P6 y la defensa
 
@@ -235,8 +255,9 @@ ni presentar el resultado del modelo como medida de placa.
 
 | Compilación documental | Comando desde proyecto_1_grupal |
 |---|---|
-| Artículo, con Tectonic instalado | tectonic docs/final/paper/main.tex |
-| Herramientas, con Tectonic instalado | tectonic docs/final/herramientas/herramientas.tex |
+| Fuente de letras del compilador local | $env:FONTCONFIG_FILE = (Resolve-Path 'firmware/esp32/build/herramientas_tex/fonts.conf').Path |
+| Articulo, compilador local conservado | & 'firmware/esp32/build/herramientas_tex/tectonic.exe' docs/final/paper/main.tex |
+| Herramientas, compilador local conservado | & 'firmware/esp32/build/herramientas_tex/tectonic.exe' docs/final/herramientas/herramientas.tex |
 | Alternativa desde cada carpeta LaTeX | latexmk -pdf main.tex, o latexmk -pdf herramientas.tex, según la carpeta |
 
 ### 1.9.1. Diagnósticos opcionales
@@ -250,15 +271,98 @@ ni presentar el resultado del modelo como medida de placa.
 Si un diagnóstico genera JSON o capturas intermedias, conservarlos localmente.
 Solo promover a la entrega el resultado necesario para una afirmación del artículo
 o para demostrar un requisito. Las acciones pendientes del TODO no se consideran
-resueltas hasta observarlas o implementar la parte que falta.
+resueltas hasta ejecutar los ensayos y revisar sus resultados.
 
 ## 1.10. Comprobaciones realizadas durante la preparación
 
 | Comprobación | Estado observado el 5 de noviembre de 2026 | Límite |
 |---|---|---|
-| Pruebas Python y C portable | 175 aprobadas después de retirar el banco antiguo | Incluye los seis casos sobre PCM16, silencio, reconstrucción unitaria, parámetros inválidos, generación de entradas ausentes y controlador DAC vigente |
+| Pruebas Python y C portable | 195 aprobadas en 18.26 s; sin omisiones | Incluye casos PCM16, energias regionales frente a NumPy, reloj controlado, notas, compatibilidad y controlador DAC |
 | C del receptor con GCC | OK: ADC/DC/RMS, FFT frente a DFT, Hann, estimación, CRC8 y trama | Ejecución host, no prueba física de Pico |
 | ESP-IDF | Única aplicación PC compilada correctamente después de retirar implementaciones antiguas | No se programaron placas ni se verificó sonido automáticamente |
-| Artículo y herramientas | Compilados con Tectonic 0.17.0; 4 y 2 páginas, respectivamente | Contienen pendientes reales hasta completar las medidas |
+| Artículo y herramientas | Compilados con Tectonic 0.17.0; 4 y 2 paginas, sin referencias sin resolver | Contienen pendientes reales hasta completar las medidas |
 | Herramientas sobre registros anteriores | Figura de señales/espectros y respuesta FIR generadas desde la sesión histórica existente | Análisis posterior de un registro real; no son nuevas corridas P1–P5 |
 | Gitignore y documentos | Código y texto obsoletos retirados; originales seleccionados y entregas anteriores protegidos | Limpieza física parcial: terminal bloqueó la eliminación de binarios y directorios. Sin commits ni archivos de respaldo |
+
+## 1.11. Limpieza manual opcional de residuos bloqueados
+
+La herramienta rechazo el borrado fisico con blocked by policy. No se elimino
+ninguno de los directorios de esta lista en este bloque. Son residuos locales
+ignorados y no impiden compilar, ejecutar las pruebas ni entregar las fuentes.
+Desde el explorador pueden eliminarse exclusivamente los destinos siguientes,
+relativos a proyecto_1_grupal. Las 21 carpetas suman 356.14 MiB, aun no liberados.
+
+| Carpeta exacta | Archivos |
+|---|---|
+| [firmware/esp32/components/senales_embebidas](../../firmware/esp32/components/senales_embebidas) | 3 |
+| [firmware/esp32/components/procesamiento_vivo](../../firmware/esp32/components/procesamiento_vivo) | 0 |
+| [herramientas/exportacion_senales](../../herramientas/exportacion_senales) | 4 |
+| [resultados/verificacion_final_pc](../../resultados/verificacion_final_pc) | 42 |
+| [resultados/entrega](../../resultados/entrega) | 2 |
+| [docs/final/evidencias/sesiones](../../docs/final/evidencias/sesiones) | 7 |
+| [docs/final/evidencias/analogicas](../../docs/final/evidencias/analogicas) | 5 |
+| [firmware/esp32/build/herramientas_tex/python](../../firmware/esp32/build/herramientas_tex/python) | 3903 |
+| [firmware/esp32/build/herramientas_tex/python_directo](../../firmware/esp32/build/herramientas_tex/python_directo) | 349 |
+| [resultados/sesiones/20261105T163651Z_ba92e584](../../resultados/sesiones/20261105T163651Z_ba92e584) | 3 |
+| [resultados/sesiones/20261105T164137Z_f2c20270](../../resultados/sesiones/20261105T164137Z_f2c20270) | 4 |
+| [resultados/sesiones/20261105T165130Z_4e835c38](../../resultados/sesiones/20261105T165130Z_4e835c38) | 3 |
+| [resultados/sesiones/20261105T190945Z_fe045572](../../resultados/sesiones/20261105T190945Z_fe045572) | 3 |
+| [resultados/sesiones/20261105T191324Z_a11b0064](../../resultados/sesiones/20261105T191324Z_a11b0064) | 4 |
+| [resultados/sesiones/analogicas/20261105T173151Z_bd45e110](../../resultados/sesiones/analogicas/20261105T173151Z_bd45e110) | 0 |
+| [resultados/sesiones/analogicas/20261105T174317Z_e04f1970](../../resultados/sesiones/analogicas/20261105T174317Z_e04f1970) | 1 |
+| [resultados/sesiones/analogicas/20261105T182257Z_3f2eaaa7](../../resultados/sesiones/analogicas/20261105T182257Z_3f2eaaa7) | 1 |
+| [tarea1_grupo1/pruebas/P1](../../tarea1_grupo1/pruebas/P1) | 3 |
+| [tarea1_grupo1/pruebas/P3](../../tarea1_grupo1/pruebas/P3) | 3 |
+| [tarea1_grupo1/pruebas/P4](../../tarea1_grupo1/pruebas/P4) | 3 |
+| [src](../../src) | 0 |
+
+Ademas pueden retirarse solamente estas capturas PNG de revision dentro de
+firmware/esp32/build/herramientas_tex: herramientas_1.png, herramientas_2.png,
+main_4.png, main_5.png, revision_3.png y revision_4.png.
+
+| No eliminar | Motivo |
+|---|---|
+| resultados/sesiones/20261105T164053Z_77315ebc | Original fisico seleccionado |
+| resultados/sesiones/20261105T164327Z_614a343d | Evaluacion controlada seleccionada |
+| resultados/sesiones/20261105T165522Z_88f6f6f0 | Fuente de la medicion analogica |
+| resultados/sesiones/analogicas/20261105T185714Z_80cf289c | Original analogico seleccionado |
+| docs/final/evidencias/README.md y resultados_observados.csv | Indice y resultados seleccionados |
+| docs/final/evidencias/fir y docs/final/evidencias/analogica | Cuatro archivos seleccionados; analogica es singular |
+| .venv; firmware/esp32/build/ruta_compilacion.txt | Entorno y referencia a ultima compilacion |
+| firmware/esp32/build/herramientas_tex/tectonic.exe y fonts.conf | Compilador documental local |
+| resultados/estimulos y resultados/pruebas_finales | Estimulos actuales y futuras corridas del manual |
+| proyecto_1; docs/avance2; historicos de tarea1_grupo1 | Entregas anteriores |
+
+No eliminar las carpetas padre resultados/sesiones, docs/final/evidencias ni
+firmware/esp32/build/herramientas_tex completas: contienen archivos protegidos.
+
+## 1.12. Comprobar adquisicion y preparar la explicacion de la rubrica
+
+La [matriz de evaluacion](RUBRICA_DEFENSA.md) define que demostrar y explicar por
+categoria. Este apartado usa diagnosticos existentes, sin instrumentos nuevos.
+
+| Paso | Comando o accion | Evidencia e interpretacion |
+|---|---|---|
+| Consola Pico | En otra ventana PowerShell desde proyecto_1_grupal: & '.venv/Scripts/python.exe' -m serial.tools.miniterm COM13 115200 | COM13 es ejemplo. Cerrar visualizador y demo analogica antes; no abrir el mismo puerto en dos aplicaciones |
+| Preparar captura | Mantener la terminal de sesiones en COM12 y ejecutar capturar como en 1.3 | La captura normal usa SPI y el puerto ESP32; no solicita ADC1 por USB Pico |
+| Nivel ADC | Observar Sat durante la misma fuente y volumen de la captura | Sat cuenta extremos ADC antes de quitar DC. Si aparece saturacion, reducir nivel de fuente o ganancia de microfono y repetir |
+| Continuidad | Anotar Perd/Err/Rein antes y despues de la captura | Son acumulados desde arranque; comparar diferencias del intervalo. sin_READY puede crecer fuera de captura, cuando ESP32 no recibe; no equivale por si solo a error ADC |
+| Nivel y escala | Observar DC, Vpp, RMS y Fs | Documentar offset, amplitud y cadencia estimada. Vref 3.3 V es nominal, no calibracion analogica |
+| Frecuencia | Observar Pico Hz y el espectro del WAV de entrada con graficar_sesion | Pico Hz es el dominante de la mezcla del bloque mas intenso; no identifica automaticamente la interferencia |
+| Notas | En asm: nota Pico Sat ...; Perd inicio/final ...; Err ...; Rein ...; volumen ... | Asociar observaciones de adquisicion con la sesion. recortes_entrada=0 en ESP32 no demuestra ausencia de saturacion ADC |
+| Cerrar consola | Ctrl+] en miniterm | Libera USB Pico antes del visualizador o de demo analogico |
+
+Explicar las tres resoluciones por separado: Pico usa 256 muestras, 62.5 Hz entre
+bins; el filtro espectral usa 1024, 15.625 Hz; graficar_sesion usa el WAV completo
+de 6 s, aproximadamente 0.167 Hz entre bins. La separacion de componentes tambien
+depende de Hann; una figura mas fina no aumenta la resolucion de la FFT embebida.
+
+Durante la defensa, mostrar la fuente, diagnosticar bandas de ruido, comparar las
+dos salidas a igual ganancia y justificar la seleccion con metricas y escucha.
+En P5, reconocer la superposicion y la perdida posible de energia util. Preparar
+la explicacion del FIR, polos/ceros/estabilidad, simetria FFT, umbrales y OLA;
+cada integrante debe explicar cualquier linea de codigo que se seleccione.
+
+La orden capturar coordina adquisicion, filtros y guardado. La reproduccion sigue
+requiriendo una orden posterior. La rubrica de integracion automatica y el
+requisito cuasi real del PDF no se marcan acreditados por ejecutar esa secuencia.

@@ -24,6 +24,7 @@ bool registro_iniciar(procesamiento_registro_t *estado, size_t longitud,
 /** Acumula solo indices reales y alinea referencia/entrada con el retardo causal. */
 static bool publicar_salto(procesamiento_registro_t *estado)
 {
+    const int64_t inicio_evaluacion = tiempos_ahora(&estado->tiempos);
     size_t cantidad = estado->longitud - estado->producidas;
     if (cantidad > 512) cantidad = 512;
     for (size_t desplazamiento = 0; desplazamiento < cantidad; ++desplazamiento) {
@@ -46,10 +47,21 @@ static bool publicar_salto(procesamiento_registro_t *estado)
                     estado->util_temporal_anterior[desplazamiento]) ||
                 !metricas_acumular(&estado->metricas[1], estado->historia[original],
                     estado->historia_referencia[original], espectral, util)) return false;
+            regional_agregar(&estado->regional,
+                estado->historia[original] - estado->historia_referencia[original],
+                temporal - estado->util_temporal_anterior[desplazamiento], espectral - util,
+                &estado->espectral.transformada, estado->espectral.ventana);
         }
     }
+    if (estado->tiempos.reloj)
+        tiempo_acumular(&estado->tiempos.evaluacion, tiempos_ahora(&estado->tiempos) - inicio_evaluacion);
+    const int64_t inicio_publicacion = tiempos_ahora(&estado->tiempos);
     if (!estado->publicar(estado->producidas, cantidad, estado->temporal_anterior,
                          estado->salida, estado->contexto)) return false;
+    const int64_t fin_publicacion = tiempos_ahora(&estado->tiempos);
+    if (estado->tiempos.reloj)
+        tiempo_acumular(&estado->tiempos.publicacion, fin_publicacion - inicio_publicacion);
+    tiempos_publicar(&estado->tiempos, estado->producidas, cantidad, fin_publicacion);
     estado->producidas += cantidad;
     return true;
 }
@@ -65,19 +77,30 @@ static bool procesar_medio_salto(procesamiento_registro_t *estado,
         if (!isfinite(muestra) || !isfinite(limpia)) return false;
         estado->ventana[512 + posicion] = muestra;
         estado->referencia[512 + posicion] = limpia;
-        estado->temporal[posicion] = filtro_fir_muestra(&estado->fir, COEFICIENTES_FIR, muestra);
-        estado->util_temporal[posicion] = filtro_fir_muestra(&estado->fir_referencia, COEFICIENTES_FIR, limpia);
         if (!virtual) {
             const size_t historia = (estado->recibidas + desplazamiento) % 2048;
             estado->historia[historia] = muestra;
             estado->historia_referencia[historia] = limpia;
         }
     }
+    const int64_t inicio_fir = tiempos_ahora(&estado->tiempos);
+    for (size_t desplazamiento = 0; desplazamiento < 256; ++desplazamiento) {
+        const size_t posicion = estado->acumuladas + desplazamiento;
+        estado->temporal[posicion] = filtro_fir_muestra(&estado->fir, COEFICIENTES_FIR,
+            estado->ventana[512 + posicion]);
+        estado->util_temporal[posicion] = filtro_fir_muestra(&estado->fir_referencia, COEFICIENTES_FIR,
+            estado->referencia[512 + posicion]);
+    }
+    if (estado->tiempos.reloj)
+        tiempo_acumular(&estado->tiempos.fir, tiempos_ahora(&estado->tiempos) - inicio_fir);
     if (!virtual) estado->recibidas += 256;
     estado->acumuladas += 256;
     if (estado->acumuladas != 512) return true;
+    const int64_t inicio_espectral = tiempos_ahora(&estado->tiempos);
     filtro_espectral_bloque(&estado->espectral, estado->ventana, estado->referencia,
                            estado->espectro_salida, estado->espectro_util);
+    if (estado->tiempos.reloj)
+        tiempo_acumular(&estado->tiempos.espectral, tiempos_ahora(&estado->tiempos) - inicio_espectral);
     if (!estado->primera_ventana && !publicar_salto(estado)) return false;
     estado->primera_ventana = false;
     memcpy(estado->temporal_anterior, estado->temporal, sizeof(estado->temporal));
@@ -100,6 +123,7 @@ bool registro_agregar(procesamiento_registro_t *estado, const float *entrada, co
 bool registro_finalizar(procesamiento_registro_t *estado)
 {
     if (!estado || !estado->iniciado || estado->finalizado || estado->recibidas != estado->longitud) return false;
+    estado->tiempos.en_cierre = true;
     while (estado->producidas < estado->longitud)
         if (!procesar_medio_salto(estado, NULL, NULL, true)) return false;
     estado->finalizado = true;

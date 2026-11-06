@@ -15,11 +15,19 @@ static uint32_t secuencia_entrada, sesion_actual, recortes[3];
 static bool secuencia_iniciada, enlace_comprobado;
 static float escala_actual;
 static uint64_t tiempo_transporte;
+static int64_t ultima_recepcion_us;
+
+/** Comparte reloj monotono con las tareas de recepcion UART y SPI. */
+static int64_t reloj_registro(void *contexto)
+{
+    (void)contexto;
+    return esp_timer_get_time();
+}
 
 /** Valida orden de paquetes; HELLO permite reconectar tras un reinicio o error. */
 esp_err_t sesion_recibir(pc_paquete_t *paquete, unsigned espera_ms)
 {
-    const esp_err_t resultado = enlace_pc_recibir(paquete, espera_ms);
+    const esp_err_t resultado = enlace_pc_recibir_marcado(paquete, espera_ms, &ultima_recepcion_us);
     if (resultado != ESP_OK) return resultado;
     const bool saludo = paquete->tipo == PC_COMANDO && paquete->longitud == 5 &&
                         !memcmp(paquete->datos, "HELLO", 5);
@@ -66,9 +74,12 @@ static bool publicar_salidas(size_t indice, size_t cantidad, const float *fir,
 
 /** Procesa una captura acotada y falla ante cualquier interrupcion, sin rellenar huecos. */
 static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_referencia,
-    espectral_configuracion_t configuracion)
+    espectral_configuracion_t configuracion, bool con_region, float minimo_hz, float maximo_hz)
 {
     if (!registro_iniciar(&registro, longitud, con_referencia, configuracion, publicar_salidas, NULL))
+        return ESP_ERR_INVALID_ARG;
+    registro.tiempos.reloj = reloj_registro;
+    if (con_region && !regional_iniciar(&registro.regional, minimo_hz, maximo_hz))
         return ESP_ERR_INVALID_ARG;
     memset(recortes, 0, sizeof(recortes)); tiempo_transporte = 0;
     uint64_t total_us = 0;
@@ -82,6 +93,7 @@ static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_refere
     float mezcla[256], referencia[256];
     trama_spi_bloque_t bloque;
     while (registro.recibidas < longitud) {
+        int64_t recepcion_us = 0;
         if (fisica) {
             resultado = sesion_recibir(&entrada, 0);
             if (resultado == ESP_OK) {
@@ -92,7 +104,7 @@ static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_refere
                 ultimo_latido = esp_timer_get_time();
             } else if (resultado != ESP_ERR_TIMEOUT) break;
             if (esp_timer_get_time() - ultimo_latido > 2000000) { resultado = ESP_ERR_TIMEOUT; break; }
-            resultado = captura_pico_leer(&bloque);
+            resultado = captura_pico_leer(&bloque, &recepcion_us);
             if (resultado != ESP_OK) break;
             for (size_t posicion = 0; posicion < 256; ++posicion) {
                 const int16_t pcm = pc_cuantizar(bloque.muestras[posicion], escala_actual, &recortes[0]);
@@ -101,6 +113,7 @@ static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_refere
         } else {
             resultado = sesion_recibir(&entrada, 2000);
             if (resultado != ESP_OK) break;
+            recepcion_us = ultima_recepcion_us;
             const unsigned canales = con_referencia ? 2 : 1;
             if (entrada.sesion != sesion_actual || entrada.tipo != PC_ENTRADA ||
                 entrada.indice != registro.recibidas || entrada.longitud != 256 * 2 * canales) {
@@ -117,6 +130,9 @@ static esp_err_t procesar_registro(size_t longitud, bool fisica, bool con_refere
                     referencia[posicion] = limpia * (escala_actual / 32768.0f);
                 }
             }
+        }
+        if (!tiempos_recibir(&registro.tiempos, registro.recibidas, recepcion_us)) {
+            resultado = ESP_ERR_INVALID_STATE; break;
         }
         const uint64_t transporte_anterior = tiempo_transporte;
         const int64_t inicio = esp_timer_get_time();
@@ -194,7 +210,7 @@ static void atender_sesiones(void *contexto)
         }
         if (!strcmp(comando, "STOP")) { sesion_texto(sesion_actual, PC_ACK, "DETENIDO"); continue; }
         unsigned longitud = 0, con_referencia = 0, voltios = 0;
-        float ganancia = 1;
+        float ganancia = 1, region_minima = 0, region_maxima = 0;
         char sobrante;
         espectral_configuracion_t configuracion;
         if (!strcmp(comando, "PROBE")) resultado = comprobar_enlace();
@@ -203,13 +219,19 @@ static void atender_sesiones(void *contexto)
             &configuracion.factor, &configuracion.umbral_relativo, &sobrante) == 5 &&
             longitud >= 256 && longitud <= 960000 && longitud % 256 == 0 && enlace_comprobado) {
             escala_actual = 3.3f;
-            resultado = procesar_registro(longitud, true, false, configuracion);
-        } else if (sscanf(comando, "EVALUATE %u %u %f %f %f %f %f %c", &longitud, &con_referencia,
+            resultado = procesar_registro(longitud, true, false, configuracion, false, 0, 0);
+        } else if ((sscanf(comando, "EVALUATE %u %u %f %f %f %f %f %c", &longitud, &con_referencia,
             &escala_actual, &configuracion.frecuencia_minima_hz, &configuracion.ancho_hz,
-            &configuracion.factor, &configuracion.umbral_relativo, &sobrante) == 7 &&
+            &configuracion.factor, &configuracion.umbral_relativo, &sobrante) == 7 ||
+            sscanf(comando, "EVALUATE %u %u %f %f %f %f %f %f %f %c", &longitud, &con_referencia,
+            &escala_actual, &configuracion.frecuencia_minima_hz, &configuracion.ancho_hz,
+            &configuracion.factor, &configuracion.umbral_relativo, &region_minima, &region_maxima, &sobrante) == 9) &&
             longitud >= 256 && longitud <= 960000 && longitud % 256 == 0 && con_referencia <= 1 &&
             isfinite(escala_actual) && escala_actual > 0 && escala_actual <= 100) {
-            resultado = procesar_registro(longitud, false, con_referencia, configuracion);
+            const bool con_region = sscanf(comando,
+                "%*s %*u %*u %*f %*f %*f %*f %*f %f %f", &region_minima, &region_maxima) == 2;
+            resultado = procesar_registro(longitud, false, con_referencia, configuracion,
+                con_region, region_minima, region_maxima);
         } else if (sscanf(comando, "PLAY %u %f %u %f %c", &longitud, &escala_actual,
             &voltios, &ganancia, &sobrante) == 4 && longitud >= 256 && longitud <= 960000 &&
             longitud % 256 == 0 && isfinite(escala_actual) && escala_actual > 0 && escala_actual <= 100 &&

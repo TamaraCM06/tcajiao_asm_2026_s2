@@ -32,6 +32,11 @@ El convertidor digital a analógico (DAC) convierte los códigos numéricos en u
 salida eléctrica. Evaluar filtros sobre datos guardados y comprobar esa salida
 son actividades distintas.
 
+La version de medidas 2 agrega costos por ruta, espera en cola, latencia digital
+hasta aceptacion UART y atenuacion regional calculada en ESP32. Los ensayos fisicos
+usan parlante hacia microfono; no comprueban antialiasing de entrada ni retardo
+analogico. Los comandos y campos estan en el manual final.
+
 ## 1.2. Organización del proyecto
 
 | Ubicación | Qué contiene |
@@ -44,6 +49,7 @@ son actividades distintas.
 | [docs/avance2](docs/avance2/) | Informe del avance del taller y fuentes de sus diagramas |
 | [configuraciones.json](tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de P1–P5 y P2_tonal; históricos preservados |
 | [pruebas](tarea1_grupo1/pruebas/) | Archivos de audio WAV de entrada por caso |
+| resultados/estimulos | WAV acusticos actuales sin recortes y con escala comun; generar con python -m herramientas.preparar_casos --audio |
 | [resultados](tarea1_grupo1/resultados/) | Muestras, métricas, figuras y salidas de los filtros |
 
 ## 1.3. Módulos Python

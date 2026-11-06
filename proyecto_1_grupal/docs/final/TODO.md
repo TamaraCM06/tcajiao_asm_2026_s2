@@ -1,37 +1,51 @@
 # 1. Trabajo pendiente para entregar
 
 Fuente de verdad: [enunciado del proyecto](../references/ASM_Proyecto_Grupal1_v7.pdf).
-Solo aparecen acciones pendientes; los procedimientos están en el
-[manual de usuario y pruebas](MANUAL_USUARIO.md). No se hacen commits en este bloque.
+La [matriz de la rubrica](RUBRICA_DEFENSA.md) relaciona los nueve rubros con evidencia
+y explicaciones pendientes; las pruebas de software no equivalen a una nota funcional.
+Los comandos estan en el [manual de usuario](MANUAL_USUARIO.md).
+Este bloque prepara software y procedimientos; no programa placas ni crea commits.
 
-## 1.1. Funcionalidad que todavía debe comprobarse o completarse
+## 1.1. Ejecutar y revisar los ensayos
 
-| ID | Requisito del PDF | Qué falta realmente | Cómo cerrarlo y qué conservar | Responsable |
-|---|---|---|---|---|
-| F1 | §1–1.1: adquisición separada, dos rutas y salida reproducible en tiempo real o cuasi real | Se observó una captura de 6 s, pero falta comprobar integralmente adquisición, filtrado y escucha de ambas rutas mediante sesiones PC | Manual §1.3–1.4. Capturar la misma fuente, escuchar los dos WAV por DAC y anotar errores/colas/recortes. Medir y justificar el comportamiento temporal del flujo vigente; la reproducción es diferida y no se presenta como audio continuo | P1/P3 |
-| F2 | §2 y §4: P1–P5, tres repeticiones por condición, sonido, parámetros, promedios y variabilidad | Faltan las corridas finales. Las pruebas CSV no comprueban la adquisición ADC ni todo el circuito | Manual §1.5: 15 sesiones digitales mínimas y ensayos físicos de las mismas señales. Guardar sesiones localmente; obtener resumen con media y desviación y seleccionar resultados para el artículo. Si falta una fuente física controlada, resolverla antes de declarar el sistema completo | Equipo |
-| F3 | §2: justificar muestreo y demostrar que se evita aliasing en las condiciones previstas | Falta validar la banda de entrada antes del ADC. El Sallen-Key actual está después del DAC | Manual §1.6. Revisar acondicionamiento y limitación de banda de la fuente/entrada; verificar respuesta con estímulos conocidos. Un pico de 7 kHz al aplicar 9 kHz demuestra aliasing. La ausencia del pico por sí sola no demuestra que se evita. Reportar límites si no se resuelve | P1/P3 |
-| F4 | §3.5: atenuación de la interferencia principal | El firmware informa atenuación del ruido total, que no equivale siempre a la principal | Manual §1.7. En P1 medir el tono de 4 kHz con las salidas de placa y conservar CSV/espectros; a rechazo profundo reportar una cota. Para ruido de banda/superposición definir y justificar la región de interferencia y completar su medida; no renombrar ruido total como principal | P3/P4 |
-| F5 | §3.5: latencia por bloque, costo y memoria | Hay tiempos conjuntos de cálculo y memoria; falta caracterizar latencia por bloque y tiempos individuales actuales | Manual §1.7. Instrumentar marcas sincronizadas de llegada, procesamiento y publicación de cada bloque en sesiones PC; medir reproducción por separado. Separar cálculo, colas y espera voluntaria de escucha. No inferir latencia física de los WAV. Fijar y justificar el criterio antes de las corridas finales | P3/P4 |
-| F6 | §4, §6: P6 desconocida y ajuste sin recompilar | Falta ensayo operativo y ejecución real que definirá el profesor | Manual §1.8. Ensayar carga de CSV desconocido y cambios de parámetros; comunicar límites 16 kHz, entrada 256, FFT 1024, salto 512. P6 real solo se completa en la defensa; no inventar referencia limpia si no existe | Todos |
-
-## 1.2. Documento, defensa y entrega
-
-| ID | Requisito del PDF | Acción pendiente | Cierre |
+| ID | Pendiente real | Como cerrarlo | Responsable |
 |---|---|---|---|
-| F7 | §3.3.5 y §8: respuesta calculada frente a medida, resultados y análisis | La respuesta FIR digital medida ya está disponible; falta integrar las repeticiones finales, latencia, atenuación principal y resultado de antialias | Seleccionar tablas/figuras pequeñas, sustituir pendientes del artículo y distinguir ADC, CSV en placa y simulación. El rechazo a 4 kHz está limitado por PCM16; no llamarlo medición analógica |
-| F8 | §8: artículo ≤4 páginas, abstract inglés 150–250 palabras, ≤6 palabras clave; herramientas ≤2 páginas | Compilar y revisar otra vez después de introducir los resultados finales | Manual §1.9. Referencias citadas, sin código fuente en los dos PDF; herramientas debe describir solo lo efectivamente utilizado |
-| F9 | §6–8: defensa ≤15 min, todos participan, sonido, P6 y explicación del código; ramas y tag | Falta ensayo completo, revisión grupal y release | Manual §1.9. Poder justificar cada módulo entregado; revisar commits incrementales, integrar mediante el flujo del equipo y crear tag al cerrar. Esta revisión no ejecuta commits, merge ni publicación |
+| F1 | Programar la version nueva y comprobar adquisicion, sonido e integracion | Manual 1.2--1.4 y 1.12: captura Pico, tres WAV y escucha FIR/espectral; revisar Sat y cambios de Perd/Err/Rein en Pico. El flujo requiere ordenar reproduccion; no acredita aun cadena completa automatica ni adecuacion cuasi real | P1/P3 |
+| F2 | P1--P5, tres ejecuciones nuevas por condicion y sonido | Manual 1.5: 15 evaluaciones CSV en ESP32 y tres capturas acusticas por condicion fisica utilizada. No copiar carpetas como repeticiones. Resumen con media y desviacion | Equipo |
+| F3 | Prevencion de aliasing no demostrada, requisito PDF 2 | Manual 1.6: revisar cadencia y espectros; el montaje acustico actual no demuestra rechazo antes del ADC. Declarar la limitacion no satisface el requisito | P1/P3 |
+| F4 | Obtener atenuacion regional en las corridas nuevas | Manual 1.7: evaluar selecciona region del caso y ESP32 calcula residuos; revisar estado y region_muestras. P3/P4 son banda ancha, no tono aislado | P3/P4 |
+| F5 | Obtener costos, memoria y latencia digital de las sesiones nuevas | Manual 1.7: revisar tiempos por ruta, cola, evaluacion, publicacion, arranque y cierre; comparar calculo conjunto con criterio interno de 32000 us. No llamarlo latencia analogica | P3/P4 |
+| F6 | Ensayar P6 y ajustes sin recompilar | Manual 1.8: CSV desconocido, referencia presente/ausente, region configurable y escucha. P6 real se completa en defensa | Todos |
 
-## 1.3. Qué no se añade como requisito
+Los ensayos del manual tienen herramientas disponibles. Esto no significa que
+este acreditado todo el enunciado o el nivel excelente de la rubrica: siguen
+abiertos la prevencion de aliasing y la integracion automatica/cuasi real completa.
+Los resultados pueden revelar fallos que deban corregirse. No se cambia la
+arquitectura ni se recuperan modos retirados por esta revision documental.
 
-| Elemento | Alcance correcto |
+## 1.2. Documentacion, defensa y entrega
+
+| ID | Pendiente | Cierre |
+|---|---|---|
+| F7 | Incorporar resultados y limites reales | Manual 1.9: seleccionar tablas/figuras, respuesta FIR, repeticiones, atenuacion regional y tiempos. Separar CSV en placa, captura acustica, simulacion y analogica |
+| F8 | Terminar articulo y herramientas | Sustituir pendientes; compilar y revisar limites de cuatro y dos paginas, referencias y abstract |
+| F9 | Ensayo y release del equipo | Defensa de hasta 15 min, todos participan y explican codigo; revisar diff, integracion y tag segun flujo acordado. No se hicieron commits en este bloque |
+
+## 1.3. Limites aceptados y criterios internos
+
+Aceptados como alcance de trabajo por el usuario; no implican excepciones a los
+requisitos academicos ni aprobacion del profesor.
+
+| Elemento | Tratamiento |
 |---|---|
-| Capturas de 60 s, tres veces | Diagnóstico interno recomendado si hay dudas de continuidad; el PDF no fija esa duración ni esa repetición para el enlace |
-| Demo analógica de cuatro tonos y error ≤15 % | Ayuda a documentar el filtro de reconstrucción, §5.6. El PDF no exige ese ensayo ni ese porcentaje. El punto de 4 kHz actual es inválido; repetirlo es opcional si se quiere usar como validación cuantitativa |
-| Concordancia Python ≥90 % | Criterio interno conservado por decisión del usuario; no sustituye las métricas y ensayos físicos obligatorios |
-| Copiar todos los WAV, JSON y logs a Git | No es requisito. Los registros completos se conservan localmente; en Git van fuentes, documentos y resultados seleccionados |
-| Resumen estadístico | Sí responde al §4, pero es una ayuda: puede calcularse de otra manera. No aprueba el proyecto automáticamente ni exige validación Python para promediar |
+| Fuente fisica | Audio del notebook por parlante hacia microfono; volumen, distancia y observaciones en notas.txt |
+| Referencia | Solo CSV controlados; no asignar el WAV limpio a una captura acustica sin sincronizacion |
+| Antialiasing de entrada | No comprobado con el montaje y ensayos elegidos. Es una limitacion de cobertura, no un requisito cumplido |
+| Latencia analogica | No medida. Los tiempos nuevos terminan en aceptacion UART dentro de ESP32; excluyen ADC, PC y DAC |
+| Concordancia Python | Umbral interno conservado de 90 %, distinto de ruido eliminado |
+| Calidad y calculo | Mantener criterios_finales.json, sin cambiar umbrales para aprobar resultados |
+| Demo analogica adicional | Opcional para reconstruccion de salida; no valida antialias del ADC |
+| Registros | Mantener originales utilizados localmente; seleccionar evidencias pequenas para Git |
 
 ## 1.4. Limpieza local pendiente por bloqueo de herramienta
 
@@ -46,3 +60,19 @@ y texto. No se considera completada la limpieza de estos grupos, ni se crearon r
 | Copias y cálculos temporales | Eliminar copias completas bajo evidencias/sesiones y evidencias/analogicas, resultados/verificacion_final_pc y resultados/entrega; preservar las seis evidencias seleccionadas |
 | Cachés y herramientas duplicadas | Eliminar directorios python y python_directo, capturas PNG y logs de revisión bajo build/herramientas_tex; conservar tectonic.exe, fonts.conf y build/ruta_compilacion.txt |
 | Otros residuos regenerables | Eliminar preescuchas Pn, cachés y carpetas vacías retiradas; conservar .venv, entregas anteriores y resultados históricos |
+
+La lista exacta de 21 carpetas, 356.14 MiB, y las exclusiones estan en el
+[manual, apartado 1.11](MANUAL_USUARIO.md#111-limpieza-manual-opcional-de-residuos-bloqueados).
+No impide ejecutar el manual; no se declara espacio liberado.
+
+## 1.5. Verificacion tecnica completada
+
+| Comprobacion | Resultado observado |
+|---|---|
+| Suite Python y C portable | 195 aprobadas en 18.26 s, sin omisiones; energias C frente a NumPy, tiempos con reloj controlado, JSON real menor de 4096 bytes, notas y compatibilidad |
+| Receptor C | GCC: ADC/DC/RMS, FFT frente a DFT, Hann, estimacion, CRC8 y trama SPI correctos |
+| ESP32 | ESP-IDF 5.5.5: aplicacion unica compilada con instrumentacion; ruta_compilacion.txt apunta a esa copia |
+| Preparacion sin CSV | Seis casos de 96000 muestras y seis juegos de audios generados desde cero; carga PCM16 sin recortes |
+| Historia | 77 archivos protegidos con SHA256 identico; tres sesiones originales abiertas completas |
+| Documentos | Articulo cuatro paginas; herramientas dos; sin referencias sin resolver |
+| Limite | No se programaron placas ni se reprodujo audio. Borrado fisico rechazado por politica; sin commits ni respaldos |

@@ -266,7 +266,8 @@ prácticamente toda la energía útil. Los tiempos máximos (8.8~ms y 18.9~ms) c
 presupuestos con margen a 160~MHz; la versión final corre a 240~MHz con el procesamiento
 en un núcleo distinto de las interrupciones. No se repitió ese banco completo: la
 evaluación PC tiene máximo conjunto de 25.694~ms y estado DSP de 80\,960~bytes,
-frente a los 53\,272 del banco anterior. Sus tiempos no son individuales por método.
+frente a los 53\,272 del banco anterior. Esas medidas preceden a la instrumentación
+por ruta y regional nueva; no son tiempos individuales ni memoria de esa versión.
 La latencia algorítmica del FIR es su retardo de 2.3~ms
 más el bloque de 16~ms; la del espectral es del orden de una ventana completa, 64~ms, más
 2.3~ms de retardo añadido para alinearla con el FIR.
@@ -298,9 +299,10 @@ Hz & Modelo & Medida & Error (\%) & Estado \\\midrule
 \textbf{Cobertura pendiente.} P1 añade un tono; P3 usa el barrido sintético del
 notebook con ruido blanco; P4, transitorios con impulsos; P2 y P5 preservan los CSV
 históricos. Todavía faltan las repeticiones de P1--P5 y su escucha. Las evaluaciones
-CSV verifican filtros en placa, sin sustituir el ADC. También faltan demostrar
-antialiasing de entrada, medir latencia física y completar la atenuación de la
-interferencia principal, distinta del ruido total reportado. P6 se ejecuta en defensa.
+CSV verifican filtros en placa, sin sustituir el ADC. La versión preparada agrega
+costos individuales, latencia recepción ESP32--aceptación UART y atenuación regional
+de los residuos; faltan sus corridas. La captura acústica usa parlante y micrófono;
+antialiasing de entrada y retardo analógico quedan sin comprobar. P6 se ejecuta en defensa.
 \input{tablas/pruebas_finales.tex}
 
 \section{Conclusiones}\label{sec:conclusiones}

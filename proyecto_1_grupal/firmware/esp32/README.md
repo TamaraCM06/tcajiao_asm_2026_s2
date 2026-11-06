@@ -96,6 +96,15 @@ estiman desde la mezcla.
 | Hardware | Las pruebas host no acreditan adquisición, antialiasing, sonido ni latencia física |
 | Micrófono sin referencia | MSE, SNR y energía útil no disponibles; no se sustituyen por referencia de archivo |
 | Tiempo | El máximo conjunto de cálculo no equivale a latencia física entrada/salida |
+| Medidas nuevas | version_mediciones=2: costos individuales, espera en cola, evaluacion, publicacion y latencia digital con arranque/cierre separados |
+| Region de interferencia | Se calcula en ESP32 con los residuos de mezcla y util filtrada; FFT 1024/Hann sobre bloques reales completos, region y longitud explicitas |
+| Fuente fisica acordada | Audios del notebook por parlante hacia microfono; antialiasing de entrada y retardo analogico permanecen sin medir |
+
+La latencia digital comienza al recibir la trama completa en ESP32 y termina
+cuando UART acepta el paquete de salida; no incluye ADC, viaje UART, computadora
+ni DAC. Los costos FIR y espectral incluyen calculo de referencia y se expresan
+por 256 y 512 muestras nuevas respectivamente. Ver comandos, regiones y estados
+no disponibles en el [manual, apartado 1.7](../../docs/final/MANUAL_USUARIO.md#17-obtener-tiempos-y-atenuacion-sin-modificar-codigo).
 
 | Desde proyecto_1_grupal | Comando |
 |---|---|

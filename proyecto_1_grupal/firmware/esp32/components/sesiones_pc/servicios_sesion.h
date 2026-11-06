@@ -9,7 +9,7 @@ esp_err_t captura_pico_iniciar(void);
 /** Abre/cierra una epoca de captura y descarta paquetes de epocas anteriores. */
 void captura_pico_activar(bool activa);
 /** Espera un bloque nuevo y exige continuidad de su identificador. */
-esp_err_t captura_pico_leer(trama_spi_bloque_t *bloque);
+esp_err_t captura_pico_leer(trama_spi_bloque_t *bloque, int64_t *recepcion_us);
 /** Estima la cadencia de los bloques recibidos, sin afirmar calibracion del reloj ADC. */
 double captura_pico_tasa(void);
 /** Recibe y valida la secuencia de paquetes del cliente, incluido STOP. */

@@ -3,6 +3,8 @@
 #include "filtro_espectral.h"
 #include "filtro_fir.h"
 #include "metricas_digitales.h"
+#include "atenuacion_regional.h"
+#include "tiempos_registro.h"
 
 typedef bool (*registro_publicar_t)(size_t indice, size_t cantidad,
     const float *fir, const float *espectral, void *contexto);
@@ -17,6 +19,8 @@ typedef struct {
     float retardo[37], retardo_util[37];
     float historia[2048], historia_referencia[2048];
     metricas_acumulador_t metricas[2];
+    atenuacion_regional_t regional;
+    tiempos_registro_t tiempos;
     double energia_salida[2];
     size_t longitud, recibidas, producidas, acumuladas, posicion_retardo;
     bool primera_ventana, con_referencia, iniciado, finalizado;

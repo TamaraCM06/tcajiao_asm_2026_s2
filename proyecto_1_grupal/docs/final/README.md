@@ -37,6 +37,11 @@ conserva 22 nF y sus criterios. Las limitaciones no se cierran con documentació
 
 ## 1.3. Para qué sirve cada herramienta
 
+La [matriz de la rubrica](RUBRICA_DEFENSA.md) incorpora los nueve rubros y sus pesos.
+El software esta preparado para los ensayos del manual; no se considera demostrada
+la prevencion de aliasing ni la cadena completa automatica/cuasi real. Declarar
+esos limites no sustituye el requisito del enunciado ni garantiza nivel excelente.
+
 | Herramienta | Función | Relación con el PDF |
 |---|---|---|
 | [preparar_casos](../../herramientas/preparar_casos.py) | Prepara entradas locales con el generador del notebook; no reescribe el JSON fuente | §2 y §3.2: señales reproducibles |
@@ -71,5 +76,6 @@ por sí sola si debe estar en Git.
 | Organización | Una aplicación PC, procesador finito y coeficientes reubicados; modos antiguos retirados del código. Cuatro originales y seis resultados seleccionados protegidos |
 | Compatibilidad | Nombres P1–P5 y P2_tonal; alias históricos conservados. Las entradas faltantes se preparan automáticamente |
 | Resumen | Separa configuraciones y origen; no mezcla ADC y CSV, no exige concordancia complementaria para calcular estadísticas |
-| Pendiente experimental | F1–F6 del TODO; no se ejecuta hardware automáticamente ni se inventan resultados |
-| Verificación de cierre | 175 pruebas aprobadas; receptor C OK; única aplicación PC compilada; PDF de 4 y 2 páginas. Limpieza física incompleta por bloqueo de la herramienta; [detalle](MANUAL_USUARIO.md#110-comprobaciones-realizadas-durante-la-preparación). No se ejecutaron placas ni commits |
+| Medidas preparadas | Costos FIR/espectral, cola, evaluacion, publicacion, latencia digital y atenuacion regional calculada en ESP32; notas por sesion y estimulos sin recortes |
+| Pendiente experimental | Ejecutar manual, revisar resultados y terminar documentos/defensa. Audio de parlante hacia microfono; antialiasing de entrada y retardo analogico no comprobados |
+| Verificación de cierre | 195 pruebas aprobadas; receptor C OK; ESP-IDF 5.5.5 compilado; PDF cuatro y dos paginas; originales protegidos intactos. No se ejecutaron placas ni commits |

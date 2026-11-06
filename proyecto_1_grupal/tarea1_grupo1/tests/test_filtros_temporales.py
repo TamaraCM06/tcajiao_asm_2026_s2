@@ -28,7 +28,7 @@ def b_fir():
 
 @pytest.fixture(scope='module')
 def casos():
-    return {c: ft.cargar_caso(RAIZ, c) for c in ('caso_1', 'caso_2', 'caso_3')}
+    return {c: ft.cargar_caso(RAIZ, c) for c in ('P2_tonal', 'P2', 'P5')}
 
 
 def test_diseno_cumple_especificacion(b_fir):
@@ -47,7 +47,7 @@ def test_estabilidad(b_fir):
     assert ft.es_estable(polos)
 
 
-@pytest.mark.parametrize('caso', ['caso_1', 'caso_2', 'caso_3'])
+@pytest.mark.parametrize('caso', ['P2_tonal', 'P2', 'P5'])
 def test_ecuacion_diferencias_igual_a_lfilter(b_fir, casos, caso):
     x = casos[caso]['noisy']
     y = ft.ecuacion_diferencias(b_fir, [1.0], x)
@@ -57,7 +57,7 @@ def test_ecuacion_diferencias_igual_a_lfilter(b_fir, casos, caso):
 @pytest.mark.parametrize('tam_bloque', [1, 64, 256, 1000])
 def test_por_bloques_igual_a_lfilter(b_fir, casos, tam_bloque):
     # 1000 no divide la longitud: el último bloque queda incompleto
-    x = casos['caso_2']['noisy'][:20_000]
+    x = casos['P2']['noisy'][:20_000]
     y = ft.filtrar_por_bloques(b_fir, x, tam_bloque)
     assert np.max(np.abs(y - signal.lfilter(b_fir, 1.0, x))) <= TOLERANCIA
 
@@ -72,6 +72,6 @@ def test_ecuacion_diferencias_iir():
 def test_reduce_ruido_fuera_de_banda(b_fir, casos):
     retardo = (len(b_fir) - 1)//2
     filtro = lambda v: ft.filtrar_por_bloques(b_fir, v)
-    for caso in ('caso_1', 'caso_2'):
+    for caso in ('P2_tonal', 'P2'):
         m = ft.evaluar_filtro(casos[caso]['clean'], casos[caso]['noise'], filtro, retardo)
         assert m['delta_snr_dB'] > 55

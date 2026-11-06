@@ -60,22 +60,6 @@ static bool IRAM_ATTR registrar_parada_dac(dac_continuous_handle_t controlador,
     return despertar_tarea == pdTRUE;
 }
 
-/* Devuelve una instantánea de contadores sin competir con la interrupción DAC. */
-esp_err_t salida_dac_obtener_estadisticas(salida_dac_t *salida_dac,
-                                        salida_dac_estadisticas_t *estadisticas)
-{
-    if (salida_dac == NULL || estadisticas == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-    if (!salida_dac->estadisticas_disponibles) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    portENTER_CRITICAL(&salida_dac->bloqueo_estadisticas);
-    *estadisticas = salida_dac->estadisticas;
-    portEXIT_CRITICAL(&salida_dac->bloqueo_estadisticas);
-    return ESP_OK;
-}
-
 // ---------------------------------------------------------------------------
 // 2. Inicialización, escritura y cierre
 // ---------------------------------------------------------------------------
@@ -92,7 +76,6 @@ esp_err_t salida_dac_inicializar(salida_dac_t *salida_dac,
     }
     *salida_dac = (salida_dac_t){
         .bloqueo_estadisticas = portMUX_INITIALIZER_UNLOCKED,
-        .estadisticas_disponibles = true,
         .estadisticas.codigos_previstos = cantidad_total_codigos,
     };
     salida_dac->notificacion_final = xSemaphoreCreateBinary();

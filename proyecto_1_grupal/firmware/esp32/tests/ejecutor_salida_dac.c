@@ -155,8 +155,5 @@ int main(int cantidad_argumentos, char **argumentos)
         }
     }
     assert(salida_dac_cerrar(&salida) == ESP_OK);
-    salida_dac_estadisticas_t estadisticas;
-    assert(salida_dac_obtener_estadisticas(&salida, &estadisticas) == ESP_OK);
-    assert(estadisticas.codigos_aceptados == salida.estadisticas.codigos_aceptados);
     return 0;
 }

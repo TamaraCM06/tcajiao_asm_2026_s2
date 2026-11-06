@@ -1,0 +1,26 @@
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+
+# Entrega: solo tablas y figuras seleccionadas; los registros completos son locales.
+/evidencias/*
+!/evidencias/README.md
+!/evidencias/resultados_observados.csv
+!/evidencias/fir/
+/evidencias/fir/*
+!/evidencias/fir/respuesta_fir_medida.csv
+!/evidencias/fir/respuesta_fir_medida.png
+!/evidencias/analogica/
+/evidencias/analogica/*
+!/evidencias/analogica/comparacion_analogica.csv
+!/evidencias/analogica/respuesta_analogica.png
+!/evidencias/pruebas/
+/evidencias/pruebas/*
+!/evidencias/pruebas/P[1-5]_senales_espectros.png
+!/evidencias/pruebas/P1_atenuacion_tonos.csv
+!/evidencias/pruebas/resumen_final.csv

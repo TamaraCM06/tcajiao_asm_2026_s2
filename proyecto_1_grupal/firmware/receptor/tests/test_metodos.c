@@ -1,4 +1,4 @@
-/* Pruebas del DSP y del contrato binario; ejecutables sin Pico SDK. */
+/** Pruebas existentes de DSP y contrato binario, con frecuencias ligadas al muestreo. */
 #include "nodo1_metodos.h"
 
 #include <assert.h>
@@ -51,6 +51,7 @@ static void probar_fft_con_dft(void)
     assert(tablas.hann[0] == 0 && tablas.hann[NODO1_N - 1u] < 1e-6f);
 }
 
+/** Comprueba los bins de tono y ruido usando la frecuencia de muestreo configurada. */
 static void probar_estimacion(void)
 {
     nodo1_metricas_t m = {0};
@@ -64,7 +65,8 @@ static void probar_estimacion(void)
     nodo1_fft(re, im, &tablas);
     assert(memcmp(original, x, sizeof(x)) == 0); /* Enviar muestras sin Hann. */
     nodo1_estimar_ruido(re, im, 1600, &m);
-    assert(m.pico_hz == 625.0f && m.candidata_valida && m.candidata_ruido_hz == 2500.0f);
+    assert(m.pico_hz == 16.0f * NODO1_FS_HZ / NODO1_N && m.candidata_valida &&
+           m.candidata_ruido_hz == 64.0f * NODO1_FS_HZ / NODO1_N);
     memset(re, 0, sizeof(re));
     memset(im, 0, sizeof(im));
     nodo1_estimar_ruido(re, im, 1600, &m);

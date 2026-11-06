@@ -1,3 +1,5 @@
 /build/
 /sdkconfig
 /sdkconfig.old
+# Datos locales de una versión anterior; no forman parte de la aplicación.
+/components/senales_embebidas/

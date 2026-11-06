@@ -1,3 +1,5 @@
+# Rechaza parámetros desconocidos: solo se compila la aplicación de sesiones PC.
+[CmdletBinding()]
 param(
     [ValidateSet('build', 'flash', 'monitor', 'size')][string]$Accion = 'build',
     [string]$Puerto,
@@ -36,8 +38,20 @@ try {
         $rutaCopia = Join-Path $env:TEMP ('asm_esp32_' + [guid]::NewGuid().ToString('N'))
         if ($rutaCopia -match '[^\x00-\x7F]|\s') { throw 'TEMP debe ser una ruta ASCII sin espacios para ESP-IDF.' }
         New-Item -ItemType Directory -Path $rutaCopia | Out-Null
-        foreach ($nombre in @('components', 'main', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv')) {
+        foreach ($nombre in @('main', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv')) {
             Copy-Item -LiteralPath (Join-Path $PSScriptRoot $nombre) -Destination $rutaCopia -Recurse
+        }
+        # Copiar solo componentes definidos; no arrastrar carpetas residuales sin CMake.
+        $destinoComponentes = Join-Path $rutaCopia 'components'
+        New-Item -ItemType Directory -Path $destinoComponentes | Out-Null
+        foreach ($componente in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'components') -Directory) {
+            if (Test-Path -LiteralPath (Join-Path $componente.FullName 'CMakeLists.txt')) {
+                Copy-Item -LiteralPath $componente.FullName -Destination $destinoComponentes -Recurse
+            }
+        }
+        $revision = & git -C $PSScriptRoot describe --always --dirty
+        if ($LASTEXITCODE -eq 0) {
+            Set-Content -LiteralPath (Join-Path $rutaCopia 'version.txt') -Value $revision -Encoding ASCII
         }
     } else {
         if (-not (Test-Path -LiteralPath $rutaRegistro)) { throw 'Primero ejecuta una compilacion correcta.' }

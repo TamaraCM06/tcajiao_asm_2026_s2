@@ -73,7 +73,7 @@ def exportar_fourier(ajustes, salida, tolerancia):
 
 def disenar_filtro(casos, configs, ajustes, salida, tolerancia):
     """Diseña el FIR, compara candidatos IIR y verifica la implementación temporal."""
-    nombre = next(iter(casos))
+    nombre = 'P2' if 'P2' in casos else next(iter(casos))
     fs = casos[nombre]['fs']
     if any(c['fs'] != fs for c in casos.values()):
         raise ValueError('Los casos de una ejecución deben compartir el muestreo.')

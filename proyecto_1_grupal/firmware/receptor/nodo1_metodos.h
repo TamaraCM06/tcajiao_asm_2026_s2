@@ -1,3 +1,4 @@
+/** Define la adquisicion, analisis y contrato SPI de la Pico a 16000 muestras/s. */
 #ifndef NODO1_METODOS_H
 #define NODO1_METODOS_H
 
@@ -6,7 +7,7 @@
 #include <stdint.h>
 
 #define NODO1_N 256u
-#define NODO1_FS_HZ 10000u
+#define NODO1_FS_HZ 16000u
 #define NODO1_ADC_GPIO 26u
 #define NODO1_ADC_CANAL 0u
 #define NODO1_ADC_VREF 3.3f /* Sustituir por la referencia medida para calibrar voltios. */
@@ -22,12 +23,16 @@
 /* Formato lógico: float IEEE-754 binario32, little-endian, en voltios sin DC.
  * Usar nodo1_empaquetar(): no depender de accesos float desalineados ni del
  * endianness del compilador. El relleno SPI queda fuera de esta estructura. */
+/* MinGW GCC 6 usa alineación MS por defecto: el pragma también fija los offsets
+ * en las pruebas host. El empaquetador sigue serializando campo por campo. */
+#pragma pack(push, 1)
 typedef struct __attribute__((packed)) {
     uint8_t cabecera[2];
     uint32_t id_bloque;
     float muestras[NODO1_N];
     uint8_t crc8;
 } nodo1_paquete_t;
+#pragma pack(pop)
 
 typedef struct {
     float hann[NODO1_N];

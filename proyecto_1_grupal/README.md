@@ -5,8 +5,13 @@ Tarea 1 y el avance del taller de semana 12: prototipo Python del sistema
 completo, emisión de señales y evaluación digital de filtros en ESP32, y
 receptor en Raspberry Pi Pico con su estrategia de validación.
 
-Para preparar y ejecutar la demostración del taller, consultar el
-[README de ESP32](firmware/esp32/README.md). Esta guía general explica dónde está
+La integración actual permite capturar desde Pico a 16 kHz, ejecutar ambos filtros
+en ESP32, guardar las tres señales en la computadora y reproducirlas después por
+comando. Consultar la [guía de sesiones](firmware/esp32/GUIA_SESIONES.md).
+La entrega final (artículo, herramientas, resultados y manual) está en
+[docs/final](docs/final/README.md).
+La aplicación ESP32 se describe en su [README](firmware/esp32/README.md).
+Las entregas anteriores se conservan en sus carpetas históricas. Esta guía explica dónde está
 cada parte y cómo trabajar con el modelo Python.
 
 ## 1.1. Accesos principales
@@ -14,16 +19,22 @@ cada parte y cómo trabajar con el modelo Python.
 | Parte | Contenido | Acceso |
 |---|---|---|
 | Modelo Python de Tarea 1 | Señales reproducibles, análisis de Fourier, filtros temporal y espectral, métricas y figuras | [Notebook](tarea1_grupo1/notebook.ipynb) y [README de Tarea 1](tarea1_grupo1/README.md) |
-| Taller: prototipo Python | Ejecuta los tres casos, el diseño FIR, el filtro espectral y las métricas sin abrir el notebook | [prototipo.py](prototipo.py) y [ajustes](metadatos/prototipo.json) |
-| Taller: ESP32 | Firmware C que emite tres señales por DAC, evalúa ambos filtros sobre 95963 muestras y reúne los seis resultados en tablas finales | [Instrucciones de ESP32](firmware/esp32/README.md) |
-| Preparación de señales | Exportador de los CSV del notebook a los datos incluidos en flash | [Exportador](herramientas/exportar_senales.py) |
-| Taller: receptor Pico | Firmware C que adquiere por ADC a 10 kHz, analiza bloques de 256 con Hann y FFT y reporta diagnóstico por USB | [Instrucciones del receptor](firmware/receptor/README.md) |
+| Prototipo Python | Ejecuta los casos del JSON, el diseño FIR, el filtro espectral y las métricas sin abrir el notebook | [prototipo.py](prototipo.py) y [ajustes](metadatos/prototipo.json) |
+| ESP32 actual | Captura desde Pico, ambos filtros y evaluación por sesiones PC; reproducción diferida por DAC | [Instrucciones de ESP32](firmware/esp32/README.md) |
+| Preparación | Entradas reproducibles desde el notebook y exportación de los 75 coeficientes FIR | [Casos](herramientas/preparar_casos.py) y [coeficientes](herramientas/exportar_coeficientes.py) |
+| Receptor Pico | Firmware C que adquiere por ADC a 16 kHz, analiza bloques de 256 y transmite por SPI con la opción de integración habilitada | [Instrucciones del receptor](firmware/receptor/README.md) |
+| Sesiones PC y ESP32 | Captura, guardado, métricas controladas y reproducción diferida | [Guía](firmware/esp32/GUIA_SESIONES.md) y [terminal Python](firmware/esp32/tools/sesiones.py) |
 | Taller: informe | Proceso de diseño, criterios, validación y discusión del avance, con las fuentes de sus diagramas | [Informe](docs/avance2/informe.pdf) y [diagramas](docs/avance2/README.md) |
 | Requisitos de Tarea 1 | Enunciado académico de la primera entrega | [Enunciado](docs/references/ASM_Tarea1_v7.pdf) |
+| Entrega final | Requisitos, resultados, documentos y operación de las placas | [Enunciado final](docs/references/ASM_Proyecto_Grupal1_v7.pdf), [entrega](docs/final/README.md), [manual](docs/final/MANUAL_USUARIO.md) |
 
 El convertidor digital a analógico (DAC) convierte los códigos numéricos en una
 salida eléctrica. Evaluar filtros sobre datos guardados y comprobar esa salida
 son actividades distintas.
+
+Las métricas de P1–P5 se calculan en la ESP32 a partir de CSV con referencia;
+las capturas con micrófono demuestran la cadena física. Resultados y entregables
+en [docs/final](docs/final/README.md).
 
 ## 1.2. Organización del proyecto
 
@@ -31,12 +42,13 @@ son actividades distintas.
 |---|---|
 | [tarea1_grupo1](tarea1_grupo1/) | Modelo Python, notebook, pruebas y resultados de Tarea 1 |
 | [prototipo.py](prototipo.py) y [metadatos](metadatos/) | Prototipo Python del taller y sus ajustes |
-| [firmware/esp32](firmware/esp32/) | Programa de la ESP32 e instrucciones del taller |
+| [firmware/esp32](firmware/esp32/) | Aplicación de sesiones PC y sus componentes de procesamiento/audio |
 | [firmware/receptor](firmware/receptor/) | Programa del receptor Raspberry Pi Pico, pruebas y visualizador |
-| [herramientas](herramientas/) | Preparación de datos para el firmware |
+| [herramientas](herramientas/) | Preparación de entradas, gráficos de sesiones, respuesta FIR y estadísticas de repeticiones |
 | [docs/avance2](docs/avance2/) | Informe del avance del taller y fuentes de sus diagramas |
-| [configuraciones.json](tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de los tres casos |
+| [configuraciones.json](tarea1_grupo1/metadatos/configuraciones.json) | Parámetros y semillas de P1–P5 y P2_tonal; históricos preservados |
 | [pruebas](tarea1_grupo1/pruebas/) | Archivos de audio WAV de entrada por caso |
+| resultados/estimulos | WAV acusticos actuales sin recortes y con escala comun; generar con python -m herramientas.preparar_casos --audio |
 | [resultados](tarea1_grupo1/resultados/) | Muestras, métricas, figuras y salidas de los filtros |
 
 ## 1.3. Módulos Python
@@ -106,14 +118,15 @@ entorno .venv del proyecto.
 | 7 | Comparación y exportación de métricas |
 
 CASO selecciona la señal inicial. Para un caso fijo, los parámetros efectivos se
-cargan desde configuraciones.json. Los tres casos se regeneran con sus propias
+cargan desde configuraciones.json. Los casos se regeneran con sus propias
 semillas. Con CASO = None también se genera una señal manual o defensa_aleatoria.
 La exportación reemplaza los archivos conocidos y el ZIP, conservando los demás
 archivos de la carpeta.
 
-Estas señales son la base del taller y de la defensa. El exportador para ESP32
-lee los CSV existentes. Las instrucciones de exportación, compilación y
-programación están en el [README del emisor](firmware/esp32/README.md#14-preparación-y-ejecución).
+Estas señales son la base del taller y de la defensa. La aplicación transfiere los
+CSV preparados desde PC; la carga de un caso prepara automáticamente su copia local si falta.
+Solo los coeficientes FIR se incluyen en firmware. Las instrucciones de compilación y
+programación están en el [README de ESP32](firmware/esp32/README.md#12-compilación-y-operación).
 
 ## 1.6. Uso de los filtros Python
 
@@ -170,16 +183,16 @@ memoria ni los tiempos del microcontrolador.
 
 ## 1.8. Pruebas
 
-La verificación en computadora reúne 117 pruebas aprobadas: 94 del modelo Python,
-16 del núcleo C de filtros y 7 del cierre DAC con eventos controlados.
-Para ejecutar las pruebas del modelo Python:
+La verificación en computadora reúne unas 200 pruebas del modelo,
+núcleos C, protocolo, cliente y herramientas. No acredita el montaje físico.
+Para ejecutar la verificación conjunta:
 
 | Directorio | Comando |
 |---|---|
-| proyecto_1_grupal/ | python -m pytest tarea1_grupo1/tests -q |
+| proyecto_1_grupal/ | python -m pytest tarea1_grupo1/tests firmware/esp32/tests -q |
 
 Las pruebas de filtros usan los CSV de los casos generados por el notebook.
 Cubren comparación con SciPy, reconstrucción, extremos, ruido cambiante,
 protección de banda, evaluación parcial, compatibilidad de interfaces, generación
 reproducible y exportación sin borrar archivos ajenos. La verificación conjunta
-con el núcleo C se describe en el [README de ESP32](firmware/esp32/README.md#17-verificación-numérica).
+con el núcleo C se describe en el [README de ESP32](firmware/esp32/README.md#15-verificación-y-límites).

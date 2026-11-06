@@ -1,29 +1,22 @@
 {
-  "caso_1": {
-    "nombre_prueba": "Caso_1",
+  "P1": {
+    "nombre_prueba": "P1",
     "modo": "manual",
-    "semilla": 1000,
+    "semilla": 4100,
     "fs_Hz": 16000,
     "duracion_s": 6.0,
-    "tipo_senal": "multitono",
+    "tipo_senal": "tono",
     "frecuencias_utiles_Hz": [
-      440.0,
-      880.0,
-      1320.0
+      440.0
     ],
     "amplitudes_utiles": [
-      1.0,
-      0.55,
-      0.3
+      1.0
     ],
     "fases_grados": [
-      0.0,
-      35.0,
-      -50.0
+      0.0
     ],
     "tipo_ruido": "tonal",
     "snr_objetivo_dB": 10.0,
-    "snr_obtenida_dB": 10.000000000000014,
     "frecuencia_interferencia_Hz": 4000.0,
     "banda_ruido_Hz": [
       2500.0,
@@ -31,10 +24,12 @@
     ],
     "numero_impulsos": 10,
     "pico_maximo": 0.8,
-    "ganancia_comun": 0.43780093422539856
+    "prueba": "P1",
+    "ganancia_comun": 0.6513699148966787,
+    "snr_obtenida_dB": 10.00000000000001
   },
-  "caso_2": {
-    "nombre_prueba": "Caso_2",
+  "P2": {
+    "nombre_prueba": "P2",
     "modo": "manual",
     "semilla": 2000,
     "fs_Hz": 16000,
@@ -65,10 +60,110 @@
     ],
     "numero_impulsos": 10,
     "pico_maximo": 0.8,
-    "ganancia_comun": 0.2663496904050093
+    "ganancia_comun": 0.2663496904050093,
+    "prueba": "P2",
+    "identificador_historico": "caso_2"
   },
-  "caso_3": {
-    "nombre_prueba": "Caso_3",
+  "P2_tonal": {
+    "nombre_prueba": "P2_tonal",
+    "modo": "manual",
+    "semilla": 1000,
+    "fs_Hz": 16000,
+    "duracion_s": 6.0,
+    "tipo_senal": "multitono",
+    "frecuencias_utiles_Hz": [
+      440.0,
+      880.0,
+      1320.0
+    ],
+    "amplitudes_utiles": [
+      1.0,
+      0.55,
+      0.3
+    ],
+    "fases_grados": [
+      0.0,
+      35.0,
+      -50.0
+    ],
+    "tipo_ruido": "tonal",
+    "snr_objetivo_dB": 10.0,
+    "snr_obtenida_dB": 10.000000000000014,
+    "frecuencia_interferencia_Hz": 4000.0,
+    "banda_ruido_Hz": [
+      2500.0,
+      3800.0
+    ],
+    "numero_impulsos": 10,
+    "pico_maximo": 0.8,
+    "ganancia_comun": 0.43780093422539856,
+    "prueba": "P2",
+    "identificador_historico": "caso_1"
+  },
+  "P3": {
+    "nombre_prueba": "P3",
+    "modo": "manual",
+    "semilla": 4300,
+    "fs_Hz": 16000,
+    "duracion_s": 6.0,
+    "tipo_senal": "chirp",
+    "frecuencias_utiles_Hz": [
+      220.0,
+      1320.0
+    ],
+    "amplitudes_utiles": [
+      1.0,
+      1.0
+    ],
+    "fases_grados": [
+      0.0,
+      0.0
+    ],
+    "tipo_ruido": "blanco",
+    "snr_objetivo_dB": 5.0,
+    "frecuencia_interferencia_Hz": 4000.0,
+    "banda_ruido_Hz": [
+      2500.0,
+      3800.0
+    ],
+    "numero_impulsos": 10,
+    "pico_maximo": 0.8,
+    "prueba": "P3",
+    "descripcion": "Audio sintetico propio: barrido lineal 220-1320 Hz con ruido blanco; senal arbitraria reproducible, no grabacion de voz",
+    "ganancia_comun": 0.2773485015349183,
+    "snr_obtenida_dB": 5.000000000000009
+  },
+  "P4": {
+    "nombre_prueba": "P4",
+    "modo": "manual",
+    "semilla": 4400,
+    "fs_Hz": 16000,
+    "duracion_s": 6.0,
+    "tipo_senal": "transitoria",
+    "frecuencias_utiles_Hz": [
+      440.0
+    ],
+    "amplitudes_utiles": [
+      1.0
+    ],
+    "fases_grados": [
+      0.0
+    ],
+    "tipo_ruido": "impulsivo",
+    "snr_objetivo_dB": 5.0,
+    "frecuencia_interferencia_Hz": 4000.0,
+    "banda_ruido_Hz": [
+      2500.0,
+      3800.0
+    ],
+    "numero_impulsos": 30,
+    "pico_maximo": 0.8,
+    "prueba": "P4",
+    "ganancia_comun": 0.29686151244960435,
+    "snr_obtenida_dB": 5.000000000000144
+  },
+  "P5": {
+    "nombre_prueba": "P5",
     "modo": "manual",
     "semilla": 3000,
     "fs_Hz": 16000,
@@ -99,6 +194,8 @@
     ],
     "numero_impulsos": 10,
     "pico_maximo": 0.8,
-    "ganancia_comun": 0.1797425443658289
+    "ganancia_comun": 0.1797425443658289,
+    "prueba": "P5",
+    "identificador_historico": "caso_3"
   }
 }

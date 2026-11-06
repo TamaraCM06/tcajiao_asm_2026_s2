@@ -14,6 +14,9 @@
 | [Resultados observados](resultados_observados.csv) | Dos sesiones del 5/11: 20261105T164053Z_77315ebc, captura Pico, y 20261105T164327Z_614a343d, CSV P2_tonal procesado en ESP32 | No son las tres repeticiones de P1–P5; MSE/SNR de micrófono quedan vacíos |
 | [FIR CSV](fir/respuesta_fir_medida.csv), [figura](fir/respuesta_fir_medida.png) | Comparación con coeficientes usando entrada.wav/fir.wav de la sesión 164327; 93 bloques, 74 muestras iniciales omitidas | Dominio digital antes del DAC; a 4 kHz solo se resuelve cota inferior de atenuación |
 | [Analógica CSV](analogica/comparacion_analogica.csv), [figura](analogica/respuesta_analogica.png) | Medición 20261105T185714Z_80cf289c; reanálisis con divisor, 22 nF y retención DAC | Tres tonos útiles válidos; 4 kHz inválido por variabilidad 19.3 %. No mide antialias antes del ADC |
+| [Polos y ceros](../paper/figuras/fir_polos_ceros.png) | FIR Kaiser frente al IIR elíptico de orden 6, generada por prototipo.py | Modelo, no medición |
+| [Respuesta del FIR](../paper/figuras/fir_respuesta_frecuencia.png) | Magnitud, rizado de banda de paso, fase y retardo de grupo, generada por prototipo.py | Modelo, no medición |
+| [Señales P2](../paper/figuras/caso_2_graficas.png) | Señales y espectros del caso histórico P2 en simulación | Modelo, no medición |
 
 El firmware declarado por las dos sesiones es 0cbd2b2-dirty, ESP-IDF 5.5.5. No se
 atribuyen a esta revisión. Sus originales siguen en resultados/sesiones. Las copias

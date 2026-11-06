@@ -6,7 +6,6 @@ from pathlib import Path
 from contextlib import contextmanager, nullcontext
 import sys
 import threading
-import wave
 
 import numpy as np
 import pytest

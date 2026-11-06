@@ -35,7 +35,6 @@ typedef struct {
 typedef struct {
     dac_continuous_handle_t controlador;
     bool habilitado;
-    bool estadisticas_disponibles;
     bool contabilizar_paradas;
     bool fin_confirmado;
     SemaphoreHandle_t notificacion_final;
@@ -56,10 +55,6 @@ esp_err_t salida_dac_escribir(salida_dac_t *salida_dac,
 
 /* Espera on_stop después de cargar todo el registro, sin paradas prematuras. */
 esp_err_t salida_dac_esperar_fin(salida_dac_t *salida_dac);
-
-/* Copia contadores coherentes; siguen disponibles después de cerrar la salida. */
-esp_err_t salida_dac_obtener_estadisticas(salida_dac_t *salida_dac,
-                                        salida_dac_estadisticas_t *estadisticas);
 
 /* Detiene y libera lo reservado; admite estado a cero o cierre ya completado.
  * Si un paso falla, conserva el estado necesario para permitir otro cierre. */

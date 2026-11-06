@@ -131,20 +131,3 @@ esp_err_t recepcion_spi_recibir(trama_spi_bloque_t *bloque,
     *validacion = trama_spi_decodificar(buffer_dma, transaccion.trans_len, bloque);
     return ESP_OK;
 }
-
-/** Cierra solo tras recuperar el descriptor; disable() no acredita cancelacion DMA. */
-esp_err_t recepcion_spi_cerrar(void)
-{
-    if (!inicializado) return ESP_OK;
-    if (pendiente) {
-        spi_slave_transaction_t *terminada = NULL;
-        (void)spi_slave_get_trans_result(SPI3_HOST, &terminada, 0);
-        if (terminada != &transaccion) return ESP_ERR_INVALID_STATE;
-        pendiente = false;
-    }
-    const esp_err_t resultado_ready = gpio_set_level(RECEPCION_SPI_GPIO_READY, 0);
-    if (resultado_ready != ESP_OK) return resultado_ready;
-    const esp_err_t resultado = spi_slave_free(SPI3_HOST);
-    if (resultado == ESP_OK) inicializado = false;
-    return resultado;
-}

@@ -37,11 +37,3 @@ esp_err_t recepcion_spi_recibir(trama_spi_bloque_t *bloque,
                               trama_spi_resultado_t *validacion,
                               uint32_t espera_ms);
 
-/**
- * Libera SPI y deja READY bajo cuando no hay transferencias en curso.
- * @return ESP_OK si cerro o ya estaba cerrado; ESP_ERR_INVALID_STATE si una
- * transaccion sigue pendiente. En ese caso no cancela ni libera el buffer:
- * conservar el servicio y llamar a recibir() para recuperar la transaccion.
- * No bloquea esperando un emisor ausente; ejecutar desde la tarea propietaria.
- */
-esp_err_t recepcion_spi_cerrar(void);

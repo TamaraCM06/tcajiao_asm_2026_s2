@@ -2,8 +2,7 @@
 
 Comandos para operar el sistema. Los de PowerShell se ejecutan desde
 `proyecto_1_grupal`; los de `asm>` dentro de la terminal del sistema. `COM12`
-(ESP32) y `COM13` (Pico) son ejemplos. Qué mostrar en la defensa:
-[guía de defensa](DEFENSA.md).
+(ESP32) y `COM13` (Pico) son ejemplos.
 
 | Quiero | Ir a |
 |---|---|
@@ -158,8 +157,15 @@ Cada sesión queda en `resultados/pruebas_finales/<id>/`:
 | `sesion.json` | Parámetros, versión de firmware, pérdidas y recortes |
 | `notas.txt` | Lo escrito con `nota` |
 
+Al terminar cada `capturar` o `evaluar`, la terminal compara con Python y
+muestra las tablas sola. Para volver a ver una sesión:
+
 ```text
-# (compara la sesión seleccionada con el modelo Python; criterio ≥ 90 %)
+# (selecciona una sesión anterior por su carpeta)
+abrir "resultados/pruebas_finales/<id>"
+# (muestra de nuevo las métricas guardadas de la sesión seleccionada)
+metricas
+# (recalcula la comparación con el modelo Python; criterio ≥ 90 %)
 validar
 ```
 

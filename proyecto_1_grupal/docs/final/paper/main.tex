@@ -1,6 +1,4 @@
 % Artículo del Proyecto Grupal 1. Formato IEEE, máximo 4 páginas con referencias.
-% \pend{...} marca texto o datos que dependen de pruebas en hardware aún no realizadas.
-% Para la versión final: \renewcommand{\pend}[1]{} solo cuando no quede ninguno.
 \documentclass[conference]{IEEEtran}
 \usepackage[spanish,es-noshorthands,es-tabla]{babel}
 \usepackage[utf8]{inputenc}
@@ -17,7 +15,6 @@
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,fit}
 \graphicspath{{figuras/}}
-\newcommand{\pend}[1]{\textcolor{red}{[PENDIENTE: #1]}}
 
 \begin{document}
 
@@ -34,15 +31,17 @@ This paper presents a three-node wired system that acquires a noisy signal,
 characterizes its noise and reduces it in quasi real time with two independent
 strategies. An RP2040 acquisition node samples the input at 16~kHz with DMA, removes
 the DC component, applies a Hann window and a 256-point FFT for diagnosis, and streams
-256-sample blocks to an ESP32 through SPI frames that carry a header, a sequence
-identifier and a CRC-8 checksum. The ESP32 runs two processing paths with separate
-state: a 75-tap Kaiser FIR low-pass filter with linear phase and a block spectral
+256-sample blocks to an ESP32 through SPI frames with a sequence identifier and a
+CRC-8 checksum. The ESP32 runs two independent processing
+paths: a 75-tap Kaiser FIR low-pass filter with linear phase and a block spectral
 method based on a 1024-point radix-2 FFT, 50\,\% overlap-add and an adaptive relative
 threshold that preserves conjugate symmetry. The output is played through an 8-bit DAC
-followed by a second-order Sallen-Key reconstruction filter, and a host computer is
-used only for storage, parameter tuning and playback. A Python model with a direct DFT,
-FIR and IIR candidates and automatic figure generation guided the design; the embedded
-stored PCM16 outputs agree with Python by more than 99.99\,\%. For noise outside the useful
+followed by a second-order Sallen-Key reconstruction filter; a host computer only
+stores data, tunes parameters and relays playback. A Python model with a direct DFT
+and FIR and IIR candidates guided the design. Quality metrics are computed on the ESP32
+over controlled signals with a clean reference, and its outputs agree with
+Python by more than 99.99\,\%; microphone captures validate the physical chain by
+listening and spectra. For noise outside the useful
 band the FIR filter improved the SNR by about 60~dB and the spectral method by about
 19~dB, with worst-case block times of 8.8~ms and 18.9~ms against budgets of 16~ms and
 32~ms. When noise overlaps the useful band neither method improves the SNR without
@@ -107,6 +106,9 @@ muestras:
 \mathrm{SNR_{dB}}=10\log_{10}\dfrac{\sum s^2}{\sum (s-\hat s)^2},
 \end{equation}
 y $E_x=\sum|x[n]|^2$. La mejora es $\Delta\mathrm{SNR}=\mathrm{SNR}_{out}-\mathrm{SNR}_{in}$.
+La energía útil conservada es $100\,E_{\tilde s}/E_s$, con $\tilde s$ la referencia
+procesada por el mismo filtro, y la atenuación compara la energía del ruido de entrada
+con la del residuo $\hat s-\tilde s$.
 
 \section{Diseño e implementación}\label{sec:diseno}
 
@@ -150,7 +152,7 @@ mínima de 60~dB se compararon un FIR por ventana Kaiser~\cite{kaiser1974} y tre
 (sus 74 polos están en $z=0$, ROC $|z|>0$), tiene fase lineal con retardo constante de
 37~muestras (2.3~ms) y obtuvo la mayor SNR. Los IIR requieren menos operaciones, pero
 su retardo de grupo varía en la banda útil y deforma los transitorios. Su diagrama de polos y ceros y su respuesta en
-frecuencia están en el Anexo~\ref{sec:anexo}.
+frecuencia están en la Fig.~\ref{fig:fir} (Anexo~\ref{sec:anexo}).
 
 \begin{table}[H]
 \centering
@@ -299,13 +301,15 @@ Hz & Modelo & Medida & Error (\%) & Estado \\\midrule
 4000 & 0.1433 & 0.0972 & -- & Inválida \\\bottomrule
 \end{tabular}\end{table}
 
-\textbf{Cobertura pendiente.} P1 añade un tono; P3 usa el barrido sintético del
-notebook con ruido blanco; P4, transitorios con impulsos; P2 y P5 preservan los CSV
-históricos. Todavía faltan las repeticiones de P1--P5 y su escucha. Las evaluaciones
-CSV verifican filtros en placa, sin sustituir el ADC. La versión preparada agrega
-costos individuales, latencia recepción ESP32--aceptación UART y atenuación regional
-de los residuos; faltan sus corridas. La captura acústica usa parlante y micrófono;
-no se usa filtro antialias de entrada y el retardo analógico no se midió. P6 se ejecuta en defensa.
+\textbf{Protocolo de prueba.} Cada caso se ejecuta de dos formas. Para las métricas,
+la PC envía a la ESP32 el CSV con la mezcla y la referencia $s[n]$ generadas por el
+modelo; la ESP32 filtra y calcula en placa MSE, SNR, $\Delta$SNR, energía útil,
+atenuación y tiempos. Para la cadena física, el audio del caso suena frente al
+micrófono y recorre Pico, SPI y ESP32; sin referencia alineada no hay métricas de
+calidad: se verifican tiempos, pérdidas y espectros, y la salida se juzga escuchándola. P1 es un tono con interferencia
+de 4~kHz; P3, un barrido con ruido blanco; P4, transitorios con impulsos; P2 y P5
+conservan los CSV históricos. Faltan las tres repeticiones de P1--P5; el retardo
+analógico no se midió y P6 se ejecuta en defensa.
 \input{tablas/pruebas_finales.tex}
 
 \section{Conclusiones}\label{sec:conclusiones}
@@ -336,18 +340,17 @@ distinto de la ESP32 permitiría reducir la latencia de extremo a extremo.
 
 \appendices
 \section{Figuras complementarias}\label{sec:anexo}
-Figuras del sistema y del compromiso ruido--distorsión; además, figuras generadas por \emph{prototipo.py} y disponibles en el repositorio:
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[font=\footnotesize, node distance=5mm and 5mm,
   b/.style={draw, rounded corners=2pt, align=center, minimum height=10mm, minimum width=17mm, inner sep=2pt},
   a/.style={-{Latex[length=2mm]}, thick}, l/.style={font=\footnotesize, fill=white, inner sep=1pt}]
-\node[b] (pico) {Nodo 1: Pico\\ADC 16 kHz\\DC, Hann, FFT};
+\node[b] (pico) {Nodo 1: Pico\\ADC 16 kHz, DC\\Hann+FFT (diagnóstico)};
 \node[b, left=7mm of pico] (mic) {Micrófono\\MAX4466};
 \node[b, below=12mm of pico, xshift=-17mm] (fir) {Nodo 2\\FIR 75 coef.};
 \node[b, below=12mm of pico, xshift=17mm] (esp) {Nodo 3\\FFT/IFFT\\y métricas};
 \node[b, below=34mm of pico] (pc) {PC: WAV y\\parámetros};
-\node[b, below=11mm of pc, xshift=-22mm] (dac) {DAC 8 bits\\GPIO25};
+\node[b, below=11mm of pc, xshift=-22mm] (dac) {DAC ESP32\\8 bits, GPIO25};
 \node[b, right=4mm of dac] (sk) {Sallen-Key\\$f_c\approx2.3$ kHz};
 \node[b, right=4mm of sk] (amp) {Amplificador\\y parlante};
 \node[draw, dashed, fit=(fir)(esp), inner sep=5pt, label={[font=\footnotesize]above:ESP32}] (e32) {};
@@ -355,29 +358,31 @@ Figuras del sistema y del compromiso ruido--distorsión; además, figuras genera
 \draw[a] (pico.south) -- ++(0,-5mm) -| node[l, pos=.25, above]{SPI} (fir.north);
 \draw[a] (pico.south) -- ++(0,-5mm) -| (esp.north);
 \draw[a] (fir.south) |- node[l, pos=.25, left]{USB} (pc.west);
-\draw[a] (esp.south) |- (pc.east);
+\draw[a] (esp.south) |- node[l, pos=.25, right]{USB} (pc.east);
 \draw[a] (pc.south) -- ++(0,-5mm) -| node[l, pos=.25, above]{USB} (dac.north);
 \draw[a] (dac) -- (sk);
 \draw[a] (sk) -- (amp);
 \end{tikzpicture}
-\caption{Arquitectura y flujo de datos. Los nodos 2 y 3 comparten la ESP32 con rutas y estado independientes; la PC solo almacena, ajusta parámetros y pide la reproducción.}
+\caption{Arquitectura. Nodos 2 y 3 en la ESP32 con rutas independientes; ambas salidas comparten el USB y la PC devuelve la elegida al DAC.}
 \label{fig:sistema}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{espectral_compromiso_ruido_distorsion}
+\includegraphics[width=0.85\linewidth]{espectral_compromiso_ruido_distorsion}
 \caption{P5 con $f_{min}=600$ Hz: más supresión implica menos energía útil conservada.}
 \label{fig:compromiso}
 \end{figure}
 
-\begin{itemize}
-\item \href{\repo/docs/final/paper/figuras/fir_polos_ceros.png}{Diagrama de polos y ceros del FIR Kaiser}.
-\item \href{\repo/docs/final/paper/figuras/fir_respuesta_frecuencia.png}{Respuesta en frecuencia del FIR Kaiser}.
-\item \href{\repo/docs/final/paper/figuras/caso_2_graficas.png}{Señales y espectros del caso 2}.
-\item \href{\repo/docs/final/evidencias/fir/respuesta_fir_medida.png}{Respuesta FIR calculada frente al WAV medido}.
-\item \href{\repo/docs/final/evidencias/analogica/respuesta_analogica.png}{Respuesta analógica con retención DAC y medidas válidas}.
-\end{itemize}
+\begin{figure}[H]
+\centering
+\includegraphics[height=2.6cm,clip,trim={0 0 475bp 0}]{fir_polos_ceros}\hspace{1mm}
+\includegraphics[height=2.6cm,clip,trim={0 318bp 534bp 0}]{fir_respuesta_frecuencia}
+\caption{FIR Kaiser: polos y ceros; magnitud con rechazo $\geq60$~dB desde 2.4~kHz. Fase, retardo, IIR, FIR medido y respuesta analógica en las \href{\repo/docs/final/evidencias/README.md}{evidencias del repositorio}.}
+\label{fig:fir}
+\end{figure}
+
+
 
 
 \end{document}

@@ -54,13 +54,6 @@ def medir_componentes(entrada, salida, frecuencias):
             np.mean(limites, axis=0), len(ganancias))
 
 
-# Conserva la interfaz que devuelve media y desviación de la ganancia.
-def respuesta_medida(entrada, salida, frecuencias):
-    """Conserva la interfaz que devuelve media y desviación de la ganancia."""
-    media, desviacion, _, _ = medir_componentes(entrada, salida, frecuencias)
-    return media, desviacion
-
-
 # Distingue una ganancia resuelta de una salida bajo el piso de cuantización.
 def comparar(sesion, coeficientes, frecuencias):
     """Distingue una ganancia resuelta de una salida bajo el piso de cuantización."""

@@ -85,11 +85,6 @@ esp_err_t enlace_pc_enviar(pc_paquete_t *paquete)
      * Esperar drenaje por paquete impediria sostener las tres rutas a 1 Mbaud. */
     return ESP_OK;
 }
-/** Prioriza los fallos sobre los datos para no declarar continua una captura corrupta. */
-esp_err_t enlace_pc_recibir(pc_paquete_t *paquete, unsigned espera_ms)
-{
-    return enlace_pc_recibir_marcado(paquete, espera_ms, NULL);
-}
 /** La marca usa esp_timer igual que SPI, calculo y publicacion. */
 esp_err_t enlace_pc_recibir_marcado(pc_paquete_t *paquete, unsigned espera_ms, int64_t *recepcion_us)
 {

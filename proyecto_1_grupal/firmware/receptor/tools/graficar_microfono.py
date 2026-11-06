@@ -13,7 +13,7 @@ import time
 
 RAIZ_PROYECTO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(RAIZ_PROYECTO))
-from herramientas.capturas_pico import Captura, decodificar
+from herramientas.capturas_pico import decodificar
 
 
 def recibir(puerto, ultimos, detener):

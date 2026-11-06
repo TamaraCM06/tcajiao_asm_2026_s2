@@ -1,11 +1,4 @@
 #include "filtro_fir.h"
-#include <string.h>
-
-/* Reinicia el anillo sin reservar memoria durante el procesamiento. */
-void filtro_fir_reiniciar(filtro_fir_t *estado)
-{
-    memset(estado, 0, sizeof(*estado));
-}
 
 /* Evalua la convolucion causal; la muestra actual multiplica el primer coeficiente. */
 float filtro_fir_muestra(filtro_fir_t *estado, const float *coeficientes, float entrada)

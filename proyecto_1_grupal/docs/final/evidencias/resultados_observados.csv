@@ -1,0 +1,5 @@
+sesion,modalidad,prueba,metodo,muestras,con_referencia,snr_entrada_db,snr_salida_db,mejora_snr_db,mse,energia_util_pct,atenuacion_ruido_total_db,calculo_max_us_conjunto,perdidas
+20261105T164053Z_77315ebc,pico,microfono_sin_referencia,fir,96000,False,,,,,,,16323,0
+20261105T164053Z_77315ebc,pico,microfono_sin_referencia,espectral,96000,False,,,,,,,16323,0
+20261105T164327Z_614a343d,archivo,P2_tonal,fir,96000,True,10.0017414227987,69.02164847045037,59.01990704765167,1.665366702528456e-08,100.0012826501051,59.16445150182345,25694,0
+20261105T164327Z_614a343d,archivo,P2_tonal,espectral,96000,True,10.0017414227987,29.97643180121954,19.97469037842084,0.0001336692600716917,99.9999865130975,19.974288825088454,25694,0

@@ -33,7 +33,7 @@ def test_dft_rechaza_formato_invalido(x):
         af.dft_directa(x)
 
 
-@pytest.mark.parametrize("caso", ["caso_1", "caso_2", "caso_3"])
+@pytest.mark.parametrize("caso", ["P2_tonal", "P2", "P5"])
 def test_generacion_reproducible_y_snr(caso):
     cfg = archivos.cargar_configuraciones(RAIZ / 'metadatos/configuraciones.json')[caso]
     primero = generacion.generar_caso_configurado(cfg, 20)
@@ -63,8 +63,8 @@ def test_snr_regularizada_y_casos_limite():
 
 
 def test_fachadas_conservan_firmas_de_carga_y_diseno():
-    temporal = ft.cargar_caso(RAIZ, 'caso_1')
-    espectral = fe.cargar_caso('caso_1', RAIZ)
+    temporal = ft.cargar_caso(RAIZ, 'P2_tonal')
+    espectral = fe.cargar_caso('P2_tonal', RAIZ)
     assert set(temporal) == {'t', 'clean', 'noise', 'noisy'}
     assert espectral['fs'] == 16000
     np.testing.assert_array_equal(temporal['noisy'], espectral['noisy'])
@@ -78,7 +78,7 @@ def test_imports_anteriores_y_ruta_predeterminada():
 
     assert archivos_anteriores is archivos
     assert filtro_anterior is fe
-    caso = archivos.cargar_caso('caso_1')
+    caso = archivos.cargar_caso('P2_tonal')
     assert caso['fs'] == 16000
     assert len(caso['clean']) == 96000
 

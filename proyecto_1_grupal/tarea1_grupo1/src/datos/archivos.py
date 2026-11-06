@@ -2,11 +2,13 @@
 
 import csv
 import json
+import shutil
 import zipfile
 from pathlib import Path
 
 import numpy as np
 from scipy.io import wavfile
+from .casos import EQUIVALENCIAS_HISTORICAS, resolver_caso
 
 # ---------------------------------------------------------------------------
 # Lectura
@@ -18,30 +20,63 @@ def cargar_configuraciones(ruta):
     return json.loads(Path(ruta).read_text(encoding="utf-8"))
 
 
-def cargar_caso(caso, raiz=None, incluir_configuracion=True):
-    """Lee una vez el CSV y su configuración; no modifica los datos."""
-    raiz = Path(raiz) if raiz is not None else Path(__file__).resolve().parents[2]
-    if incluir_configuracion:
-        configs = cargar_configuraciones(raiz / "metadatos/configuraciones.json")
-        if caso not in configs:
-            raise ValueError(f"Caso desconocido: {caso}. Opciones: {', '.join(configs)}")
-    muestras = np.loadtxt(
-        raiz / "resultados/muestras" / f"{caso}_muestras.csv", delimiter=",", skiprows=1, ndmin=2
-    )
-    if muestras.shape[1] != 4:
-        raise ValueError("El CSV debe contener tiempo, limpia, ruido y contaminada.")
+def cargar_muestras_csv(ruta):
+    """Lee y valida las cuatro columnas del CSV exportado por el notebook."""
+    with Path(ruta).open(encoding="utf-8-sig", newline="") as archivo:
+        encabezado = next(csv.reader(archivo), None)
+        if encabezado != ["tiempo_s", "limpia", "ruido", "contaminada"]:
+            raise ValueError("Encabezado esperado: tiempo_s,limpia,ruido,contaminada.")
+        muestras = np.loadtxt(archivo, delimiter=",", ndmin=2)
+    if muestras.shape[1] != 4 or len(muestras) == 0:
+        raise ValueError("El CSV debe contener tiempo, limpia, ruido y contaminada, sin estar vacío.")
     if not np.all(np.isfinite(muestras)):
         raise ValueError("El CSV contiene NaN o infinito.")
     if not np.allclose(muestras[:, 1] + muestras[:, 2], muestras[:, 3], rtol=1e-12, atol=1e-14):
         raise ValueError("La señal contaminada no coincide con limpia + ruido.")
-    datos = {
+    return {
         "t": muestras[:, 0],
         "clean": muestras[:, 1],
         "noise": muestras[:, 2],
         "noisy": muestras[:, 3],
     }
+
+
+# Prepara una entrada regenerable sin sobrescribir configuraciones ni resultados históricos.
+def asegurar_muestras_caso(caso, raiz=None, regenerar=False):
+    """Devuelve el CSV local; copia el histórico o usa el mismo generador del notebook si falta."""
+    caso = resolver_caso(caso)
+    raiz = Path(raiz) if raiz is not None else Path(__file__).resolve().parents[2]
+    configuraciones = cargar_configuraciones(raiz / "metadatos/configuraciones.json")
+    if caso not in configuraciones:
+        raise ValueError(f"Caso desconocido: {caso}. Opciones: {', '.join(configuraciones)}")
+    destino = raiz / "resultados/muestras" / f"{caso}_muestras.csv"
+    if destino.exists() and not regenerar:
+        return destino
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    anterior = next((nombre for nombre, vigente in EQUIVALENCIAS_HISTORICAS.items() if vigente == caso), None)
+    historico = raiz / "resultados/muestras" / f"{anterior}_muestras.csv"
+    if anterior and historico.exists() and not regenerar:
+        shutil.copyfile(historico, destino)
+    else:
+        from ..senales.generacion import generar_caso_configurado
+        configuracion = configuraciones[caso]
+        datos = generar_caso_configurado(configuracion, configuracion.get("fade_ms", 20))
+        guardar_muestras(destino, datos)
+    return destino
+
+
+# Carga el caso y genera únicamente la copia local ausente, conservando los datos fuente.
+def cargar_caso(caso, raiz=None, incluir_configuracion=True):
+    """Lee la entrada y su configuración; prepara el CSV local si aún no existe."""
+    caso = resolver_caso(caso)
+    raiz = Path(raiz) if raiz is not None else Path(__file__).resolve().parents[2]
     if incluir_configuracion:
-        datos.update(fs=configs[caso]["fs_Hz"], configuracion=configs[caso])
+        configuraciones = cargar_configuraciones(raiz / "metadatos/configuraciones.json")
+        if caso not in configuraciones:
+            raise ValueError(f"Caso desconocido: {caso}. Opciones: {', '.join(configuraciones)}")
+    datos = cargar_muestras_csv(asegurar_muestras_caso(caso, raiz))
+    if incluir_configuracion:
+        datos.update(fs=configuraciones[caso]["fs_Hz"], configuracion=configuraciones[caso])
     return datos
 
 

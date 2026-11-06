@@ -4,12 +4,9 @@ Los imports de diseño y utilidades conservan la interfaz histórica."""
 
 import numpy as np
 
-from ..datos.archivos import cargar_caso as _cargar_caso, pcm16
-from ..mediciones.metricas import snr_db
-from ..senales.analisis_fourier import espectro_db, energia_en_banda
+from ..datos.archivos import cargar_caso as _cargar_caso
 from .diseno_temporal import (
     disenar_fir_kaiser,
-    respuesta_frecuencia,
     medir_especificacion,
     polos_ceros,
     es_estable,

@@ -1,0 +1,17 @@
+# UART0 se conserva como consola de registros a 115200 baudios.
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=16384
+
+# Procesamiento continuo: optimizar calculo y aprovechar los 240 MHz del ESP32.
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=240
+
+# Recibir códigos de 8 bits y dejar que el driver los alinee para DMA.
+CONFIG_DAC_DMA_AUTO_16BIT_ALIGN=y
+
+# Mantener la configuración de flash y partición de la placa actual de 4 MB.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"

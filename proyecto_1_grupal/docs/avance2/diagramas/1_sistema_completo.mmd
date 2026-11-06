@@ -1,0 +1,27 @@
+---
+config:
+  flowchart:
+    curve: stepBefore
+    useMaxWidth: false
+    nodeSpacing: 30
+    rankSpacing: 35
+---
+flowchart LR
+
+    PY["Prototipo<br/>Python"]
+    EMI["Emisor ESP32<br/>DAC 8 bits"]
+    N1["Nodo 1 · Pico<br/>ADC + FFT 256<br/>diagnóstico USB"]
+    N2["Nodo 2<br/>FIR temporal"]
+    N3["Nodo 3<br/>FFT/IFFT"]
+    CMP["Comparación<br/>MSE · SNR<br/>energía · latencia"]
+
+    PY -->|"x[n] u8<br/>en flash"| EMI
+    EMI -->|"v(t) GPIO25 → RC<br/>→ GPIO26"| N1
+    N1 -->|"trama SPI<br/>(deshabilitada)"| N2
+    N1 -->|"trama SPI<br/>(deshabilitada)"| N3
+    N2 -->|"y_FIR[n]"| CMP
+    N3 -->|"y_esp[n]"| CMP
+
+    classDef implementado fill:#e8f1fb,stroke:#1f4e79
+    class PY,EMI,N1,N2,N3,CMP implementado
+    linkStyle 2,3 stroke-dasharray: 6 4

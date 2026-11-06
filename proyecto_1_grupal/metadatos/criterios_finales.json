@@ -1,0 +1,15 @@
+{
+  "responsable": "Equipo; Persona 3 implementa la comprobacion",
+  "alcance": "Criterios internos del equipo; el PDF exige definir y justificar criterios, pero no impone estos porcentajes ni 32 ms",
+  "concordancia_digital_minima_pct": 90,
+  "nota_concordancia": "Umbral fijado por el equipo el 2026-11-05; mide equivalencia con el modelo, no porcentaje de ruido eliminado",
+  "repeticiones_minimas": 3,
+  "mejora_snr_minima_db": 10,
+  "energia_util_minima_pct": 90,
+  "pruebas_ruido_separado": ["P1", "P2"],
+  "calculo_conjunto_maximo_us": 32000,
+  "perdidas_maximas": 0,
+  "recortes_maximos": 0,
+  "nota_tiempo": "calculo_max_us es el maximo conjunto FIR+espectral, incluido el cierre; no es tiempo individual ni latencia analogica",
+  "latencia_fisica": "No medida: el equipo utiliza audios sin osciloscopio ni generador; declarar limitacion. latencia_bloque_medio_us/max_us mide recepcion en ESP32 hasta aceptacion UART, excluyendo ADC, PC y DAC"
+}

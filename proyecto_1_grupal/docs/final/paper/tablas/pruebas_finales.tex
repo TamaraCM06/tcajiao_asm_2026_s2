@@ -1,3 +1,24 @@
-% Sustituir con estadisticas de sesiones reales de P1--P5; no fabricar filas sin medicion.
-\noindent\textit{Pendiente: tabla de P1--P5 con tres repeticiones por condición,
-parámetros, media y variabilidad; distinguir evaluación CSV en placa y adquisición ADC.}
+\begin{table}[!t]
+\centering
+\caption{Pruebas P1--P5 evaluadas en la ESP32 (6/11): media de $r=3$ corridas ($r=2$ en P4); desviación nula en las métricas de calidad.}
+\label{tab:pruebas}
+\setlength{\tabcolsep}{2.5pt}\footnotesize
+\begin{tabular}{llccccc}
+\toprule
+Prueba & Método & SNR\textsubscript{in} & $\Delta$SNR & MSE & Útil & Aten. \\
+ & & (dB) & (dB) & & (\%) & (dB) \\
+\midrule
+P1 tono, 4~kHz & FIR & 10.0 & 58.20 & $3.2\times10^{-8}$ & 100.0 & 73.0 \\
+ & Espectral & & 19.97 & $2.1\times10^{-4}$ & 100.0 & 20.0 \\
+P2 tres tonos, alta f. & FIR & 5.0 & 60.11 & $1.5\times10^{-8}$ & 100.0 & 69.9 \\
+ & Espectral & & 18.35 & $2.3\times10^{-4}$ & 100.0 & 19.7 \\
+P3 barrido, blanco & FIR & 5.0 & 6.18 & $2.9\times10^{-3}$ & 99.9 & 6.2 \\
+ & Espectral & & 6.36 & $2.8\times10^{-3}$ & 100.0 & 6.4 \\
+P4 transitorio, impulsos & FIR & 5.0 & 0.16 & $1.2\times10^{-3}$ & 100.0 & 0.2 \\
+ & Espectral & & 0.12 & $1.2\times10^{-3}$ & 100.0 & 0.1 \\
+P5 superpuesto$^\dagger$ & FIR & 0.0 & 0.00 & $2.2\times10^{-2}$ & 100.0 & 0.0 \\
+ & Espectral & & 5.90 & $5.8\times10^{-3}$ & 72.1 & 17.0 \\
+\bottomrule
+\end{tabular}\\[2pt]
+\raggedright\footnotesize $^\dagger$P5 con $f_{min}=600$~Hz y factor 0.1; el resto con 1600~Hz.
+\end{table}

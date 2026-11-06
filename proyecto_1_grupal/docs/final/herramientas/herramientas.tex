@@ -3,6 +3,7 @@
 \usepackage[spanish,es-noshorthands,es-tabla]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \usepackage[margin=1.6cm]{geometry}
 \usepackage{booktabs,tabularx,xcolor,enumitem}
 \usepackage{url}
@@ -12,7 +13,7 @@
 \renewcommand{\arraystretch}{1.1}
 
 \title{\vspace{-1.5cm}Herramientas de ingeniería\\\large Proyecto Grupal 1: sistema distribuido de reducción adaptativa de ruido}
-\author{N. Florez, T. Cajiao, S. Robles, S. Boza\\CE 1110 Análisis de Señales Mixtas, II Semestre 2026}
+\author{Nicolás Florez Jiménez, Tamara Vanessa Cajiao Molina,\\Santiago Robles Obando, Santiago Boza Quiros\\CE 1110 Análisis de Señales Mixtas, II Semestre 2026}
 \date{\vspace{-8mm}}
 
 \begin{document}
@@ -34,7 +35,7 @@ Firmware de filtrado & ESP-IDF 5.5 (C, FreeRTOS) desde PowerShell, SPI esclavo, 
 Comunicación & SPI 2~MHz con trama propia y CRC-8~\cite{peterson}; USB serie a 1~Mbaud & Delimitación de bloques, detección de errores y pérdidas. \\
 Datasheets & RP2040 (ADC), ESP32 (DAC 8 bits), MAX4466~\cite{max4466}, LM358~\cite{lm358}, nota de Sallen-Key~\cite{sloa024} & Rango de entrada 0--3.3~V, resolución, alimentación y diseño del filtro de reconstrucción. \\
 Instrumentos & Multímetro digital ANENG DM850 & Alimentación de 5~V del LM358 y tensiones DC en sus pines durante la ejecución, de las que depende el filtro analógico. \\
-Verificación & pytest, GCC, scripts de prueba en Python & Más de 150 pruebas en Python (modelo, núcleo C de filtros frente a SciPy, trama SPI, protocolo PC y cierre del DAC) y pruebas en C del receptor (DC, Hann, FFT frente a DFT, CRC-8). \\
+Verificación & pytest, GCC, scripts de prueba en Python & Más de 150 pruebas en Python (modelo, procesador C frente al modelo Python, trama SPI, protocolo PC y cierre del DAC) y pruebas en C del receptor (DC, Hann, FFT frente a DFT, CRC-8). \\
 Medición con la Pico & \emph{pico\_instrumento.py}, \emph{capturas\_pico.py}, \emph{demo analogico} & ADC1 por USB: 12 bloques separados por punto, amplitudes de GPIO25 frente a pin 7 del LM358. \\
 Validación independiente & \emph{validar}, \emph{concordancia.py}; esptool & Mismo PCM16 contra Python, criterio digital $\geq90$\,\%; diagnóstico del puente USB. \\
 Documentación y gestión & Git (master/development, ramas por función), Mermaid, \LaTeX{} IEEEtran & Trabajo incremental, diagramas versionados y artículo. \\

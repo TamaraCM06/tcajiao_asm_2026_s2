@@ -41,12 +41,11 @@ stores data, tunes parameters and relays playback. A Python model with a direct 
 and FIR and IIR candidates guided the design. Quality metrics are computed on the ESP32
 over controlled signals with a clean reference, and its outputs agree with
 Python by more than 99.99\,\%; microphone captures validate the physical chain by
-listening and spectra. For noise outside the useful
-band the FIR filter improved the SNR by about 60~dB and the spectral method by about
-19~dB, with worst-case block times of 8.8~ms and 18.9~ms against budgets of 16~ms and
-32~ms. When noise overlaps the useful band neither method improves the SNR without
-removing useful energy, which quantifies the trade-off between noise reduction and
-distortion.
+listening and spectra. On the board, with noise outside the useful band
+the FIR filter improved the SNR by 58--60~dB and the spectral method by 18--20~dB;
+with white noise both gained about 6~dB, using about 9~ms of processing per 16~ms
+block. When noise overlaps the useful band neither method improves the SNR without
+removing useful energy, quantifying the noise--distortion trade-off.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -156,7 +155,7 @@ frecuencia están en la Fig.~\ref{fig:fir} (Anexo~\ref{sec:anexo}).
 
 \begin{table}[H]
 \centering
-\caption{Candidatos de filtro temporal (simulación, caso 2)}
+\caption{Candidatos de filtro temporal (simulación, P2)}
 \label{tab:filtros}
 \begin{tabular}{lcccc}
 \toprule
@@ -228,54 +227,38 @@ rutas: admite NRMSE hasta 0.1 y comprueba equivalencia, no eliminación de ruido
 El criterio analógico se fijó antes de medir; la corrección física de retención se
 documentó después como reanálisis, conservando las medidas y los criterios originales.
 
-\textbf{Equivalencia modelo--firmware.} Los mismos casos se evaluaron en Python
-(float64)~\cite{numpy2020,scipy2020} y en la ESP32 (float32) sobre 95\,963 muestras,
-tras compensar las 37 muestras del FIR. La sesión controlada del 5/11 procesó el CSV
-histórico multitono con interferencia tonal (P2 tonal), sin pasar por el ADC: SNR
-espectral 10.0017~$\rightarrow$~29.9764~dB en placa. Sobre el mismo PCM16, Python da
-29.97643172~dB, con diferencia $8.2\times10^{-8}$~dB; la concordancia es 100\,\% FIR y
-99.99966\,\% espectral. El valor anterior 29.9760~dB provenía del modelo sin esa
-cuantización de entrada. Una captura física distinta de 6~s con micrófono entregó
-375 bloques, 96\,000 muestras a 16\,000.26 muestras/s, sin pérdidas, errores SPI
-detectados ni recortes. Su máximo conjunto fue 16.323~ms frente al salto de 32~ms;
-sin referencia limpia no acredita SNR. Las tablas y figuras seleccionadas se
-\href{\repo/docs/final/evidencias/README.md}{adjuntan al proyecto}; los registros completos son locales.
+\textbf{Protocolo de prueba.} Para las métricas, la PC envía a la ESP32 el CSV de
+cada caso con la mezcla y la referencia $s[n]$ del modelo, y la placa filtra y calcula
+MSE, SNR, energía útil, atenuación y tiempos. P1 es un tono con interferencia de
+4~kHz; P2, tres tonos con ruido de 2.5--3.8~kHz; P3, un barrido con ruido blanco; P4,
+transitorios con impulsos; P5, ruido superpuesto de 600--1500~Hz. Para la cadena
+física el audio suena frente al micrófono y recorre Pico, SPI y ESP32; sin referencia
+alineada no hay métricas de calidad, y se verifican tiempos, pérdidas, espectros y
+sonido. Una captura de 6~s entregó 375 bloques a 16\,000.26 muestras/s, sin pérdidas,
+errores SPI ni recortes. P6 se ejecuta en la defensa.
 
-\begin{table}[H]
-\centering
-\caption{Resultados digitales ESP32, 95\,963 muestras a 16 kHz. Banco: 160 MHz, 30/10; PC: CSV en placa, 240 MHz, 5/11.}
-\label{tab:res}
-\setlength{\tabcolsep}{2pt}\footnotesize
-\begin{tabular}{llccccc}
-\toprule
-Caso & Método & SNR\textsubscript{in} & $\Delta$SNR & MSE & Útil & $t_{max}$ \\
- & & (dB) & (dB) & & (\%) & (ms) \\
-\midrule
-P2 tonal: banco & FIR & 10.0 & 59.05 & $1.7\times10^{-8}$ & 100.0 & 8.83 \\
-              & Espectral & 10.0 & 19.97 & $1.3\times10^{-4}$ & 100.0 & 18.86 \\
-P2: banco & FIR & 5.0 & 60.14 & $1.5\times10^{-8}$ & 100.0 & 8.83 \\
-              & Espectral & 5.0 & 18.35 & $2.3\times10^{-4}$ & 100.0 & 18.95 \\
-P5: banco & FIR & 0.0 & 0.003 & $2.2\times10^{-2}$ & 100.0 & 8.80 \\
-              & Espectral & 0.0 & 0.002 & $2.2\times10^{-2}$ & 100.0 & 18.84 \\
-\midrule
-P2 tonal: PC & FIR & 10.0017 & 59.0199 & $1.67\times10^{-8}$ & 100.0 & -- \\
-             & Espectral & 10.0017 & 19.9747 & $1.34\times10^{-4}$ & 100.0 & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
+\textbf{Resultados en placa.} La Tabla~\ref{tab:pruebas} resume 14 evaluaciones
+completas; tres intentos se abortaron al detectar tramas USB truncadas y se repitieron.
+Las métricas de calidad no varían entre corridas porque el procesamiento de un mismo
+CSV es determinista; la variabilidad aparece en los tiempos (desviación $\leq8~\mu$s).
+La salida de la placa coincide con Python sobre el mismo PCM16 con concordancia
+$\geq99.999$\,\% en ambas rutas~\cite{numpy2020,scipy2020}.
+\input{tablas/pruebas_finales.tex}
 
-\textbf{Comparación de métodos.} Con ruido fuera de banda (P2 tonal y P2) el FIR mejora
-la SNR unos 60~dB porque atenúa al menos 60~dB toda la banda de rechazo, mientras el
-espectral queda limitado a unos 20~dB por su factor de 0.1. Ambos conservan
-prácticamente toda la energía útil. Los tiempos máximos (8.8~ms y 18.9~ms) cumplen sus
-presupuestos con margen a 160~MHz; la versión final corre a 240~MHz con el procesamiento
-en un núcleo distinto de las interrupciones. No se repitió ese banco completo: la
-evaluación PC tiene máximo conjunto de 25.694~ms y estado DSP de 80\,960~bytes,
-frente a los 53\,272 del banco anterior. Esas medidas preceden a la instrumentación
-por ruta y regional nueva; no son tiempos individuales ni memoria de esa versión.
-La latencia algorítmica del FIR es su retardo de 2.3~ms
-más el bloque de 16~ms; la del espectral es del orden de una ventana completa, 64~ms, más
-2.3~ms de retardo añadido para alinearla con el FIR.
+\textbf{Comparación de métodos.} Con ruido fuera de banda (P1, P2) ambos cumplen los
+criterios: el FIR mejora 58--60~dB y atenúa la interferencia 70--73~dB, porque toda su
+banda de rechazo queda bajo $-60$~dB; el espectral mejora 18--20~dB, limitado por el
+factor 0.1 ($-20$~dB). Con ruido blanco (P3) ambos ganan cerca de 6~dB: solo se quita el
+ruido sobre la banda útil, unas 3/4 partes de su potencia ($10\log_{10}4$). En P4 la
+energía de los impulsos cae en la banda útil y la mejora es de 0.1--0.2~dB; su evidencia
+es la respuesta temporal. El cálculo medio conjunto fue 8.4--9.5~ms por bloque de
+16~ms, con 2.5~ms por bloque FIR y 3.7~ms por ventana espectral, incluida la ruta de
+referencia; el máximo conjunto, 25.9--31.5~ms, queda bajo el salto de 32~ms. El estado
+DSP ocupa 102\,080~B y quedaron libres al menos 67~kB de memoria. La latencia
+algorítmica del FIR es 2.3~ms más el bloque de 16~ms; la del espectral, una ventana de
+64~ms más 2.3~ms de alineación. Al evaluar CSV el enlace USB transporta entrada,
+referencia y salidas, por lo que 6~s de señal tardan unos 16~s y la latencia digital
+medida (116~ms) no representa la captura en tiempo real.
 
 \textbf{Compromiso ruido--distorsión.} En P5 el ruido comparte la banda útil y
 ninguno de los dos métodos mejora la SNR, porque proteger la señal útil también protege
@@ -301,22 +284,11 @@ Hz & Modelo & Medida & Error (\%) & Estado \\\midrule
 4000 & 0.1433 & 0.0972 & -- & Inválida \\\bottomrule
 \end{tabular}\end{table}
 
-\textbf{Protocolo de prueba.} Cada caso se ejecuta de dos formas. Para las métricas,
-la PC envía a la ESP32 el CSV con la mezcla y la referencia $s[n]$ generadas por el
-modelo; la ESP32 filtra y calcula en placa MSE, SNR, $\Delta$SNR, energía útil,
-atenuación y tiempos. Para la cadena física, el audio del caso suena frente al
-micrófono y recorre Pico, SPI y ESP32; sin referencia alineada no hay métricas de
-calidad: se verifican tiempos, pérdidas y espectros, y la salida se juzga escuchándola. P1 es un tono con interferencia
-de 4~kHz; P3, un barrido con ruido blanco; P4, transitorios con impulsos; P2 y P5
-conservan los CSV históricos. Faltan las tres repeticiones de P1--P5; el retardo
-analógico no se midió y P6 se ejecuta en defensa.
-\input{tablas/pruebas_finales.tex}
-
 \section{Conclusiones}\label{sec:conclusiones}
 La arquitectura implementada mantiene la adquisición separada en
 la Pico y la ESP32 ejecuta dos rutas de filtrado independientes dentro de su
 presupuesto de tiempo, con un enlace que delimita bloques, detecta errores y reporta
-pérdidas; su verificación integral física sigue pendiente. La coincidencia entre el modelo de Python y el firmware muestra que el diseño
+pérdidas, verificado con una captura física completa. La coincidencia entre el modelo de Python y el firmware muestra que el diseño
 validado en simulación se trasladó al microcontrolador sin cambiar su comportamiento.
 Cuando el ruido está separado en frecuencia, el FIR ofrece la mayor reducción con fase
 lineal y menor latencia, mientras que el método espectral reduce menos pero se adapta

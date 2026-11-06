@@ -17,8 +17,7 @@
 
 El [manual de usuario](../../docs/final/MANUAL_USUARIO.md) describe las pruebas de
 entrega. La [guía técnica](GUIA_SESIONES.md) contiene conexiones, protocolo,
-escalas, archivos y diagnóstico. El [TODO](../../docs/final/TODO.md) enumera
-las comprobaciones y funciones que todavía faltan.
+escalas, archivos y diagnóstico.
 
 ## 1.2. Compilación y operación
 

@@ -13,7 +13,7 @@
 | Duración inicial | 6 segundos, 96000 muestras; configurable entre 256 y 960000 muestras |
 | Memoria | Estado y colas acotados; ningún registro completo se almacena en RAM de la placa |
 | Ejecución | Optimización de rendimiento, CPU 240 MHz; sesiones/DSP en núcleo distinto de las ISR SPI/UART |
-| Verificación física parcial | Captura Pico de 6 s y evaluación de P2_tonal comprobadas; respuesta analógica válida en tres tonos útiles, 4 kHz inválido por inestabilidad; escucha y estabilidad prolongada pendientes |
+| Verificación física | Captura Pico de 6 s sin pérdidas; P1–P5 evaluadas en placa (14 corridas); respuesta analógica válida en tres tonos útiles, 4 kHz inválido por inestabilidad |
 
 La aplicación completa dos filtros durante la captura y guarda sus resultados en la
 computadora. El programa Python no aplica filtros para sustituir a la ESP32.
@@ -295,7 +295,7 @@ ser distintas y no se alinean artificialmente los bloques.
 | Criterio analógico inicial | Error relativo <=15 % por tono; equivale a concordancia >=85 %, con medida válida. Es un criterio del equipo, no un valor impuesto por el profesor |
 | Validez analógica | Rechazar saturación, cambios en contadores de adquisición, amplitudes bajo el límite de detección o variabilidad mayor al 10 % |
 | Implementación digital | Concordancia = 100×max(0,1−RMSE/RMS del modelo Python), sobre las salidas PCM16 con la misma escala y retardo causal |
-| Criterio digital | ≥90 % en FIR y espectral, ratificado por el usuario el 5/11; validar escribe umbral y cumplimiento por método, con no disponible si el porcentaje no está definido |
+| Criterio digital | ≥90 % en FIR y espectral, fijado por el equipo el 5/11; validar escribe umbral y cumplimiento por método, con no disponible si el porcentaje no está definido |
 | Silencio digital | Modelo y salida exactamente cero: 100 %. Modelo cero y salida distinta: porcentaje no disponible; se conserva el error RMS |
 | Fuente digital | La misma entrada PCM16 guardada se pasa por los modelos originales de FIR y espectral; también funciona en capturas sin referencia limpia |
 | Archivos digitales | validacion_python.json, validacion_python.csv y columnas adicionales en metricas.csv; resultado_esp32 permanece identificado como medida de placa |

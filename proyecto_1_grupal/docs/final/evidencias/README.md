@@ -1,52 +1,35 @@
 # 1. Resultados seleccionados para el artículo
 
-| Campo | Valor |
+En Git solo van las tablas y figuras que respaldan el artículo. Las sesiones
+completas (WAV, `sesion.json`, `metricas.csv`) quedan locales en `resultados/`.
+
+## 1.1. Pruebas P1–P5 en placa (6/11)
+
+| Archivo | Contenido |
 |---|---|
-| Fuente de requisitos | [Enunciado](../../references/ASM_Proyecto_Grupal1_v7.pdf), §3.3, §3.5, §4 y §8 |
-| Responsable | Autores de cada medida; P4 selecciona para el artículo |
-| Política | En Git solo tablas y figuras utilizadas; registros completos locales, sin borrar originales |
-| Pendientes experimentales | [TODO](../TODO.md) |
+| [resumen_final.csv](pruebas/resumen_final.csv) | Media y desviación por prueba y método de las 14 evaluaciones completas en la ESP32 (firmware 50c161c): calidad, tiempos, memoria e integridad |
+| [P1](pruebas/P1_senales_espectros.png), [P2](pruebas/P2_senales_espectros.png), [P3](pruebas/P3_senales_espectros.png), [P4](pruebas/P4_senales_espectros.png), [P5](pruebas/P5_senales_espectros.png) | Señales y espectros de entrada, FIR y espectral de una sesión por prueba |
+| [P1_atenuacion_tonos.csv](pruebas/P1_atenuacion_tonos.csv) | Tono útil de 440 Hz intacto; interferencia de 4 kHz atenuada ≥ 57.8 dB (FIR, cota por PCM16) y 20.0 dB (espectral) |
 
-## 1.1. Selección actual
+La Tabla II del artículo se resume de `resumen_final.csv`. Tres intentos se
+abortaron por tramas USB truncadas detectadas y se repitieron; no se incluyen.
 
-| Archivo | Origen y uso | Límite |
+## 1.2. Mediciones anteriores (5/11)
+
+| Archivo | Contenido | Límite |
 |---|---|---|
-| [Resultados observados](resultados_observados.csv) | Dos sesiones del 5/11: 20261105T164053Z_77315ebc, captura Pico, y 20261105T164327Z_614a343d, CSV P2_tonal procesado en ESP32 | No son las tres repeticiones de P1–P5; MSE/SNR de micrófono quedan vacíos |
-| [FIR CSV](fir/respuesta_fir_medida.csv), [figura](fir/respuesta_fir_medida.png) | Comparación con coeficientes usando entrada.wav/fir.wav de la sesión 164327; 93 bloques, 74 muestras iniciales omitidas | Dominio digital antes del DAC; a 4 kHz solo se resuelve cota inferior de atenuación |
-| [Analógica CSV](analogica/comparacion_analogica.csv), [figura](analogica/respuesta_analogica.png) | Medición 20261105T185714Z_80cf289c; reanálisis con divisor, 22 nF y retención DAC | Tres tonos útiles válidos; 4 kHz inválido por variabilidad 19.3 %. No mide antialias antes del ADC |
-| [Polos y ceros](../paper/figuras/fir_polos_ceros.png) | FIR Kaiser frente al IIR elíptico de orden 6, generada por prototipo.py | Modelo, no medición |
-| [Respuesta del FIR](../paper/figuras/fir_respuesta_frecuencia.png) | Magnitud, rizado de banda de paso, fase y retardo de grupo, generada por prototipo.py | Modelo, no medición |
-| [Señales P2](../paper/figuras/caso_2_graficas.png) | Señales y espectros del caso histórico P2 en simulación | Modelo, no medición |
+| [resultados_observados.csv](resultados_observados.csv) | Captura física con micrófono (375 bloques, sin pérdidas) y CSV P2_tonal en la ESP32 | Firmware 0cbd2b2; sin MSE/SNR en la captura |
+| [FIR CSV](fir/respuesta_fir_medida.csv), [figura](fir/respuesta_fir_medida.png) | Ganancia del FIR calculada frente a la medida en WAV | Dominio digital, antes del DAC |
+| [Analógica CSV](analogica/comparacion_analogica.csv), [figura](analogica/respuesta_analogica.png) | Sallen-Key de 22 nF medido con la Pico como instrumento | 4 kHz inválido por variabilidad de 19.3 % |
 
-El firmware declarado por las dos sesiones es 0cbd2b2-dirty, ESP-IDF 5.5.5. No se
-atribuyen a esta revisión. Sus originales siguen en resultados/sesiones. Las copias
-completas anteriores y los intentos no utilizados se seleccionaron para eliminar;
-su eliminación física está pendiente por bloqueo de la herramienta. No forman
-parte del código ni de la selección de entrega.
+## 1.3. Figuras del modelo
 
-## 1.2. Qué guardar de las pruebas nuevas
-
-| Elemento | Dónde conservarlo | Uso |
-|---|---|---|
-| Sesiones utilizadas con WAV, sesion.json, metricas.csv y eventos | resultados/pruebas_finales, local; conservar el original sin duplicarlo en docs | Escucha y repetición del análisis |
-| Validación Python | Junto a la sesión, local | Verificación independiente complementaria |
-| Resumen CSV y tabla LaTeX | resultados/entrega, local al generarlos | Escoger las filas reales que se reportan |
-| Tabla final del artículo | [pruebas_finales.tex](../paper/tablas/pruebas_finales.tex) | Sustituir el pendiente con estadísticas reales, identificando origen y condiciones |
-| Figuras seleccionadas P1–P5 y atenuación P1 | evidencias/pruebas, solo las seleccionadas | Espacio de entrega permitido por gitignore; no copiar todo el árbol de sesiones |
-
-El PDF exige reportar parámetros, promedios y variabilidad y demostrar sonido;
-no exige versionar todos los registros. Mostrar una prueba en la defensa no
-reemplaza el resumen de las repeticiones en el informe.
-
-## 1.3. Criterios de interpretación
-
-| Dato | Interpretación |
+| Archivo | Contenido |
 |---|---|
-| Concordancia PC | Coincidencia entre implementaciones, no porcentaje de ruido eliminado |
-| Atenuación del ruido total | Métrica existente en ESP32; no equivale siempre a la interferencia principal |
-| Atenuación tonal medida en WAV | Evidencia digital de la componente solicitada; si cae bajo PCM16 se reporta cota |
-| Cálculo máximo | Tiempo de ejecutar DSP; no es latencia física entrada/salida |
-| Modelo analógico con sinc | Componente fundamental del DAC y filtro de reconstrucción; no incluye todas las imágenes aliasadas |
-| Ensayo analógico opcional | Puede respaldar el filtro de salida; no sustituye la validación obligatoria de muestreo y banda de entrada |
+| [Polos y ceros](../paper/figuras/fir_polos_ceros.png) | FIR Kaiser frente al IIR elíptico de orden 6 |
+| [Respuesta del FIR](../paper/figuras/fir_respuesta_frecuencia.png) | Magnitud, rizado, fase y retardo de grupo |
+| [Señales P2](../paper/figuras/caso_2_graficas.png) | Señales y espectros de P2 en simulación |
+| [Compromiso P5](../paper/figuras/espectral_compromiso_ruido_distorsion.png) | Ruido eliminado frente a energía útil conservada |
 
-Para generar y seleccionar las salidas, seguir el [manual](../MANUAL_USUARIO.md).
+Las genera `prototipo.py`. Los comandos para producir y copiar resultados están
+en el [manual](../MANUAL_USUARIO.md#17-resultados-para-la-entrega).

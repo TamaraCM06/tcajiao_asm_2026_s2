@@ -8,8 +8,8 @@ receptor en Raspberry Pi Pico con su estrategia de validación.
 La integración actual permite capturar desde Pico a 16 kHz, ejecutar ambos filtros
 en ESP32, guardar las tres señales en la computadora y reproducirlas después por
 comando. Consultar la [guía de sesiones](firmware/esp32/GUIA_SESIONES.md).
-Para preparar la entrega final, comenzar por el [manual de usuario y pruebas](docs/final/MANUAL_USUARIO.md)
-y el [TODO referido al enunciado](docs/final/TODO.md).
+La entrega final (artículo, herramientas, resultados y manual) está en
+[docs/final](docs/final/README.md).
 La aplicación ESP32 se describe en su [README](firmware/esp32/README.md).
 Las entregas anteriores se conservan en sus carpetas históricas. Esta guía explica dónde está
 cada parte y cómo trabajar con el modelo Python.
@@ -26,16 +26,15 @@ cada parte y cómo trabajar con el modelo Python.
 | Sesiones PC y ESP32 | Captura, guardado, métricas controladas y reproducción diferida | [Guía](firmware/esp32/GUIA_SESIONES.md) y [terminal Python](firmware/esp32/tools/sesiones.py) |
 | Taller: informe | Proceso de diseño, criterios, validación y discusión del avance, con las fuentes de sus diagramas | [Informe](docs/avance2/informe.pdf) y [diagramas](docs/avance2/README.md) |
 | Requisitos de Tarea 1 | Enunciado académico de la primera entrega | [Enunciado](docs/references/ASM_Tarea1_v7.pdf) |
-| Entrega final | Requisitos, pruebas pendientes y operación de las placas | [Enunciado final](docs/references/ASM_Proyecto_Grupal1_v7.pdf), [manual](docs/final/MANUAL_USUARIO.md), [TODO](docs/final/TODO.md) |
+| Entrega final | Requisitos, resultados, documentos y operación de las placas | [Enunciado final](docs/references/ASM_Proyecto_Grupal1_v7.pdf), [entrega](docs/final/README.md), [manual](docs/final/MANUAL_USUARIO.md) |
 
 El convertidor digital a analógico (DAC) convierte los códigos numéricos en una
 salida eléctrica. Evaluar filtros sobre datos guardados y comprobar esa salida
 son actividades distintas.
 
-La version de medidas 2 agrega costos por ruta, espera en cola, latencia digital
-hasta aceptacion UART y atenuacion regional calculada en ESP32. Los ensayos fisicos
-usan parlante hacia microfono; no comprueban antialiasing de entrada ni retardo
-analogico. Los comandos y campos estan en el manual final.
+Las métricas de P1–P5 se calculan en la ESP32 a partir de CSV con referencia;
+las capturas con micrófono demuestran la cadena física. Resultados y entregables
+en [docs/final](docs/final/README.md).
 
 ## 1.2. Organización del proyecto
 
@@ -184,7 +183,7 @@ memoria ni los tiempos del microcontrolador.
 
 ## 1.8. Pruebas
 
-La verificación actual en computadora reúne 175 pruebas aprobadas del modelo,
+La verificación en computadora reúne unas 200 pruebas del modelo,
 núcleos C, protocolo, cliente y herramientas. No acredita el montaje físico.
 Para ejecutar la verificación conjunta:
 

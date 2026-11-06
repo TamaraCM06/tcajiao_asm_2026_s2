@@ -2,7 +2,7 @@
   "responsable": "Equipo; Persona 3 implementa la comprobacion",
   "alcance": "Criterios internos del equipo; el PDF exige definir y justificar criterios, pero no impone estos porcentajes ni 32 ms",
   "concordancia_digital_minima_pct": 90,
-  "nota_concordancia": "Umbral de trabajo conservado por decision expresa del usuario el 2026-11-05; no implica porcentaje de ruido eliminado",
+  "nota_concordancia": "Umbral fijado por el equipo el 2026-11-05; mide equivalencia con el modelo, no porcentaje de ruido eliminado",
   "repeticiones_minimas": 3,
   "mejora_snr_minima_db": 10,
   "energia_util_minima_pct": 90,

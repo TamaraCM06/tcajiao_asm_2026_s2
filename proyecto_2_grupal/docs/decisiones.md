@@ -1,52 +1,57 @@
-# Decisiones y pendientes
+# 1. Decisiones del banco de frenado
 
-| Tema | Estado / decisión |
-|---|---|
-| Ubicación | `proyecto_2_grupal/`, consistente con el proyecto grupal anterior |
-| Microcontrolador | Pico/Pico SDK propuesto; confirmar modelo exacto y versión SDK |
-| Análisis | MATLAB propuesto; registrar versión y toolboxes al implementar |
-| Sensor | Propuesta: encoder óptico de 12 marcas, 24 flancos/vuelta, ω por tiempo entre flancos con timeout de 100 ms (Tarea 2, pregunta 2). Pendientes montaje y calibración |
-| Motor y potencia | Pendiente: driver, alimentación, arranque repetible y corte |
-| Freno | Servo MG90S que presiona una goma contra el disco; PWM de 50 Hz, pulso de 1000 a 2000 µs provisional. Pendientes mecánica, zona muerta y saturación |
-| GPIO | Pendiente de esquema eléctrico |
-| Muestreo | Ts = 20 ms propuesto (Tarea 2, pregunta 2); confirmar con la identificación |
-| Control | `e = ω − ω_ref` (e > 0 aprieta), Euler hacia atrás, derivativo filtrado sobre la medición y anti-windup por clamping, en `firmware/src/pid_controller.c`. Ganancias provisionales; pendiente diseñarlas con el modelo |
-| Referencias | Propuesta: rampa ω_ref = ω₀ − a·t con a entre la desaceleración natural y la máxima. Pendientes valores medidos |
-| Registro | USB; formato de muestras en [manual_operacion.md](manual_operacion.md#formato-de-muestras-propuesto), ya usado por `docs/tarea_2/codigo/main_tarea2.c` |
-| Parada y fallos | Pendientes límites seguros, umbral de parada y respuesta a pérdida de sensor |
-| Repositorio | Confirmar sufijo `s1` del PDF frente al actual `s2` |
-| Ramas | Confirmar discrepancia `development` / `develop` del PDF |
-| Tarea 2 | Informe en `docs/tarea_2/` (entrega 22 de noviembre de 2026); pendientes los extras 6 y 7 con la planta física |
+## 1.1. Acuerdos del 21 de noviembre de 2026
 
-Registrar cada resolución con fecha, responsable, evidencia y motivo. Los requisitos
-del documento orientan las entregas; no autorizan cambios de repositorio remoto,
-invitaciones, fusiones ni publicaciones automáticas.
+Responsable del firmware: Santiago. Fuente: instrucciones del usuario y revision
+del repositorio. Los acuerdos no acreditan compra, montaje ni medicion.
 
-## Montaje físico y conexiones
+| Elemento | Acuerdo | Pendiente |
+|---|---|---|
+| Microcontrolador | ESP32 clasico; ESP-IDF 5.5.5 disponible | Confirmar placa fisica |
+| Sensor | Modulo TCRT5000 frente a anillo reflectivo | Salida digital, nivel y polaridad |
+| Disco | MDF cafe de aproximadamente 120 mm por 3 mm | Montaje y velocidad admitida |
+| Marcas | 24 negras equidistantes, fondo blanco recomendado | Verificar pulsos efectivos; un flanco por marca |
+| Distancia | Inicio propuesto 2 a 3 mm | Ajuste experimental con cinta real |
+| Freno | MG90S y goma | Posicion liberada, limites, pulsos y sentido |
+| Motor | Motor DC para impulso inicial | Modelo, corriente, fuente y acople |
+| Puente | Fotografia compatible con modulo tipo L298N | Confirmar integrado, jumpers y alimentacion |
+| Mando | Manual desde ESP32; START corta motor y registra | Comprobacion fisica |
+| Transmision | Tres columnas CSV y receptor MATLAB minimo implementados | Verificacion final y captura fisica |
+| Muestreo del PID | Ts = 20 ms propuesto en Tarea 2, pregunta 2 (coincide con la trama del servo) | Confirmar con la identificacion |
+| PID y referencia | e = omega - omega_ref (e > 0 aprieta), Euler hacia atras, derivativo filtrado y anti-windup en `firmware/src/pid_controller.c`; rampa omega_ref = omega0 - a t | Integrar al firmware ESP32, identificar y sintonizar |
+| Eje y transmision | Eje 8 mm, dos 608ZZ y rueda de goma propuestos | Compatibilidad y desacoplamiento |
 
-La documentación física se centraliza aquí; no se utiliza una carpeta `hardware/`.
-El programa que controla los pines pertenece a `firmware/`. Completar las tablas
-con valores reales y mantenerlas coherentes con la configuración del firmware.
+## 1.2. Conexiones y calibracion
 
-| Señal / componente | GPIO Pico | Conexión / alimentación | Observaciones |
-|---|---|---|---|
-| Sensor de velocidad | GPIO2 (provisional) | Pull-up interno, 3,3 V | Interrupción en ambos flancos |
-| Puente H / etapa del motor | GPIO16 (provisional) | Pendiente | Encendido/apagado para el impulso inicial |
-| Servomotor de freno | GPIO15 (provisional) | Pendiente | PWM 50 Hz, pulso 1000–2000 µs por calibrar |
-| Registro USB | USB de la Pico | — | CSV según el formato de muestras del manual |
+No hay GPIO elegidos. La configuracion queda inhabilitada hasta completar y
+verificar el montaje. Se excluyen pines de flash, arranque, UART0 y 16/17 por
+posible PSRAM. GPIO 34 a 39 solo admiten entrada y no tienen pull-up interno.
 
-### Materiales y esquema
+| Senal | GPIO ESP32 | Dato requerido |
+|---|---|---|
+| Salida digital TCRT5000 | Pendiente | Alimentacion, tension medida y flanco |
+| MG90S | Pendiente | Fuente externa, frecuencia, pulsos, grados y liberacion |
+| ENA, IN1, IN2 | Pendientes | Retirar jumper ENA para mando por GPIO; confirmar modulo |
+| Tierra comun | No aplica | ESP32, sensor, servo y driver |
+| Registro | UART0 por USB de la placa | 115200 baudios, 8N1 |
 
-Pendiente: lista de componentes, cantidades, especificaciones y costos; diagrama
-completo de conexiones, fuentes y masas. El esquema eléctrico sigue siendo un
-entregable del proyecto aunque se documente aquí. Puede incorporarse como diagrama
-editable o enlazar su exportación desde este documento cuando se diseñe.
+No alimentar el MG90S desde 3,3 V ni conectar una salida de 5 V al GPIO.
+Verificar el modulo concreto: la ficha del TCRT5000 no garantiza niveles de
+una placa con comparador. El corte electrico no implica desacople mecanico.
+Documentar el acople real porque cambia la inercia y las perdidas.
 
-### Mecánica, calibraciones y evidencias
+## 1.3. Fundamento y fuentes
 
-Pendiente: dimensiones y fijación del disco, acople, goma, protecciones y
-velocidad máxima validada. Registrar calibración del sensor y correspondencia
-PWM/posición del servo, contacto, zona muerta, saturación y retardo. Cada calibración
-tendrá identificador, fecha y resultados para relacionarla con los ensayos.
-Las fotos y enlaces a videos del montaje se incorporarán a la documentación de
-la entrega que corresponda. No son código ejecutable para la Pico.
+| Concepto | Criterio | Fuente |
+|---|---|---|
+| Optica | Respuesta maxima nominal cerca de 2,5 mm; verificar contraste infrarrojo | [Vishay TCRT5000](https://www.vishay.com/docs/83760/tcrt5000.pdf) |
+| RPM | 60000000 / (pulsos_por_vuelta por intervalo_us) | Tiempo de una vuelta con marcas equidistantes |
+| Corte del motor | ENA deshabilitado corresponde a marcha libre | [ST L298, tabla 5](https://www.st.com/resource/en/datasheet/l298.pdf) |
+| Servo | Angulo solicitado no equivale a fuerza ni par | [Tower Pro MG90S](https://towerpro.com.tw/product/mg90s-3/) |
+| Tiempo | Reloj monotono y callbacks breves | [ESP Timer 5.5.5](https://docs.espressif.com/projects/esp-idf/en/v5.5.5/esp32/api-reference/system/esp_timer.html) |
+
+## 1.4. Continuidad
+
+Registrar cada calibracion con identificador, fecha, responsable, evidencia y
+limites admitidos. Los documentos academicos no autorizan por si solos
+publicaciones, invitaciones, fusiones ni cambios del repositorio remoto.

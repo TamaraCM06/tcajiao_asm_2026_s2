@@ -1,84 +1,52 @@
-# Proyecto Grupal 2: banco de frenado con PID digital
+# 1. Proyecto Grupal 2: banco de frenado
 
-CE 1110 — Análisis de Señales Mixtas, II semestre de 2026.
-Entrega y defensa: **2 de diciembre de 2026**; archivos hasta las **23:50**.
-Fuente: [enunciado v7](docs/referencias/ENUNCIADO_PROYECTO_2.md),
-secciones 1–6. Es un banco didáctico de frenado; el antibloqueo simplificado es opcional.
+CE 1110, II semestre de 2026. Entrega y defensa: 2 de diciembre de 2026;
+archivos hasta las 23:50. Fuente: [enunciado](docs/referencias/ENUNCIADO_PROYECTO_2.md).
 
-Estado: PID discreto implementado en `firmware/` y probado en simulación; Tarea 2
-redactada en `docs/tarea_2/` (preguntas 1 a 5 y método de la 7); script MATLAB para
-visualizar un ensayo al escalón. Faltan la planta armada, el modelo identificado con
-datos reales y los resultados experimentales.
-Raspberry Pi Pico/Pico SDK y MATLAB son elecciones de la propuesta del grupo,
-no plataformas impuestas por el enunciado del proyecto. La Tarea 2 sí menciona
-MATLAB en su apartado de caracterización extra.
+## 1.1. Estado y responsabilidades
 
-## Organización
+| Elemento | Estado |
+|---|---|
+| Responsable de este bloque | Santiago, Persona 3 |
+| Plataforma confirmada | ESP32 clasico, ESP-IDF 5.5.5 |
+| Bloque actual | Registrador de frenado a lazo abierto para MATLAB |
+| Hardware | TCRT5000, MG90S y puente tipo L298N; conexiones y calibraciones pendientes |
+| Implementado | Firmware de captura, receptor MATLAB minimo, `visualizar_ensayo.m` y PID discreto portable (`firmware/src/pid_controller.c`) |
+| Modelo identificado, PID y extra 2 | PID probado en simulación, sin integrar al firmware ESP32; modelo y extra 2 pendientes |
+| Verificacion | Compilacion ESP-IDF y 19 pruebas C host; analizador MATLAB sin observaciones |
+| Pendientes | Ejecucion de pruebas MATLAB por licencia; comprobaciones fisicas |
 
-```text
-proyecto_2_grupal/
-├── firmware/
-│   ├── include/                 # Interfaces y configuración de hardware
-│   └── src/                     # Adquisición, actuadores, PID (pid_controller.c) y estados
-├── matlab_modelado/             # Adquisición, identificación, simulación y métricas
-├── experimentos/
-│   ├── casos.json              # Parámetros comunes y casos de todos los ensayos
-│   ├── datos/                  # Capturas y registro_ensayos.csv
-│   └── README.md               # Flujo de configuración y envío
-├── resultados/
-│   ├── modelos/                 # Parámetros identificados y condiciones de validez
-│   ├── figuras/                 # Gráficas de datos reales y simulaciones identificadas
-│   └── metricas/                # Resultados por ensayo y estadísticas por condición
-└── docs/
-    ├── referencias/             # Enunciados de Tarea 2 y Proyecto 2 en markdown
-    ├── tarea_2/                 # Informe LaTeX de la Tarea 2, diagramas y evidencias
-    ├── requisitos.md            # Correspondencia entre requisitos y evidencias
-    ├── decisiones.md            # Pines, montaje, calibraciones y decisiones
-    └── manual_operacion.md      # Guion de operación y defensa por completar
-```
+## 1.2. Organizacion
 
-Los datos crudos tienen una sola ubicación en `experimentos/datos/`; MATLAB los
-lee desde ahí. Los resultados derivados se guardan en `resultados/`. La fase de cada ensayo se registra en `experimentos/datos/registro_ensayos.csv`.
-Los pines, materiales, esquema y calibraciones se documentan en `docs/decisiones.md`.
+| Ubicacion | Responsabilidad |
+|---|---|
+| [Firmware](firmware/README.md) | Sensor, actuadores, temporizacion y serial |
+| [Experimentos](experimentos/README.md) | Recepcion y CSV originales |
+| [Modelado MATLAB](matlab_modelado/README.md) | Analisis e identificacion del equipo |
+| [Decisiones](docs/decisiones.md) | Montaje, GPIO y calibraciones |
+| [Requisitos](docs/requisitos.md) | Evidencias necesarias para las entregas |
+| [Manual](docs/manual_operacion.md) | Operacion y comprobaciones pendientes |
+| [Resultados](resultados/README.md) | Modelos, figuras y metricas derivados |
+| [Tarea 2](docs/tarea_2/README.md) | Informe LaTeX, diagramas, codigo PID y evidencias |
 
-## Ruta de trabajo
+## 1.3. Entregas y continuidad
 
-1. Completar [decisiones](docs/decisiones.md), materiales, conexiones y calibraciones.
-2. Implementar los módulos descritos en [firmware](firmware/README.md) y validar
-   adquisición, arranque repetible y frenado variable.
-3. Ejecutar los [protocolos](docs/manual_operacion.md#registro-y-protocolos-experimentales), identificar y
-   validar el modelo con ensayos distintos; justificar el periodo de muestreo.
-4. Diseñar, simular e implementar PID discreto con saturación, anti-windup y
-   tratamiento del ruido; registrar el estudio de los tres términos.
-5. Ejecutar la comparación final y generar métricas, figuras y artículo.
-6. Verificar [requisitos](docs/requisitos.md) y completar el manual para la defensa.
+La [Tarea 2](docs/referencias/ENUNCIADO_TAREA_2.md), del 22 de noviembre,
+incluye teoria, muestreo, codigo PID sin delay, diagrama y modelo teorico.
+Construccion y caracterizacion fisica son extras de esa tarea. El proyecto final
+exige planta real, identificacion validada con otros ensayos, PID y comparacion
+de lazo abierto/cerrado con dos velocidades y tres repeticiones por condicion.
 
-## Reproducibilidad y colaboración
+Este bloque conserva tiempo_ms, freno_deg y velocidad_rpm para el analisis del
+companero. Despues se integraran referencia, error y PID. Permitir configurar el
+registro no demuestra la comparacion experimental del extra 2.
 
-Cada ensayo debe relacionar su CSV, configuración efectiva, calibración, versión
-Git del firmware, condiciones iniciales y observaciones. Conservar datos crudos;
-los procesados deben poder regenerarse mediante scripts y parámetros versionados.
-No mezclar señales simuladas con mediciones sin etiquetarlas.
+## 1.4. Colaboracion
 
-El enunciado solicita `master` y `development`, ramas de trabajo, integración
-incremental y una etiqueta de entrega. En el punto 5.6 también escribe `develop`:
-confirmar con el profesor el nombre a utilizar. Registrar avances reales de todos
-los integrantes; no concentrar el trabajo en un único commit final.
+Trabajo incremental en ramas desde development. Conservar datos crudos y
+configuracion efectiva por ensayo; separar simulacion de medicion. El PDF
+presenta discrepancias development/develop y s1/s2: confirmar con el profesor
+antes de cambiar nombres. Se conserva el historico de proyectos anteriores.
 
-El repositorio actual se llama `tcajiao_asm_2026_s2`; el PDF indica el sufijo `s1`.
-Confirmar esa discrepancia con el profesor antes de cambiar el nombre. Se conserva
-la organización histórica `proyecto_1/`, `proyecto_1_grupal/` y `proyecto_2_grupal/`.
-
-## Papel de MATLAB
-
-MATLAB sirve para modelar la planta, simular el PID y analizar datos del banco
-real; también podrá configurar casos y registrar por serial. El controlador final
-se ejecutará en la Pico. Ver [modelado](matlab_modelado/README.md) para distinguir
-lo solicitado en Tarea 2 de la identificación y validación del proyecto final.
-
-## Entrada para ejecutar ensayos
-
-Se prevé `experimentos/ejecutar_caso.m` como único punto de entrada en la
-computadora: leerá `casos.json`, enviará el caso a la Pico por USB/UART y guardará
-las mediciones en `experimentos/datos/`. Este programa y la recepción en el
-firmware todavía están pendientes de implementar.
+La [auditoria del bloque](docs/verificacion_registrador.md) registra cambios,
+compatibilidad, comprobaciones y limites. No se ha medido el funcionamiento fisico.

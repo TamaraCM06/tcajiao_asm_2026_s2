@@ -1,50 +1,36 @@
-# Adquisición, modelado y análisis MATLAB
+# 1. Modelado y analisis MATLAB
 
-Estado: `visualizar_ensayo.m` implementado (Tarea 2, pregunta 7); el resto pendiente.
-Los scripts resuelven rutas desde su propio archivo, sin depender del directorio de
-trabajo de MATLAB.
+## 1.1. Responsabilidad y estado
 
-| Script | Entradas y salidas |
+`visualizar_ensayo.m` recibe el CSV de un escalon del servo, grafica el ensayo,
+ajusta K y tau y calcula h(t) con `impulse` (Tarea 2, pregunta 7). La
+[recepcion serial](../experimentos/README.md) guarda ese mismo CSV; no es un
+segundo identificador.
+
+| Entrada | Estado |
 |---|---|
-| `visualizar_ensayo.m` | CSV de un escalón del servo con `tiempo_ms`, `freno_deg` y `velocidad_rpm` → gráficas, ajuste de K y τ, respuesta al impulso |
+| tiempo_ms,freno_deg,velocidad_rpm | Contrato vigente del registrador abierto |
+| Modelo experimental validado | Pendiente de datos reales y analisis del equipo |
+| Diseno y simulacion PID | Pendiente |
+| Metricas de comparacion final | Pendientes |
 
-Ese CSV es el formato de captura usado para la Tarea 2. Para el proyecto, migrar el
-script al [formato de muestras](../docs/manual_operacion.md#formato-de-muestras-propuesto)
-(segundos, rad/s y mando normalizado) para que lea las mismas capturas que el firmware.
-Registrar versión de MATLAB y toolboxes efectivamente usados.
+## 1.2. Unidades y condiciones
 
-| Script previsto (proyecto) | Entradas y salidas |
-|---|---|
-| `identificacion_planta.m` | Datos de identificación → modelo local; validación con ensayos independientes |
-| `simulacion_pid.m` | Modelo, Ts y trayectoria → diseño discreto y simulaciones etiquetadas |
-| `analisis_metricas.m` | Comparación final → IAE/RMSE, tiempo de frenado, oscilaciones, saturación y variabilidad |
+Convertir milisegundos a segundos si el analisis lo requiere. RPM significa
+vueltas por minuto; rad/s = RPM por 2 pi / 60. La entrada freno_deg es una
+orden de posicion, no par medido. Revisar NaN y eventos de ausencia de pulsos;
+un cero por timeout no prueba que el sensor este conectado. Conservar el CSV
+original y documentar cualquier filtrado o remuestreo.
 
-Leer datos desde `../experimentos/datos/` y guardar salidas en `../resultados/`.
-No duplicar capturas en esta carpeta. Registrar el método de identificación,
-condiciones de validez, zona muerta, retardo y saturación; analizar polos y ceros
-cuando corresponda. El ajuste y la validación deben usar ensayos diferentes.
+Ajustar y validar con ensayos distintos. Registrar condiciones iniciales,
+retardo, friccion, zona muerta, saturacion y acople del motor. Guardar modelos,
+figuras y metricas derivados en resultados, sin duplicar capturas.
 
-Definir el intervalo común de evaluación, tratamiento de muestras perdidas y
-umbral de parada antes de comparar ensayos. Usar el tiempo medido para integrar
-el error y documentar cualquier remuestreo o filtrado. Conservar los datos crudos.
+## 1.3. Relacion con las entregas
 
-## Relación con la tarea y el proyecto final
-
-En [Tarea 2](../docs/referencias/ENUNCIADO_TAREA_2.md), el modelo teórico ayuda
-a explicar impulso, escalón, muestreo y comportamiento esperado sin controlador;
-la caracterización física con MATLAB aparece en el apartado de puntos extra.
-
-En el proyecto final, el modelo se obtiene de mediciones de la planta real y se
-valida con otros ensayos. Sirve para diseñar y justificar el controlador y el
-muestreo. La simulación permite estudiar ganancias antes de probarlas; el análisis
-posterior compara los ensayos físicos de acción fija y PID.
-
-MATLAB se ejecuta en la computadora. El PID final se ejecutará en la Pico mediante
-`firmware/`; MATLAB podrá configurar casos y registrar datos, pero no sustituye
-la demostración del controlador digital real. El proyecto exige modelado y análisis,
-sin imponer MATLAB como única herramienta. La comunicación y los scripts aún no
-están implementados.
-
-La ejecución y adquisición tendrán una única entrada en
-`../experimentos/ejecutar_caso.m` (pendiente). Esta carpeta se dedicará al
-modelado, simulación y análisis; no mantendrá un segundo programa de envío de casos.
+La [Tarea 2](../docs/referencias/ENUNCIADO_TAREA_2.md) usa un modelo teorico
+para explicar impulso, escalon, muestreo y planta sin controlador; la
+caracterizacion fisica es extra. El proyecto final exige identificacion real,
+validacion y justificacion del controlador y muestreo. El PID final se
+ejecutara en ESP32. MATLAB configura y analiza; no sustituye la demostracion
+fisica del control.

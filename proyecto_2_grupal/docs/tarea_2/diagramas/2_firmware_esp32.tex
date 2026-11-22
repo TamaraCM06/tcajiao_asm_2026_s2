@@ -1,30 +1,30 @@
-% Contextos de ejecución del firmware en la Pico (Tarea 2, preguntas 3 y 4).
+% Contextos de ejecución del firmware en el ESP32 (Tarea 2, preguntas 3 y 4).
 \documentclass[border=4pt]{standalone}
 \input{estilo.tex}
 \begin{document}
 \begin{tikzpicture}
   % ISR del encoder
-  \node[nodo] (fl) {Flanco en GPIO2\\subida y bajada};
-  \node[nodo, right=26mm of fl] (st) {Guarda \texttt{time\_us\_64()}\\buffer de 3 marcas};
+  \node[nodo] (fl) {Flanco en GPIO27\\uno por marca};
+  \node[nodo, right=26mm of fl] (st) {\texttt{esp\_timer\_get\_time()}\\estimador $\cdot$ descarta $<$500\,µs};
 
   % Temporizador periódico
-  \node[nodo, below=30mm of fl] (med) {Mide $\omega$\\$(4\pi/24)/\Delta t$};
+  \node[nodo, below=30mm of fl] (med) {Mide $\omega$\\$(2\pi/10)/\Delta t$};
   \node[nodo, right=13mm of med] (refk) {Referencia y error\\$e=\omega-(\omega_0-a\,kT_s)$};
   \node[nodo, right=13mm of refk] (pidk) {\texttt{pid\_paso}\\P + I + D filtrado\\saturación $\cdot$ clamping};
-  \node[nodo, right=13mm of pidk] (pwmk) {PWM del servo\\1000--2000\,µs};
-  \node[nodo, right=13mm of pwmk] (col) {Encola muestra\\cola de 64};
+  \node[nodo, right=13mm of pidk] (pwmk) {PWM del servo\\LEDC $\cdot$ ángulo calibrado};
+  \node[nodo, right=13mm of pwmk] (col) {Encola muestra\\\texttt{xQueueSend}, 64};
 
   % Bucle principal
-  \node[nodo, below=30mm of refk] (con) {Consola USB\\\texttt{getchar\_timeout\_us(0)}};
-  \node[nodo] (tel) at (con -| col) {Telemetría USB\\una línea CSV por muestra};
+  \node[nodo, below=30mm of refk] (con) {Consola UART0\\\texttt{getchar()} sin bloqueo};
+  \node[nodo] (tel) at (con -| col) {Telemetría UART\\una línea CSV por muestra};
 
   \begin{scope}[on background layer]
     \node[grupo, fit=(fl)(st), inner ysep=9mm] (ga) {};
-    \node[titulo] at (ga.north) {ISR del encoder $\cdot$ cada flanco};
+    \node[titulo] at (ga.north) {ISR del sensor $\cdot$ cada marca};
     \node[grupo, fit=(med)(col), inner ysep=9mm] (gb) {};
-    \node[titulo] at (gb.north) {Temporizador periódico $\cdot$ cada 20\,ms};
+    \node[titulo] at (gb.north) {\texttt{esp\_timer} periódico $\cdot$ cada 20\,ms};
     \node[grupo, fit=(con)(tel), inner ysep=9mm] (gc) {};
-    \node[titulo] at (gc.north) {Bucle principal $\cdot$ sin requisitos de tiempo};
+    \node[titulo] at (gc.north) {Tarea de telemetría (FreeRTOS) $\cdot$ sin requisitos de tiempo};
   \end{scope}
 
   \draw[flecha] (fl) -- node[lbl]{interrupción} (st);

@@ -1,0 +1,72 @@
+menu "ASM2: banco de frenado"
+    config ASM_CONEXIONES_VERIFICADAS
+        bool "Confirmar conexiones, niveles y alimentaciones del montaje"
+        default n
+    config ASM_SENSOR_GPIO
+        int "GPIO de salida digital del TCRT5000 (-1 pendiente)"
+        range -1 39
+        default -1
+    config ASM_SENSOR_FLANCO_BAJADA
+        bool "Contar solo flancos de bajada (desactivado: solo subida)"
+        default n
+    config ASM_PULSOS_POR_VUELTA
+        int "Pulsos efectivos por vuelta; comprobar con el disco real"
+        range 1 10000
+        default 10
+    config ASM_INTERVALO_MINIMO_PULSO_US
+        int "Rechazar intervalos menores a estos microsegundos (0: desactivado)"
+        range 0 1000000
+        default 0
+    config ASM_SERVO_GPIO
+        int "GPIO del MG90S (-1 pendiente)"
+        range -1 39
+        default -1
+    config ASM_SERVO_FRECUENCIA_HZ
+        int "Frecuencia PWM del servo verificada (0 pendiente)"
+        range 0 400
+        default 0
+    config ASM_SERVO_MINIMO_DEG
+        int "Angulo minimo calibrado (-1 pendiente)"
+        range -1 180
+        default -1
+    config ASM_SERVO_MAXIMO_DEG
+        int "Angulo maximo calibrado (-1 pendiente)"
+        range -1 180
+        default -1
+    config ASM_SERVO_LIBERADO_DEG
+        int "Angulo que libera la zapata (-1 pendiente)"
+        range -1 180
+        default -1
+    config ASM_SERVO_PULSO_MINIMO_US
+        int "Pulso correspondiente al angulo minimo (0 pendiente)"
+        range 0 10000
+        default 0
+    config ASM_SERVO_PULSO_MAXIMO_US
+        int "Pulso correspondiente al angulo maximo; puede ser menor (0 pendiente)"
+        range 0 10000
+        default 0
+    config ASM_MOTOR_ENABLE_GPIO
+        int "GPIO ENA del puente; retirar jumper ENA (-1 pendiente)"
+        range -1 39
+        default -1
+    config ASM_MOTOR_ENTRADA1_GPIO
+        int "GPIO IN1 del puente (-1 pendiente)"
+        range -1 39
+        default -1
+    config ASM_MOTOR_ENTRADA2_GPIO
+        int "GPIO IN2 del puente (-1 pendiente)"
+        range -1 39
+        default -1
+    config ASM_MOTOR_FRECUENCIA_HZ
+        int "Frecuencia PWM para el motor"
+        range 100 20000
+        default 1000
+    config ASM_MOTOR_MAXIMO_PORCENTAJE
+        int "Maximo de impulso validado (0: motor bloqueado)"
+        range 0 100
+        default 0
+    config ASM_MOTOR_MAXIMO_IMPULSO_MS
+        int "Duracion maxima de impulso continuo (0: motor bloqueado)"
+        range 0 60000
+        default 0
+endmenu

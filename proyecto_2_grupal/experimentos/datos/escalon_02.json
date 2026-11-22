@@ -1,0 +1,82 @@
+{
+  "protocolo": 1,
+  "fecha_pc": "2026-11-22 03:57:55",
+  "receptor": "consola_banco.py",
+  "configuracion": {
+    "ensayo": {
+      "tipo": "configuracion",
+      "grupo": "ensayo",
+      "periodo_ms": 20,
+      "duracion_ms": 10000,
+      "timeout_ms": 100
+    },
+    "sensor": {
+      "tipo": "configuracion",
+      "grupo": "sensor",
+      "gpio": 27,
+      "flanco_bajada": true,
+      "pulsos_por_vuelta": 10,
+      "minimo_pulso_us": 500
+    },
+    "servo": {
+      "tipo": "configuracion",
+      "grupo": "servo",
+      "gpio": 18,
+      "frecuencia_hz": 50,
+      "minimo_deg": 0,
+      "maximo_deg": 180,
+      "liberado_deg": 120,
+      "pulso_minimo_us": 500,
+      "pulso_maximo_us": 2500
+    },
+    "motor": {
+      "tipo": "configuracion",
+      "grupo": "motor",
+      "enable_gpio": 25,
+      "entrada1_gpio": 26,
+      "entrada2_gpio": 33,
+      "frecuencia_hz": 1000,
+      "maximo_porcentaje": 60,
+      "maximo_impulso_ms": 15000
+    }
+  },
+  "eventos": [
+    {
+      "tipo": "evento",
+      "evento": "freno",
+      "tiempo_ms": 300.708,
+      "valor": 180.0
+    },
+    {
+      "tipo": "evento",
+      "evento": "estado_sensor",
+      "tiempo_ms": 1160.72,
+      "valor": 2.0
+    }
+  ],
+  "errores": [],
+  "inicio": {
+    "tipo": "inicio",
+    "protocolo": 1,
+    "ensayo": 10,
+    "firmware": "Proyecto-1-68-g2e820e2",
+    "corte_motor_us": 1566559569
+  },
+  "fin": {
+    "tipo": "fin",
+    "ensayo": 10,
+    "motivo": "duracion",
+    "completo": true,
+    "producidas": 500,
+    "enviadas": 500,
+    "vencimientos_perdidos": 0,
+    "pulsos_rechazados": 0,
+    "dt_min_us": 19743,
+    "dt_max_us": 20306,
+    "tiempo_fin_ms": 10000.722,
+    "liberado_deg": 120
+  },
+  "muestras_recibidas": 500,
+  "filas_invalidas": 0,
+  "completo": true
+}

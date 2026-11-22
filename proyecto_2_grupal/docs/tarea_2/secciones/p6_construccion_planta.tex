@@ -1,7 +1,58 @@
-\section{Construcción de la planta (extra)}
+\section{Construcción de la planta (puntos extra)}
 \label{sec:p6}
 \enunciado{Construya la planta del proyecto (solo no tiene controlador pero si el resto de
 componentes) (40\,\% extra). Adjunte fotos y video de la construcción final.}
-\pendiente{Pregunta 6 (+40\,\%). Fotos en \texttt{figuras/planta\_*.jpg}, lista de
-materiales, esquema eléctrico (resumen de \texttt{docs/decisiones.md}) y enlace al video en
-lazo abierto en el Anexo~\ref{sec:videos}.}
+
+Se construyó la planta completa; solo falta cerrar el lazo con el PID, que corresponde al Proyecto
+Grupal~2. La Fig.~\ref{fig:planta} muestra la construcción final y la Tabla~\ref{tab:planta} sus
+componentes.
+
+\begin{center}
+\textbf{Video de la planta en lazo abierto:} \videoPlanta
+\end{center}
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[b]{0.44\linewidth}
+  \centering\includegraphics[width=\linewidth]{planta_superior.jpg}
+  \caption{Vista superior.}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.54\linewidth}
+  \centering\includegraphics[width=\linewidth]{planta_lateral.jpg}
+  \caption{Vista lateral: motor, disco y sensor en su caja.}
+\end{subfigure}
+\caption{Planta construida.}
+\label{fig:planta}
+\end{figure}
+
+\begin{table}[h]
+\centering\small
+\caption{Componentes y conexiones de la planta.}
+\label{tab:planta}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.3cm}@{}}
+\toprule
+Componente & Función & Conexión \\
+\midrule
+Disco de cartón & Rueda frenada, con 10 marcas negras sobre fondo blanco & Eje del motor \\
+Motor CD & Lleva el disco a la velocidad inicial & OUT1/OUT2 del L298N \\
+Puente H L298N & Etapa de potencia del motor & ENA 25, IN1 26, IN2 33 \\
+Convertidor DC-DC & Fuente ajustable del motor, alimentada por USB & Entrada de potencia del L298N \\
+Servo MG90S y goma & Freno: 120° liberado, 180° frenado & Señal en GPIO18 \\
+Sensor TCRT5000 & Un pulso por marca & Salida en GPIO27, a 3,3~V \\
+ESP32 & Medición, registro y mando del freno y del motor & USB a la computadora \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+El ESP32 no puede entregar la corriente del motor, por lo que el puente H conmuta la fuente
+externa: IN1 e IN2 fijan el sentido y ENA, con PWM, el voltaje medio. Al cortar el motor, ENA pasa
+a nivel bajo y el motor queda en marcha libre, de modo que no frena el disco y la única acción de
+frenado es la de la goma. El servo es de posición: el ancho del pulso, entre 500 y 2500~µs cada
+20~ms, fija el ángulo. El sensor va dentro de una caja de cartón que lo protege de la luz ambiente,
+y el ESP32 mide la velocidad por el tiempo entre marcas (pregunta~2). Todas las tierras están
+unidas para que las señales tengan la misma referencia. Desde la computadora, el ESP32 recibe por
+la consola serie los comandos del banco (mover el freno, encender el motor o ejecutar un ensayo) y
+devuelve la velocidad medida.
+
+En el video, el motor acelera el disco, se corta, y el servo aplica la goma en un ángulo fijo
+mientras el ESP32 mide la velocidad.

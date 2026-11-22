@@ -1,46 +1,114 @@
-# Experimentos: configurar, enviar y registrar
+# 1. Captura manual de ensayos
 
-```text
-experimentos/
-├── casos.json       # Aquí se editan los parámetros
-├── datos/           # Aquí se guardan capturas y registro_ensayos.csv
-└── README.md
-```
+## 1.1. Estado y responsabilidad
 
-## Desde dónde se enviarán los parámetros
+| Campo | Valor |
+|---|---|
+| Responsable de este bloque | Santiago, Persona 3 |
+| Implementado | Receptor serial minimo para ESP32; CSV y metadatos JSON |
+| Analisis del companero | Consume el CSV; no se modifica ni se replica h(t) |
+| Plataforma PC | MATLAB R2025b localizado; utiliza serialport, sin toolbox de identificacion |
+| Verificacion | mlint sin observaciones; 10 pruebas preparadas, ejecucion pendiente por licencia |
+| Hardware | Requiere configuracion y calibracion del firmware |
 
-La entrada prevista será `experimentos/ejecutar_caso.m`, ejecutada en MATLAB en
-la computadora. Este archivo todavía no existe: el envío serial y la recepción
-en el firmware están pendientes de implementar. Se ubicará aquí para mantener
-juntos los casos y su ejecución. `matlab_modelado/` conservará los scripts de
-identificación, simulación y análisis.
+## 1.2. Entrada y operaciones
 
-Flujo previsto:
+[ejecutar_caso.m](ejecutar_caso.m) es la entrada de captura en MATLAB; [consola_banco.py](consola_banco.py)
+es la equivalente en Python (seccion 1.4). Resuelve rutas
+desde su archivo y guarda en datos, sin depender del directorio de trabajo.
+Agregar esta carpeta al path de MATLAB antes de llamar a la funcion.
 
-```text
-casos.json → ejecutar_caso.m (PC) → USB/UART → firmware en la Pico
-                        ↑                         │
-                        └──── mediciones ─────────┘
-                        │
-                        └→ datos/<ensayo_id>.csv
-```
+| Paso | Expresion MATLAB | Significado |
+|---|---|---|
+| Crear parametros | parametros = struct('periodo_ms', periodo_elegido, 'duracion_ms', duracion_elegida, 'timeout_ms', timeout_elegido, 'calibracion_id', 'identificador_real'); | Tiempos enteros en ms; elegir con el montaje |
+| Abrir sesion | sesion = ejecutar_caso("COMx", "ensayo_01", parametros); | Reserva CSV y JSON nuevos, conecta y envia CONFIG |
+| Liberar | sesion.enviar("FRENO " + string(angulo_liberado)); | Angulo calibrado de menuconfig |
+| Impulsar | sesion.enviar("MOTOR " + string(porcentaje_elegido)); | Dentro del maximo calibrado |
+| Iniciar | sesion.enviar("START"); | Corta motor e inicia el origen de tiempo |
+| Aplicar freno | sesion.enviar("FRENO " + string(angulo_elegido)); | La respuesta incluye instante de aplicacion |
+| Consultar | sesion.enviar("STATUS"); | Estado del microcontrolador |
+| Finalizar antes del limite | sesion.enviar("STOP"); | La duracion configurada tambien finaliza automaticamente |
+| Ver resultado | resultado = sesion.estado(); | Rutas y metadatos; revisar completo |
+| Cerrar conexion | sesion.cerrar(); | Solicita STOP y libera puerto y timer |
 
-1. Editar [casos.json](casos.json): parámetros comunes y casos individuales.
-2. Ejecutar `ejecutar_caso` indicando el identificador del caso y el puerto serial.
-   La interfaz exacta se definirá al implementar el programa.
-3. El programa combinará `comunes` con el caso elegido (prioridad del caso),
-   validará parámetros y enviará la configuración al firmware.
-4. La Pico ejecutará el ensayo y devolverá mediciones con el
-   [formato de muestras](../docs/manual_operacion.md#formato-de-muestras-propuesto);
-   el programa guardará cada repetición en un CSV y añadirá una fila a
-   [datos/registro_ensayos.csv](datos/registro_ensayos.csv).
+La funcion devuelve operaciones inmediatamente; el callback serial sigue
+recibiendo mientras se usan los comandos en la consola MATLAB. Cerrar idf monitor
+u otro programa que tenga abierto el mismo puerto. Usar un nombre distinto
+por ensayo; despues de fin, cerrar y abrir una sesion nueva. No enviar START
+de nuevo con los mismos archivos. Cerrar expresamente la sesion antes de
+eliminar su variable del workspace.
 
-Los cuatro casos actuales son plantillas deshabilitadas para acción fija/PID y
-velocidad baja/alta, con tres repeticiones cada uno. Completar los valores `null`
-y validar la configuración antes de habilitarlos. Se pueden añadir casos de
-identificación, validación y sintonización en el mismo JSON.
+## 1.3. Contrato de datos
 
-Los GPIO y las conversiones a PWM se implementan en `firmware/` y se documentan
-en [decisiones.md](../docs/decisiones.md). El firmware recibe los parámetros del
-ensayo; el JSON se lee en la computadora.
+Cabecera exacta: tiempo_ms,freno_deg,velocidad_rpm. Coma separadora y punto decimal.
 
+| Campo | Unidad | Interpretacion |
+|---|---|---|
+| tiempo_ms | ms, tres decimales | Reloj ESP32 desde corte del motor |
+| freno_deg | grados | Orden al MG90S; no mide posicion o fuerza |
+| velocidad_rpm | vueltas/minuto | Ultimo intervalo valido entre marcas; NaN si falta intervalo |
+| cero por timeout | vueltas/minuto | Inferencia por ausencia de pulsos; no diagnostica sensor sano |
+
+Cada JSON conserva parametros solicitados, configuracion efectiva recibida,
+revision del firmware, eventos con tiempo ESP32 y resumen de cierre. No hay
+filtrado ni remuestreo en PC. El timeout del receptor solicita STOP si no llega
+fin cinco segundos despues del tiempo configurado y conserva captura incompleta
+si el cierre sigue ausente tres segundos mas. No sobrescribir ni corregir datos
+crudos para mejorar el ajuste.
+
+## 1.4. Consola Python y ensayo automatico
+
+[consola_banco.py](consola_banco.py) abre el puerto con un prompt visible, envia los mismos
+comandos y guarda cada captura en datos/ con el mismo CSV y un JSON de metadatos; al cerrar
+imprime un resumen (pendientes antes/despues del freno y tiempo de detencion). Requiere
+pyserial, incluido en el entorno Python de ESP-IDF.
+
+| Paso | Comando | Significado |
+|---|---|---|
+| Abrir | python consola_banco.py --nombre escalon | Captura en datos/escalon_NN.csv |
+| Configurar | CONFIG 20 10000 100 | Fila cada 20 ms, 10 s, cero tras 100 ms sin pulsos |
+| Liberar | FRENO 120 | Angulo liberado calibrado |
+| Ensayo | ENSAYO 60 180 300 | Motor 60 %; en la velocidad maxima corta y registra; freno a 180 grados tras 300 ms |
+
+El caso presentado en la Tarea 2 es [escalon_02](datos/escalon_02.csv), anotado en
+[registro_ensayos.csv](datos/registro_ensayos.csv). Se analiza con
+../matlab_modelado/visualizar_ensayo.m.
+
+Si START no recibe inicio en cinco segundos, el receptor solicita STOP y conserva
+el ensayo como incompleto. Un error explicito del firmware permite corregir la
+orden y reintentar antes de comenzar el registro.
+
+## 1.4. Compatibilidad y continuidad
+
+[casos.json](casos.json) conserva las plantillas deshabilitadas del futuro PID.
+Este receptor manual recibe una estructura de parametros y no ejecuta ese JSON.
+[registro_ensayos.csv](datos/registro_ensayos.csv) sigue siendo el inventario
+general del equipo; el receptor no inventa velocidades objetivo, fase o validez
+experimental para rellenarlo. Registrar esos datos cuando se hagan mediciones.
+
+El anterior esquema de nueve columnas era una propuesta para PID, sin capturas
+ni consumidores implementados en esta rama. El esquema vigente de este bloque
+tiene tres columnas; el formato final con referencia y error se coordinara al
+integrar el controlador.
+
+## 1.5. Fundamento y limites
+
+Se identificara la relacion entre orden de freno y velocidad bajo condiciones
+controladas; los grados no equivalen directamente a par. Fijar velocidad inicial,
+corte del motor, referencia temporal del ensayo, calibracion y condiciones
+mecanicas antes de comparar. El modelo debe validarse con corridas independientes.
+
+Fuente de comunicacion: [serialport de MathWorks](https://www.mathworks.com/help/matlab/ref/serialport.html).
+El codigo de analisis h(t) del companero aun no esta en esta rama; confirmar con
+el sus unidades y convencion de entrada antes de interpretar un modelo.
+
+## 1.6. Pruebas del receptor
+
+| Accion MATLAB con licencia activa | Expresion |
+|---|---|
+| Ejecutar las 10 pruebas | resultados = runtests('proyecto_2_grupal/experimentos/tests'); assertSuccess(resultados); |
+
+Las pruebas usan archivos temporales y no abren puertos. Cubren columnas,
+conteos, tiempos repetidos, NaN, cierre ausente, texto intercalado, configuracion
+incompleta, inicio duplicado y no sobrescritura. La prueba con trama C requiere
+ejecutar primero las [pruebas host](../firmware/tests/README.md).

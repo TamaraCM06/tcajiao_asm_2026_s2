@@ -2,7 +2,8 @@
  * Raspberry Pi Pico (Pico SDK). El periodo Ts lo fija un temporizador por
  * hardware; el encoder se lee por interrupcion y el bucle principal solo
  * atiende la consola y vacia la telemetria. Pines y limites son provisionales
- * hasta cerrar el esquema electrico (docs/decisiones.md). */
+ * hasta cerrar el esquema electrico (docs/decisiones.md). La telemetria usa el
+ * formato de muestras de docs/manual_operacion.md, mas la columna ejecucion_us. */
 #include <math.h>
 #include <stdio.h>
 
@@ -28,12 +29,13 @@
 #define OMEGA_FIN 5.0f
 
 typedef enum { REPOSO, IMPULSO, FRENADO } estado_t;
+static const char *const NOMBRE_ESTADO[] = {"REPOSO", "IMPULSO", "FRENADO"};
 
 typedef struct {
-    uint32_t k;
-    float ref, omega, u;
+    float t_s, ref, omega, u_solicitada, u_aplicada; /* ref = NAN si no aplica */
     uint16_t ejecucion_us;
-    bool saturado;
+    uint8_t estado;
+    bool saturado, motor;
 } muestra_t;
 
 enum { CAPACIDAD_COLA = 64 };
@@ -46,6 +48,7 @@ static volatile uint32_t n_flancos;
 static volatile estado_t estado = REPOSO;
 static pid_controlador_t pid;
 static uint32_t k_frenado;
+static uint64_t t_inicio_us;
 static uint slice_servo;
 
 /* ISR del encoder: solo guarda la marca de tiempo; no se pierde ningun flanco. */
@@ -84,6 +87,7 @@ static void aplicar_freno(float u)
 static bool al_periodo(repeating_timer_t *t)
 {
     (void)t;
+    if (estado == REPOSO) return true;
     const uint64_t inicio = time_us_64();
     const float omega = medir_omega(inicio);
 
@@ -93,27 +97,31 @@ static bool al_periodo(repeating_timer_t *t)
         k_frenado = 0;
         estado = FRENADO;
     }
-    if (estado != FRENADO) return true;
 
-    const float t = k_frenado * (TS_US * 1e-6f);
-    const float ref = fmaxf(OMEGA_INICIAL - DESACELERACION * t, 0.0f);
-    const float u = pid_paso(&pid, ref, omega);
-    aplicar_freno(u);
-
-    if (omega < OMEGA_FIN && ref <= 0.0f) {
-        aplicar_freno(0.0f);
-        estado = REPOSO;
+    muestra_t m = {.t_s = (float)(inicio - t_inicio_us) * 1e-6f, .ref = NAN, .omega = omega,
+                   .estado = (uint8_t)estado, .motor = (estado == IMPULSO)};
+    if (estado == FRENADO) {
+        const float t_ref = k_frenado * (TS_US * 1e-6f);
+        m.ref = fmaxf(OMEGA_INICIAL - DESACELERACION * t_ref, 0.0f);
+        m.u_aplicada = pid_paso(&pid, m.ref, omega);
+        m.u_solicitada = pid.u_sin_limite;
+        m.saturado = pid.saturado;
+        aplicar_freno(m.u_aplicada);
+        k_frenado++;
+        if (omega < OMEGA_FIN && m.ref <= 0.0f) {
+            aplicar_freno(0.0f);
+            estado = REPOSO;
+        }
     }
+    m.ejecucion_us = (uint16_t)(time_us_64() - inicio);
 
     const uint32_t siguiente = (escritura + 1) % CAPACIDAD_COLA;
     if (siguiente == lectura) {
         descartadas++; /* Se pierde telemetria, nunca el periodo de control */
     } else {
-        cola[escritura] = (muestra_t){k_frenado, ref, omega, u,
-                                      (uint16_t)(time_us_64() - inicio), pid.saturado};
+        cola[escritura] = m;
         escritura = siguiente;
     }
-    k_frenado++;
     return true;
 }
 
@@ -148,19 +156,27 @@ int main(void)
     repeating_timer_t temporizador;
     add_repeating_timer_us(-TS_US, al_periodo, NULL, &temporizador);
 
-    printf("k,ref_rad_s,omega_rad_s,u_norm,saturado,ejecucion_us\n");
+    printf("t_s,referencia_rad_s,velocidad_rad_s,error_rad_s,u_solicitada_norm,"
+           "u_aplicada_norm,saturado,motor_habilitado,estado,ejecucion_us\n");
     while (true) {
         /* Consola no bloqueante: 's' inicia un ensayo. */
         const int c = getchar_timeout_us(0);
         if (c == 's' && estado == REPOSO) {
+            t_inicio_us = time_us_64();
             gpio_put(PIN_MOTOR, 1);
             estado = IMPULSO;
         }
         if (lectura != escritura) {
             const muestra_t m = cola[lectura];
             lectura = (lectura + 1) % CAPACIDAD_COLA;
-            printf("%lu,%.3f,%.3f,%.4f,%d,%u\n", (unsigned long)m.k, m.ref, m.omega,
-                   m.u, m.saturado, m.ejecucion_us);
+            if (isnan(m.ref)) { /* Sin referencia ni mando durante el impulso */
+                printf("%.3f,,%.3f,,,,0,%d,%s,%u\n", m.t_s, m.omega, m.motor,
+                       NOMBRE_ESTADO[m.estado], m.ejecucion_us);
+            } else {
+                printf("%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%d,%d,%s,%u\n", m.t_s, m.ref, m.omega,
+                       m.omega - m.ref, m.u_solicitada, m.u_aplicada, m.saturado, m.motor,
+                       NOMBRE_ESTADO[m.estado], m.ejecucion_us);
+            }
         } else {
             tight_loop_contents();
         }

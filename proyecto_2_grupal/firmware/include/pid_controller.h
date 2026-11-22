@@ -18,6 +18,7 @@ typedef struct {
     float derivada;       /* Estado del derivativo filtrado */
     float omega_previa;
     bool primera;
+    float u_sin_limite;   /* Ultimo mando antes de saturar (u_solicitada_norm) */
     bool saturado;        /* Ultimo mando quedo recortado */
 } pid_controlador_t;
 

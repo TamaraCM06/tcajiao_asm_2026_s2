@@ -1,0 +1,24 @@
+# Artefactos de compilación Pico/CMake
+/firmware/build*/
+/firmware/pico-sdk/
+/firmware/.pico-sdk/
+*.uf2
+*.elf
+*.o
+*.a
+*.map
+
+# Temporales MATLAB; conservar .m, .mat, CSV y figuras de evidencia
+*.asv
+*.m~
+
+# Auxiliares LaTeX; conservar el PDF final y las figuras
+/docs/paper_ieee/*.aux
+/docs/paper_ieee/*.bbl
+/docs/paper_ieee/*.blg
+/docs/paper_ieee/*.fdb_latexmk
+/docs/paper_ieee/*.fls
+/docs/paper_ieee/*.log
+/docs/paper_ieee/*.out
+/docs/paper_ieee/*.synctex.gz
+/docs/paper_ieee/*.toc

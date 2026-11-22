@@ -1,0 +1,1 @@
+ensayo_id,caso_id,fecha_hora_iso8601,operadores,fase,condicion,velocidad_inicial_medida_rad_s,repeticion,archivo_datos,git_commit_firmware,calibracion_id,configuracion_efectiva_json,muestras_perdidas,valido,motivo_exclusion,observaciones

@@ -1,0 +1,10 @@
+\section{Diagrama de bloques del sistema completo}
+\label{sec:p4}
+\enunciado{Realice un diagrama de bloques del sistema completo, de una descripción en prosa de
+todos los componentes tanto continuos como discretos (25\,\%).}
+\pendiente{Pregunta 4 (25\,\%). Diagrama (TikZ o figura en \texttt{figuras/}) y prosa.
+\emph{Continuo:} motor CD, disco con inercia $J$, fricción viscosa y de Coulomb, goma y
+mecánica del servo. \emph{Discreto:} encoder con marcas de tiempo (ISR), estimación de
+$\omega[k]$, generador de $\omega_\text{ref}[k]$, comparador, PID con saturación y
+anti-windup, PWM del servo (ZOH, trama de 20 ms) y registro por USB. Indicar dónde está cada
+frontera continuo/discreto (muestreo $T_s$ y retención).}

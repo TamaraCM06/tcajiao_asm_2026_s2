@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Regenera las evidencias simuladas y compila informe.tex -> informe.pdf.
+# Uso: ./compilar.sh          (todo)
+#      ./compilar.sh --solo-tex  (no recompila la simulación)
+#      ./compilar.sh --limpiar   (borra auxiliares y generados)
+# Requiere gcc y una distribución TeX con pdflatex, bibtex, pgfplots y listings.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+AUX=build
+GEN=evidencias/generado
+FIRMWARE=../../firmware
+
+if [[ "${1:-}" == "--limpiar" ]]; then
+    rm -rf "$AUX" "$GEN"/*.csv "$GEN"/metricas.tex
+    echo "Limpio."
+    exit 0
+fi
+
+mkdir -p "$AUX" "$GEN"
+
+if [[ "${1:-}" != "--solo-tex" ]]; then
+    echo "==> Simulación del PID (evidencia pregunta 3)"
+    gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$FIRMWARE/include" \
+        evidencias/simulacion_pid.c "$FIRMWARE/src/pid_controller.c" -lm -o "$AUX/simulacion_pid"
+    "$AUX/simulacion_pid" "$GEN"
+fi
+
+echo "==> LaTeX"
+latex() { pdflatex -interaction=nonstopmode -halt-on-error -output-directory="$AUX" informe.tex >"$AUX/pdflatex.log" \
+    || { tail -n 40 "$AUX/pdflatex.log"; exit 1; }; }
+latex
+bibtex "$AUX/informe" >"$AUX/bibtex.log" || { cat "$AUX/bibtex.log"; exit 1; }
+latex
+latex
+
+cp "$AUX/informe.pdf" informe.pdf
+grep -E "Warning.*(undefined|Citation)" "$AUX/informe.log" | sort -u || true
+echo "==> informe.pdf listo"

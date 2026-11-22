@@ -1,0 +1,118 @@
+\section{Frecuencia de muestreo de un sistema de control continuo}
+\label{sec:p2}
+\enunciado{¿Cómo determinar la frecuencia de muestreo de un sistema de control continuo? Proponga
+una frecuencia razonable para el proyecto suyo (15\,\%).}
+
+\subsection{Criterios teóricos}
+Un controlador digital observa la planta continua solo en los instantes $t_k = kT_s$ y
+mantiene su salida constante entre ellos mediante un retenedor de orden cero (ZOH).
+El teorema de Nyquist ($f_s > 2f_\text{máx}$) garantiza que una señal de banda limitada se
+pueda reconstruir, pero en control no es suficiente por tres razones.
+\begin{enumerate}
+  \item El retenedor se comporta aproximadamente como un retardo de $T_s/2$, $G_\text{ZOH}(s)\approx e^{-sT_s/2}$, y resta al margen de fase
+  \begin{equation}
+    \Delta\varphi \approx \frac{\omega_c T_s}{2}\ \text{[rad]},
+    \label{eq:fase_zoh}
+  \end{equation}
+  donde $\omega_c$ es la frecuencia de cruce del lazo~\cite{franklin1998digital,astrom1997computer}.
+  Con $f_s$ apenas sobre Nyquist el lazo pierde decenas de grados y se vuelve oscilatorio.
+  \item Un transitorio necesita varias muestras para quedar bien descrito y para que el
+  controlador reaccione a tiempo ante una perturbación. Que la señal sea reconstruible no
+  asegura ninguna de las dos cosas.
+  \item Las aproximaciones de $s$ (Euler, Tustin) que
+  convierten un PID continuo en una ecuación en diferencias solo son fieles si $T_s$ es pequeño
+  frente a las constantes de tiempo del lazo~\cite{astrom1997computer,ogata1996discreto}.
+\end{enumerate}
+De estas razones se derivan las reglas prácticas usuales:
+\begin{itemize}
+  \item muestrear entre 10 y 40 veces el ancho de banda de lazo cerrado,
+  típicamente $\omega_s \approx 20\,\omega_b$~\cite{franklin1998digital};
+  \item cuando el PID se obtiene aproximando un diseño continuo, $\omega_c T_s$ entre
+  $\approx 0{,}15$ y $0{,}5$, es decir, de 5 a 14 grados de fase perdidos según
+  \eqref{eq:fase_zoh}~\cite{astrom1997computer};
+  \item de 4 a 10 muestras por tiempo de subida del lazo cerrado, $N_r = t_r/T_s$~\cite{astrom1997computer}.
+\end{itemize}
+Además, el periodo debe ser compatible con los componentes reales: con qué frecuencia el
+actuador acepta un mando nuevo, cada cuánto el sensor entrega información nueva, el tiempo de
+cálculo y el ancho de banda para registrar datos. El procedimiento es estimar $\omega_b$ (o la
+constante de tiempo dominante $\tau$), aplicar las reglas, y verificar que el hardware lo
+soporte. Como $\omega_b$ depende del modelo, el valor se confirma después de identificar la
+planta.
+
+\subsection{Propuesta para el banco: $T_s = \SI{20}{ms}$ ($f_s = \SI{50}{Hz}$)}
+
+\paragraph{Ancho de banda deseado.}
+El lazo debe ser bastante más rápido que el frenado para seguir la rampa, pero más lento que el
+servo, cuya respuesta no se puede acelerar. Para un frenado de 1,5 a 4~s y un servo de
+hobby MG90S que tarda $\approx\SI{0{,}1}{s}$ en girar $60^\circ$~\cite{mg90s}
+($\tau_\text{servo}\approx 50$ a 100~ms, polo en 10 a 20~rad/s), un objetivo razonable es
+$\omega_b \approx \omega_c \approx 4$ a $\SI{5}{rad/s}$, una constante de tiempo de lazo
+cerrado de 0,2 a 0,25~s.
+
+\paragraph{Aplicación de las reglas.} La Tabla~\ref{tab:ts} resume la comprobación con
+$\omega_c = \SI{4}{rad/s}$, el valor de diseño de la pregunta~3.
+
+\begin{table}[h]
+\centering\small
+\caption{Verificación del periodo propuesto $T_s=\SI{20}{ms}$ (valores de ejemplo hasta identificar la planta).}
+\label{tab:ts}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.3cm}@{}}
+\toprule
+Criterio & Cálculo & Resultado \\
+\midrule
+$\omega_s \gtrsim 20\,\omega_b$~\cite{franklin1998digital} &
+$\omega_s = 2\pi/T_s = \SI{314}{rad/s}$ frente a $20\cdot 5 = \SI{100}{rad/s}$ ($f_s\geq\SI{16}{Hz}$) & Cumple ($63\,\omega_b$) \\
+$\omega_c T_s \leq 0{,}5$~\cite{astrom1997computer} & $4\cdot 0{,}02 = 0{,}08$ & Cumple; $T_s \leq \SI{125}{ms}$ \\
+Fase del ZOH, ec.~\eqref{eq:fase_zoh} & $0{,}08/2 = \SI{0{,}04}{rad}$ & $2{,}3^\circ$, despreciable \\
+Muestras por subida & $t_r\approx 2{,}2/\omega_b \approx \SI{0{,}5}{s}$; $N_r = 0{,}5/0{,}02$ & $\approx 25 \geq 10$ \\
+Muestras por frenado & $3{,}75\ \text{s}/0{,}02$ (rampa de \SI{40}{rad/s^2}) & $\approx 190$ para identificar \\
+Actuador & Servo con trama PWM de 20~ms~\cite{mg90s} & Un mando nuevo por trama; muestrear más rápido no se aplica \\
+Cálculo & PID en \texttt{float} en el RP2040 (sin FPU)~\cite{rp2040}: decenas de µs & $\ll T_s$; se mide en la placa \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Límite superior.} Ir por debajo de 20~ms no mejora el control con este servo,
+porque el servo solo lee el pulso una vez por trama de 50~Hz: si llegan dos mandos dentro de la
+misma trama, uno se pierde. El límite inferior que dan las reglas
+($f_s\approx$ 16 Hz) deja margen para un lazo más rápido si el modelo lo permite.
+
+\paragraph{Compatibilidad con el encoder.}
+El periodo de control no depende de la velocidad máxima del disco. Esa velocidad sirve para
+validar el sensor. La velocidad se estima por \emph{tiempo entre flancos}, no contando
+flancos en una ventana~\cite{petrella2007speed}:
+\begin{itemize}
+  \item \emph{Conteo por ventana:} la resolución es $\Delta\omega = 2\pi/(N T_s) =
+  2\pi/(24\cdot 0{,}02) = \SI{13{,}1}{rad/s}$ por flanco (26,2 con 12), cerca del 9\,\% a
+  \SI{150}{rad/s} y peor al frenar, por lo que no es adecuado.
+  \item \emph{Tiempo entre flancos:} con marcas de tiempo de 1~µs y el periodo de una marca
+  completa ($2$ flancos), a \SI{150}{rad/s} se mide
+  $T_\text{marca}=4\pi/(N\omega)=\SI{3{,}49}{ms}$, una resolución del $0{,}03\,\%$.
+  Los flancos llegan cada 1,75~ms (573 por segundo), una tasa que la interrupción atiende
+  sin dificultad.
+\end{itemize}
+Con ese método, la medición deja de renovarse en cada muestra cuando $T_\text{marca}>T_s$, es
+decir, bajo $\omega^*=4\pi/(N T_s)=\SI{26}{rad/s}$, y se declara $\omega=0$ si pasan
+100~ms sin flanco ($\omega_\text{mín}\approx\SI{5{,}2}{rad/s}$). Es aceptable porque cerca de
+cero no hace falta controlar fino.
+
+\paragraph{Riesgo de aliasing por marcas no uniformes.}
+Si las marcas no son idénticas, $T_\text{marca}$ tiene un rizado que se repite cada vuelta, con
+frecuencia fundamental $f_\text{vuelta}=\omega/2\pi$ ($\approx 24$~Hz a \SI{150}{rad/s}) y
+armónicos hasta $12f_\text{vuelta}$. Esas componentes caen dentro de la banda de muestreo o se
+reflejan en ella, y al frenar barren hacia frecuencias bajas, así que un filtro pasabajos fijo
+no las separa del control. Se puede corregir con marcas uniformes (verificables con el histograma
+de $T_\text{marca}$ a velocidad constante) y, si hace falta, promediar sobre una vuelta
+completa. Ese promedio anula exactamente los armónicos de la vuelta, a cambio de más retardo a
+baja velocidad.
+
+\paragraph{Conclusión.} Se propone $T_s = \SI{20}{ms}$ ($f_s=\SI{50}{Hz}$) porque cumple las tres
+reglas con margen, coincide con la trama del servo, deja unas 190 muestras por frenado para la
+identificación y el encoder lo soporta con medición por periodo. El valor se revisará con la
+constante de tiempo medida en la pregunta~7: si el lazo diseñado necesitara
+$\omega_c > \SI{12}{rad/s}$, se pasaría a 10~ms con un servo digital de trama más rápida. La
+comparación de 20 frente a 50~ms queda prevista como punto extra del proyecto.
+
+Los valores de $\omega_0$, $a$, $\tau_\text{servo}$ y $\omega_c$ usados aquí son de ejemplo. Se
+confirmarán con la identificación de la planta en el Proyecto Grupal~2, junto con el tiempo de
+ejecución del paso de control medido en la placa (columna \texttt{ejecucion\_us} del firmware).

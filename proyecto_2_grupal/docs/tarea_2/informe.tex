@@ -1,0 +1,97 @@
+% Tarea 2, Modelado de sistemas (CE 1110). Documento iterativo:
+% cada pregunta vive en secciones/pN_*.tex; compilar con ./compilar.sh
+\documentclass[11pt,a4paper]{article}
+% spanish.ldf no viene en todas las instalaciones; si falta, se usa el locale .ini.
+\IfFileExists{spanish.ldf}
+  {\usepackage[spanish,es-noshorthands,es-tabla]{babel}}
+  {\usepackage{babel}\babelprovide[import,main]{spanish}
+   \setlocalecaption{spanish}{table}{Tabla}}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array,enumitem}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{caption,subcaption}
+\usepackage{listings}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepgfplotslibrary{groupplots}
+\usepackage[numbers]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+\setlist{nosep,leftmargin=*}
+\renewcommand{\arraystretch}{1.15}
+\graphicspath{{figuras/}}
+
+% Ruta del firmware del proyecto, para listar el código real y no una copia.
+\newcommand{\firmware}{../../firmware}
+
+% siunitx no está instalado en todas las máquinas del grupo: unidad mínima.
+\providecommand{\SI}[2]{\ensuremath{#1\,\mathrm{#2}}}
+\providecommand{\si}[1]{\ensuremath{\mathrm{#1}}}
+\pgfplotsset{/pgf/number format/use comma}
+
+% Bloque visible para lo que falta; buscar "pendiente" antes de entregar.
+\newcommand{\pendiente}[1]{\par\smallskip\noindent\fcolorbox{orange!80!black}{orange!8}{%
+  \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Pendiente:} #1}}\par\smallskip}
+% Enunciado de cada pregunta, en cursiva antes de la respuesta.
+\newcommand{\enunciado}[1]{\par\noindent\emph{#1}\par\medskip}
+% Etiqueta para resultados que provienen de simulación, no del banco.
+\newcommand{\simulado}{\textup{[SIMULACIÓN]}}
+
+\lstdefinestyle{c}{
+  language=C, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!60!black}\bfseries,
+  commentstyle=\color{green!40!black}\itshape, stringstyle=\color{red!50!black},
+  numbers=left, numberstyle=\tiny\color{gray}, frame=single, rulecolor=\color{gray!50},
+  breaklines=true, columns=fullflexible, keepspaces=true, showstringspaces=false,
+  tabsize=4, captionpos=b
+}
+\lstset{style=c}
+\renewcommand{\lstlistingname}{Listado}
+
+% Métricas generadas por evidencias/simulacion_pid.c
+\IfFileExists{evidencias/generado/metricas.tex}{\input{evidencias/generado/metricas.tex}}{}
+
+\begin{document}
+\begin{titlepage}
+  \centering
+  \includegraphics[width=0.55\linewidth]{logo_tec.png}\par\vspace{1cm}
+  {\large Escuela de Ingeniería en Computadores\par}\vspace{0.4cm}
+  {\large CE 1110 Análisis de Señales Mixtas\par}\vspace{2cm}
+  {\Huge\bfseries Tarea 2: Teoría\par}\vspace{0.4cm}
+  {\LARGE Modelado de sistemas\par}\vspace{2.5cm}
+  {\large\bfseries Profesor:\par}
+  {\large Luis Alberto Chavarría Zamora\par}\vspace{1cm}
+  {\large\bfseries Estudiantes:\par}
+  {\large Nicolás Florez Jiménez, 2024086367\par
+   Tamara Vanessa Cajiao Molina, 2024143333\par
+   Santiago Robles Obando, 2022207100\par
+   Santiago Boza Quiros, 2024174347\par}
+  \vfill
+  {\large II Semestre 2026\par 22 de noviembre\par}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+\input{secciones/p0_sistema}
+\input{secciones/p1_impulso_escalon}
+\input{secciones/p2_muestreo}
+\input{secciones/p3_pid_microcontrolador}
+\input{secciones/p4_diagrama_bloques}
+\input{secciones/p5_modelo_matematico}
+\input{secciones/p6_construccion_planta}
+\input{secciones/p7_caracterizacion}
+
+\appendix
+\input{secciones/anexo_codigo}
+\input{secciones/anexo_videos}
+
+\phantomsection\addcontentsline{toc}{section}{\refname}
+\bibliographystyle{IEEEtran}
+\bibliography{referencias}
+\end{document}

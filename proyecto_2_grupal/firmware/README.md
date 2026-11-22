@@ -7,7 +7,7 @@
 | Responsable | Santiago, Persona 3 |
 | Plataforma | ESP32 clasico, ESP-IDF 5.5.5 |
 | Alcance | Captura a lazo abierto con TCRT5000, MG90S y motor manual |
-| Estado | Base implementada; adquisicion e integracion en curso |
+| Estado | Base y captura optica implementadas; integracion en curso |
 | Revision | Codigo, documentacion y diff; aun sin pruebas funcionales |
 | Pendiente fisico | GPIO, niveles, alimentacion, calibracion y montaje |
 
@@ -41,3 +41,16 @@ ejecutar build: flash utiliza la ultima copia compilada.
 
 Solo se crean interfaces al implementar su responsabilidad. No se incluye
 todavia PID ni secuencia automatica de aceleracion.
+
+## 1.4. Medicion optica
+
+Se calcula RPM = 60000000 / (pulsos_por_vuelta por intervalo_us). Las 24 marcas
+son una propuesta del montaje: comprobar un flanco por marca. Un primer pulso
+no entrega velocidad. El calculo utiliza el ultimo intervalo aceptado, sin
+suavizado; nuevas filas pueden reutilizar esa estimacion entre pulsos.
+
+El rechazo de intervalos cortos es configurable y esta desactivado inicialmente.
+No sustituye ajustar contraste y evitar oscilaciones del comparador. Tras una
+pausa igual o mayor al timeout se necesitan dos pulsos nuevos. La ausencia de
+pulsos produce cero estimado por timeout, no confirma integridad del sensor.
+Las instantaneas se protegen frente a escrituras simultaneas de la interrupcion.

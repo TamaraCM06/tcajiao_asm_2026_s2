@@ -3,8 +3,54 @@
 \enunciado{Caracterice el sistema mediante la respuesta al escalón (40\,\% extra). Adjunte un vídeo
 de la respuesta al escalón (ejecutando la planta en físico con ustedes explicando y su
 funcionamiento en computadora, debe ser un solo vídeo).}
-\pendiente{Pregunta 7 (+40\,\%). Escalones del servo a varios ángulos, captura de
-$\omega(t)$ y ajuste en MATLAB (System Identification / \texttt{tfest}), validado con un
-ensayo no usado en el ajuste. Un solo video con la planta física y la computadora. Consultar
-al profesor si se pide la respuesta al impulso o al escalón (HANDOFF, pregunta abierta 1).
-Con $\tau$ medido, revisar la Tabla~\ref{tab:ts}.}
+
+\paragraph{Ensayo y captura.}
+Se acelera el disco, se desconecta el motor y se registra un tramo de giro libre.
+Con el disco aún en movimiento, se cambia una sola vez el ángulo ordenado al servo
+y se mantiene el freno en esa posición. El script \texttt{visualizar\_ensayo.m},
+en \texttt{matlab\_modelado}, lee un CSV con una fila por muestra y tres columnas:
+\texttt{tiempo\_ms}, \texttt{freno\_deg} y \texttt{velocidad\_rpm}.
+El cambio de mando define el origen $t=0$ y la amplitud $\Delta u$ del escalón.
+La primera figura alinea la orden del servo con la velocidad medida.
+
+\paragraph{De la caída libre al modelo local.}
+El script ajusta una recta a las RPM en cada ventana de 300 ms anterior y posterior
+a la orden, usando solo muestras en movimiento. La pendiente previa $a_0$ (RPM/s)
+estima la caída libre cerca del punto de aplicación. La pendiente posterior permite
+observar cuánto cambia la desaceleración. Para predecir la velocidad $v(t)$ en RPM,
+se supone que el freno añade gradualmente una aceleración
+$K\Delta u(1-e^{-t/\tau})$. Al integrarla y sumar la caída libre se obtiene
+\[
+  \widehat v(t)=v(0)+a_0t+
+  K\Delta u\bigl[t-\tau(1-e^{-t/\tau})\bigr],\qquad t\geq 0.
+\]
+$K$ expresa el cambio de pendiente en RPM/s por grado de mando y $\tau$ es la
+constante de tiempo en segundos. El script ajusta ambos parámetros por mínimos
+cuadrados desde la orden hasta la última muestra en movimiento anterior a la parada,
+o hasta el fin del registro. Superpone la predicción a las RPM y calcula el RMSE
+sobre las muestras de ajuste. Si $\tau$ es menor que el intervalo típico entre
+muestras, el registro apenas permite distinguir la rapidez de aplicación del freno.
+
+\paragraph{Respuesta al impulso.}
+La salida del modelo es la diferencia de velocidad respecto a la caída libre.
+Para una entrada incremental en grados, su función de transferencia y su
+respuesta a un impulso de área unitaria
+($1\,{}^\circ\!\cdot\mathrm{s}$) son
+\[
+  G(s)=\frac{K}{s(\tau s+1)},\qquad h(t)=K(1-e^{-t/\tau}),\quad t\geq 0.
+\]
+La segunda figura muestra cuántas RPM de diferencia predice el modelo tras ese
+impulso ideal, durante el tramo de giro analizado. Con Control System Toolbox
+el script usa \texttt{tf} e \texttt{impulse}. En instalaciones sin esa herramienta
+evalúa la expresión analítica de $h(t)$.
+
+\paragraph{Comprobación del cálculo \simulado.}
+Con una señal sintética a 50 Hz y un escalón de $20^\circ$ a $35^\circ$ a los
+$0{,}40$ s, el ajuste dio $K=-21{,}68$ (RPM/s)/grado,
+$\tau=0{,}0302$ s y un RMSE de $0{,}24$ RPM. Estos valores comprueban la
+implementación con una señal generada a partir del modelo propuesto.
+
+\pendiente{Incorporar la captura física y sus gráficas, reportar los parámetros
+medidos y contrastar la predicción con otro ensayo para el Proyecto 2. Revisar la
+Tabla~\ref{tab:ts} con los tiempos medidos. Enlazar un solo video que muestre la
+prueba en el banco y la respuesta al impulso en MATLAB.}

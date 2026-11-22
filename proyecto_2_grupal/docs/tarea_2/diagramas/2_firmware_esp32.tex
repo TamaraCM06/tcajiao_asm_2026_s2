@@ -5,7 +5,7 @@
 \begin{tikzpicture}
   % ISR del encoder
   \node[nodo] (fl) {Flanco en GPIO27\\uno por marca};
-  \node[nodo, right=26mm of fl] (st) {\texttt{esp\_timer\_get\_time()}\\estimador del registrador};
+  \node[nodo, right=26mm of fl] (st) {\texttt{esp\_timer\_get\_time()}\\estimador $\cdot$ descarta $<$500\,µs};
 
   % Temporizador periódico
   \node[nodo, below=30mm of fl] (med) {Mide $\omega$\\$(2\pi/10)/\Delta t$};

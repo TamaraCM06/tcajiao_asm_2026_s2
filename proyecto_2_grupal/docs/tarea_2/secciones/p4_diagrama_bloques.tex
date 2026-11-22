@@ -3,7 +3,7 @@
 \enunciado{Realice un diagrama de bloques del sistema completo, de una descripción en prosa de
 todos los componentes tanto continuos como discretos (25\,\%).}
 
-La Fig.~\ref{fig:sistema} muestra el lazo cerrado del banco. El grupo superior es la parte
+La Fig.~\ref{fig:sistema} muestra el lazo cerrado del banco con el PID del Proyecto Grupal~2; en esta tarea la planta se opera en lazo abierto (preguntas 6 y 7). El grupo superior es la parte
 discreta, que ejecuta el ESP32 cada $T_s=\SI{20}{ms}$. El grupo inferior es la planta
 física, que evoluciona en tiempo continuo. El lazo cruza la frontera dos veces: el sensor convierte
 el giro en pulsos que el ESP32 fecha y muestrea, y el PWM del servo retiene cada mando durante un
@@ -26,8 +26,9 @@ periodo (retenedor de orden cero, ZOH)~\cite{astrom1997computer}.
   \item[Goma] Convierte la posición del brazo del servo en fuerza normal sobre el disco y,
   por fricción, en el torque de frenado $\tau_f$. Es no lineal: no frena hasta hacer contacto (zona
   muerta) y tiene un máximo.
-  \item[Servo MG90S] Tiene su propio lazo interno de posición. Recibe un pulso cada 20~ms
-  y tarda del orden de $\tau_\text{servo}$ en llevar el brazo al ángulo pedido~\cite{mg90s}.
+  \item[Servo MG90S] Tiene su propio lazo interno de posición. Recibe un pulso cada 20~ms;
+  a 120° la goma está libre y a 180° frena. Junto con el contacto de la goma, su efecto crece con
+  una constante de tiempo de 0,27~s (pregunta~7)~\cite{mg90s}.
   \item[Sensor óptico TCRT5000] Detecta por reflexión las 10 marcas negras y genera un
   pulso por marca, 10 por vuelta. La salida es digital, pero los pulsos llegan cuando la rueda
   gira, no a un ritmo fijo.
@@ -35,8 +36,9 @@ periodo (retenedor de orden cero, ZOH)~\cite{astrom1997computer}.
 
 \subsection{Componentes discretos}
 \begin{description}
-  \item[{Estimación de $\omega[k]$}] Una interrupción guarda el instante de cada flanco con
-  resolución de 1~µs. En cada muestra $k$ se calcula $\omega[k]$ con el tiempo entre flancos, como
+  \item[{Estimación de $\omega[k]$}] Una interrupción guarda el instante de cada marca con
+  resolución de 1~µs y descarta los flancos separados por menos de 500~µs, que son rebotes del
+  comparador. En cada muestra $k$ se calcula $\omega[k]$ con el tiempo entre flancos, como
   se justificó en la pregunta~2. Si pasan 100~ms sin flancos se toma $\omega[k]=0$.
   \item[Referencia] Genera la rampa $\omega_\text{ref}[k]=\max\{\omega_0-a\,kT_s,0\}$.
   \item[Comparador] Calcula $e[k]=\omega[k]-\omega_\text{ref}[k]$.

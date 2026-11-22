@@ -44,9 +44,10 @@ Actuador & El servo lee un pulso cada 20~ms~\cite{mg90s} & Muestrear más rápid
 
 El periodo de control no depende de la velocidad máxima del disco, que solo sirve para validar el
 sensor. La velocidad se mide por tiempo entre marcas y no contando marcas en una
-ventana~\cite{petrella2007speed}: con $N=10$, contar en 20~ms daría una resolución de
-$2\pi/(N T_s)=\SI{31{,}4}{rad/s}$, mientras que medir el intervalo con resolución de 1~µs da
-$0{,}024\,\%$ a $\SI{150}{rad/s}$.
+ventana~\cite{petrella2007speed}: con $N=10$, contar marcas en 20~ms daría una resolución de
+$2\pi/(N T_s)=\SI{31{,}4}{rad/s}$, del orden de la propia velocidad del ensayo (unas 300~RPM, es
+decir, $\SI{31}{rad/s}$), mientras que medir el intervalo entre marcas (unos 20~ms a esa
+velocidad) con resolución de 1~µs da una resolución del $0{,}005\,\%$.
 
 Se propone $T_s=\SI{20}{ms}$: cumple las reglas con margen y coincide con la trama del servo. La
 caracterización de la pregunta~7 lo confirma: la constante de tiempo medida, $\tau=\SI{0{,}274}{s}$,

@@ -8,14 +8,14 @@
   \node[nodo, right=16mm of ref] (cmp) {Comparador\\$e[k]=\omega[k]-\omega_\text{ref}[k]$};
   \node[nodo, right=16mm of cmp] (pid) {PID discreto\\Euler hacia atrás\\saturación $\cdot$ anti-windup};
   \node[nodo, right=16mm of pid] (pwm) {PWM del servo (ZOH)\\LEDC $\cdot$ 50\,Hz};
-  \node[nodo, below=14mm of cmp] (est) {Estimación de $\omega[k]$\\tiempo entre flancos\\timeout 100\,ms};
+  \node[nodo, below=14mm of cmp] (est) {Estimación de $\omega[k]$\\tiempo entre marcas\\rebotes $<$500\,µs $\cdot$ timeout 100\,ms};
 
   % Parte continua: banco de frenado
-  \node[nodo, below=58mm of pwm] (servo) {Servo MG90S\\$\tau_\text{servo}\approx$ 50--100\,ms};
-  \node[nodo] (goma) at (servo -| pid) {Goma\\fuerza normal $\rightarrow\tau_f$};
+  \node[nodo, below=58mm of pwm] (servo) {Servo MG90S\\120° libre $\cdot$ 180° frenado};
+  \node[nodo] (goma) at (servo -| pid) {Goma\\fuerza normal $\rightarrow\tau_f$\\$\tau\approx 0{,}27$\,s (con el servo)};
   \node[nodo] (disco) at (servo -| cmp) {Disco\\$J_\text{eq}\cdot b\cdot$ fricción seca};
   \node[nodo] (enc) at (servo -| ref) {Sensor TCRT5000\\10 marcas $\cdot$ 1 pulso/marca};
-  \node[opcional, below=12mm of disco] (motor) {Motor CD + L298N\\solo impulso inicial};
+  \node[opcional, below=12mm of disco] (motor) {Motor CD + L298N\\fuente DC-DC $\cdot$ solo impulso inicial};
 
   \node[nodo, above=16mm of ref] (pc) {PC $\cdot$ consola UART (USB)\\inicio de ensayo $\cdot$ registro CSV};
 

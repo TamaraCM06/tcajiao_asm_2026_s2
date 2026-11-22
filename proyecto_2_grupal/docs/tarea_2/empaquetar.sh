@@ -34,11 +34,11 @@ rm -f "$MICRO"/registrador_banco/{src,include}/README.md
 cp "$P2/experimentos/datos/escalon_02.csv" "$P2/experimentos/datos/escalon_02.json" \
    "$P2/matlab_modelado/visualizar_ensayo.m" "$P2/experimentos/consola_banco.py" "$RAIZ/pregunta7/"
 
-cat > "$RAIZ/LEEME.md" <<'EOF'
+cat > "$RAIZ/README.md" <<'EOF'
 # Tarea 2: Modelado de sistemas (CE 1110)
 
 El documento evaluado es `Tarea2_ASM_Grupo1.pdf`. Este comprimido agrega los programas que el
-PDF referencia (Anexo A, Tabla de programas).
+PDF referencia en el Anexo A.
 
 | Carpeta | Contenido | Pregunta |
 |---|---|---|

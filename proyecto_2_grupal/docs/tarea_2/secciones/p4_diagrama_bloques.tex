@@ -17,39 +17,37 @@ periodo (retenedor de orden cero, ZOH)~\cite{astrom1997computer}.
 \end{figure}
 
 \subsection{Componentes continuos}
-\begin{itemize}
-  \item \textbf{Motor CD.} Lleva el disco hasta $\omega_0$ y se corta cuando empieza el frenado,
+\begin{description}
+  \item[Motor CD] Lleva el disco hasta $\omega_0$ y se corta cuando empieza el frenado,
   por eso su torque $\tau_m$ aparece en línea punteada. El ESP32 lo enciende o lo deja en marcha libre con el puente L298N.
-  \item \textbf{Disco.} Es la planta principal. Su velocidad $\omega(t)$ cambia según la
+  \item[Disco] Es la planta principal. Su velocidad $\omega(t)$ cambia según la
   ec.~\eqref{eq:newton_rot}: la inercia $J_\text{eq}$ integra el torque neto, y la fricción viscosa
   $b$ y la fricción seca lo frenan aunque no se aplique la goma.
-  \item \textbf{Goma.} Convierte la posición del brazo del servo en fuerza normal sobre el disco y,
+  \item[Goma] Convierte la posición del brazo del servo en fuerza normal sobre el disco y,
   por fricción, en el torque de frenado $\tau_f$. Es no lineal: no frena hasta hacer contacto (zona
   muerta) y tiene un máximo.
-  \item \textbf{Servo MG90S.} Tiene su propio lazo interno de posición. Recibe un pulso cada 20~ms
+  \item[Servo MG90S] Tiene su propio lazo interno de posición. Recibe un pulso cada 20~ms
   y tarda del orden de $\tau_\text{servo}$ en llevar el brazo al ángulo pedido~\cite{mg90s}.
-  \item \textbf{Sensor óptico TCRT5000.} Detecta por reflexión las 10 marcas negras y genera un
+  \item[Sensor óptico TCRT5000] Detecta por reflexión las 10 marcas negras y genera un
   pulso por marca, 10 por vuelta. La salida es digital, pero los pulsos llegan cuando la rueda
   gira, no a un ritmo fijo.
-\end{itemize}
+\end{description}
 
 \subsection{Componentes discretos}
-\begin{itemize}
-  \item \textbf{Estimación de $\omega[k]$.} Una interrupción guarda el instante de cada flanco con
+\begin{description}
+  \item[{Estimación de $\omega[k]$}] Una interrupción guarda el instante de cada flanco con
   resolución de 1~µs. En cada muestra $k$ se calcula $\omega[k]$ con el tiempo entre flancos, como
   se justificó en la pregunta~2. Si pasan 100~ms sin flancos se toma $\omega[k]=0$.
-  \item \textbf{Referencia.} Genera la rampa $\omega_\text{ref}[k]=\max\{\omega_0-a\,kT_s,0\}$ de
-  la ec.~\eqref{eq:referencia}.
-  \item \textbf{Comparador.} Calcula $e[k]=\omega[k]-\omega_\text{ref}[k]$. Con este signo,
-  $e>0$ aprieta la goma y $e<0$ la suelta.
-  \item \textbf{PID discreto.} Aplica la ecuación en diferencias de la pregunta~3 con saturación a
+  \item[Referencia] Genera la rampa $\omega_\text{ref}[k]=\max\{\omega_0-a\,kT_s,0\}$.
+  \item[Comparador] Calcula $e[k]=\omega[k]-\omega_\text{ref}[k]$.
+  \item[PID discreto] Aplica la ecuación en diferencias de la pregunta~3 con saturación a
   $u\in[0,1]$ y anti-windup.
-  \item \textbf{PWM del servo (ZOH).} Convierte $u[k]$ en un ángulo entre la posición libre y la
+  \item[PWM del servo (ZOH)] Convierte $u[k]$ en un ángulo entre la posición libre y la
   de frenado máximo, y ese ángulo en un pulso PWM (LEDC). El servo lo lee una vez por trama de
   20~ms y se mantiene hasta la siguiente muestra.
-  \item \textbf{Registro y consola.} Por la UART (USB de la placa) se inicia el ensayo y se envía
+  \item[Registro y consola] Por la UART (USB de la placa) se inicia el ensayo y se envía
   una línea CSV por muestra a la computadora. Está fuera del lazo de control.
-\end{itemize}
+\end{description}
 
 La Fig.~\ref{fig:firmware} detalla cómo se reparten estos bloques discretos en el firmware: la
 interrupción del sensor, el temporizador periódico que ejecuta el lazo y la tarea que atiende

@@ -18,7 +18,6 @@
 \usepackage[table]{xcolor}
 \usepackage{caption,subcaption}
 \usepackage{placeins}
-\usepackage{listings}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 \usepgfplotslibrary{groupplots}
@@ -38,32 +37,13 @@
 \providecommand{\si}[1]{\ensuremath{\mathrm{#1}}}
 \pgfplotsset{/pgf/number format/use comma}
 
-% Bloque visible para lo que falta; buscar "pendiente" antes de entregar.
-\newcommand{\pendiente}[1]{\par\smallskip\noindent\fcolorbox{orange!80!black}{orange!8}{%
-  \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Pendiente:} #1}}\par\smallskip}
 % Enunciado de cada pregunta, en cursiva antes de la respuesta.
 \newcommand{\enunciado}[1]{\par\noindent\emph{#1}\par\medskip}
 % Enlaces de YouTube (no listados): reemplazar aquí y se actualizan en todo el informe.
 \newcommand{\videoPlanta}{\url{https://youtu.be/B1e7-cnYzO4}}
 \newcommand{\videoCaracterizacion}{\url{https://youtube.com/shorts/y-FDs2-BfVk}}
-% Recuadro que identifica las secciones de puntos extra.
-\newcommand{\puntosextra}[1]{\par\smallskip\noindent\fcolorbox{blue!60!black}{blue!6}{%
-  \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\textbf{Puntos extra (+40\,\%).} #1}}\par\medskip}
-% Etiqueta para resultados que provienen de simulación, no del banco.
-\newcommand{\simulado}{\textup{[SIMULACIÓN]}}
 
-\lstdefinestyle{c}{
-  language=C, basicstyle=\ttfamily\footnotesize, keywordstyle=\color{blue!60!black}\bfseries,
-  commentstyle=\color{green!40!black}\itshape, stringstyle=\color{red!50!black},
-  numbers=left, numberstyle=\tiny\color{gray}, frame=single, rulecolor=\color{gray!50},
-  breaklines=true, columns=fullflexible, keepspaces=true, showstringspaces=false,
-  tabsize=4, captionpos=b
-}
-\lstset{style=c}
-\renewcommand{\lstlistingname}{Listado}
 
-% Métricas generadas por evidencias/simulacion_pid.c
-\IfFileExists{evidencias/generado/metricas.tex}{\input{evidencias/generado/metricas.tex}}{}
 
 \begin{document}
 \begin{titlepage}

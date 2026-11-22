@@ -4,174 +4,50 @@
 función delay como en Arduino? Muestre el código en un microcontrolador sin la función
 delay.}
 
-\subsection{De la ley continua a la ecuación en diferencias}
-El PID continuo es
-$u(t)=K_p e(t) + K_i\int_0^t e\,d\tau + K_d\,\dot e(t)$~\cite{astrom2006advanced}.
-En el microcontrolador se evalúa una vez por periodo y cada término se discretiza por
-separado. Se usa Euler hacia atrás, $s\approx(1-z^{-1})/T_s$, que es simple y estable para
-cualquier $T_s$~\cite{astrom1997computer,ogata1996discreto}:
+\subsection{Implementación}
+El PID continuo $u(t)=K_p e(t)+K_i\int_0^t e\,d\tau+K_d\,\dot e(t)$~\cite{astrom2006advanced} se
+evalúa una vez por periodo $T_s$ como una ecuación en diferencias. Con Euler hacia atrás,
+$s\approx(1-z^{-1})/T_s$~\cite{astrom1997computer,ogata1996discreto}:
 \begin{align}
-  P[k] &= K_p\,e[k], \\
   I[k] &= I[k-1] + K_i T_s\,e[k], \label{eq:integral}\\
-  D[k] &= \frac{T_f}{T_f+T_s}\,D[k-1] + \frac{K_d}{T_f+T_s}\big(\omega[k]-\omega[k-1]\big), \label{eq:derivada}\\
-  u[k] &= \operatorname{sat}_{[u_\text{mín},\,u_\text{máx}]}\big(P[k]+I[k-1]+D[k]\big).
+  D[k] &= \frac{T_f}{T_f+T_s}\,D[k-1] + \frac{K_d}{T_f+T_s}\big(\omega[k]-\omega[k-1]\big),\\
+  u[k] &= \operatorname{sat}_{[0,1]}\big(K_p e[k] + I[k-1] + D[k]\big).
 \end{align}
-Cuando no hay saturación, el controlador equivale a
-\begin{equation}
-  C(z) = K_p + \frac{K_i T_s}{1-z^{-1}} + \frac{K_d\,(1-z^{-1})}{(T_f+T_s) - T_f z^{-1}}.
-\end{equation}
-El proyecto exige además las siguientes decisiones de implementación.
-\begin{itemize}
-  \item La derivada pura amplifica el ruido
-  del sensor, por eso se aplica $K_d s/(T_f s+1)$ con $T_f\approx 2T_s$. Derivar $\omega$ en
-  lugar de $e$ evita saltos cuando cambia la referencia~\cite{astrom2006advanced}.
-  \item El mando se satura a los límites calibrados del freno, que van de la goma sin contacto al
-  frenado máximo seguro.
-  \item Como anti-windup se usa integración condicional (\emph{clamping}): si $u$ está en un límite
-  y el error empuja hacia ese mismo límite, \eqref{eq:integral} no se actualiza. Con un freno
-  unilateral esto es importante, porque cuando la referencia pide más frenado del posible, el integrador
-  acumularía un mando que después mantiene el freno apretado aunque el disco ya esté por debajo
-  de la curva, y el freno no puede devolver esa velocidad~\cite{astrom2006advanced,astrom2021feedback}.
-  \item Los estados $I$, $D$ y $\omega[k-1]$ se borran al inicio de cada
-  frenado para que los ensayos sean comparables.
-\end{itemize}
+El derivativo se calcula sobre la medición y con un filtro de primer orden ($T_f\approx 2T_s$) para
+no amplificar el ruido del sensor ni reaccionar a saltos de la referencia. El mando se satura a los
+límites del freno, y el integrador usa integración condicional (\emph{anti-windup}): no acumula
+mientras el mando está saturado y el error empuja hacia el mismo límite. En un freno unilateral
+esto evita que, tras pedir más frenado del posible, el término integral mantenga la goma apretada
+cuando el disco ya va más lento que la referencia~\cite{astrom2006advanced}. Los estados se
+reinician al comenzar cada frenado.
 
-\paragraph{Ganancias provisionales.}
-Partiendo de la planta~\eqref{eq:planta_G} de la pregunta~5: como el frenado dura mucho menos
-que $J_\text{eq}/b$, el polo en $-b/J_\text{eq}$ queda cerca del origen y, agregando el servo,
-la planta del mando a la velocidad es aproximadamente un integrador con el polo del servo,
-$G(s)\approx -a_\text{máx}/\big(s(\tau_\text{servo}s+1)\big)$, con $a_\text{máx}=K_f/J_\text{eq}$
-por unidad de mando. El signo
-negativo se compensa con la convención $e=\omega-\omega_\text{ref}$. Con
-$a_\text{máx}\approx\SI{100}{rad/s^2}$, $K_p=0{,}04$ da un cruce
-$\omega_c\approx K_p a_\text{máx}=\SI{4}{rad/s}$, el usado en la pregunta~2. El cero del PI se
-coloca debajo del cruce, en $K_i/K_p=\SI{2}{rad/s}$ ($K_i=0{,}08$), y $K_d=5\times10^{-4}$ es
-pequeño. Como el lazo resulta de tipo~2, sigue la rampa sin error en estado estacionario. Son
-valores de partida que se rediseñarán con el modelo identificado.
+En el ESP32 el programa se organiza en tres contextos~\cite{espidf}. Una interrupción de GPIO fecha
+cada marca del sensor con \texttt{esp\_timer\_get\_time()}. Un temporizador periódico
+(\texttt{esp\_timer\_start\_periodic}, 20~ms) ejecuta el lazo: mide $\omega$, calcula la
+referencia y el PID, y actualiza el PWM del servo. Como cada disparo se programa sobre el
+anterior, el tiempo de ejecución no se suma al periodo. Por último, una tarea de FreeRTOS sin
+requisitos de tiempo envía la telemetría por la UART y atiende la consola; si se atrasa, se pierde
+telemetría pero no el periodo de control.
 
-\subsection{Estructura temporal: periodo fijo sin bloqueo}
-El periodo $T_s$ usado para calcular $K_iT_s$, $K_d/T_s$ y los polos en $z$ tiene que ser el
-periodo real. La implementación (Listados~\ref{lst:pid} y~\ref{lst:main}) separa tres
-contextos~\cite{espidf}:
+\subsection{Por qué no usar \texttt{delay()}}
+Un lazo del tipo \emph{medir, calcular, actuar, imprimir} seguido de \texttt{delay(20)} tiene tres
+problemas:
 \begin{enumerate}
-  \item La interrupción del sensor (\texttt{gpio\_isr\_handler\_add}) se activa en un flanco por
-  marca y solo fecha el pulso con \texttt{esp\_timer\_get\_time()} en el estimador del
-  registrador, así que no se pierde ninguna marca.
-  \item El temporizador periódico (\texttt{esp\_timer\_start\_periodic}, 20~ms) programa cada
-  disparo sobre el instante del anterior, de modo que el tiempo de ejecución no se suma al periodo. En cada tic se mide
-  $\omega$, se calcula $\omega_\text{ref}(kT_s)$, se ejecuta \texttt{pid\_paso}, se escribe el
-  PWM del servo y se encola la muestra. Primero se lee y se actúa, y después se guarda el
-  registro, para minimizar la latencia entre medición y mando.
-  \item Una tarea de FreeRTOS sin requisitos de tiempo espera muestras en la cola
-  (\texttt{xQueueReceive}), las imprime por la UART y lee la consola sin bloquear. Si la cola se
-  llena se descarta telemetría y se cuenta, pero nunca se retrasa el control.
+  \item El periodo real es la espera más el tiempo de ejecución, que además varía (por ejemplo,
+  imprimir una línea por UART a 115\,200 baudios toma unos 3,5~ms). Las ganancias discretas
+  $K_iT_s$ y $K_d/T_s$ quedan calculadas para un periodo distinto del real~\cite{astrom1997computer}.
+  \item Si la referencia se calcula con un contador de muestras, el error de tiempo se acumula y la
+  curva seguida resulta más lenta que la diseñada.
+  \item Durante la espera el procesador no atiende la consola, la telemetría ni una condición de
+  seguridad~\cite{arduinoblink}.
 \end{enumerate}
-El tiempo de ejecución de cada paso se registra (\texttt{ejecucion\_us}) para demostrar que es
-mucho menor que $T_s$.
+En Arduino la alternativa es comparar \texttt{micros()} con un instante objetivo que se incrementa
+en $T_s$~\cite{arduinoblink}. En ESP-IDF, \texttt{vTaskDelay()} tiene el mismo problema que
+\texttt{delay()}; \texttt{vTaskDelayUntil()} mantiene el periodo, pero el temporizador periódico
+además separa el control del resto del programa.
 
-\subsection{¿Por qué no usar \texttt{delay()}?}
-El patrón típico de Arduino \texttt{loop()\{ medir(); pid(); actuar(); Serial.println(...);
-delay(20); \}} tiene tres problemas:
-\begin{enumerate}
-  \item El periodo real no es $T_s$. El ciclo dura $T_\text{delay}+T_\text{ejec}$, y
-  $T_\text{ejec}$ varía con la ruta del código y, sobre todo, con la impresión serie: a
-  115\,200~baudios, una línea CSV de unos 40 caracteres tarda $\approx\SI{3{,}5}{ms}$. Las
-  ganancias discretas $K_iT_s$ y $K_d/T_s$ y la ubicación de los polos en $z$ quedan calculadas
-  para un periodo que no es el real, y el \emph{jitter} añade ruido de muestreo no
-  uniforme~\cite{astrom1997computer}.
-  \item La base de tiempo deriva. Si la referencia se calcula como $\omega_0-a\,kT_s$
-  con un contador de muestras, el error se acumula y la curva seguida resulta más lenta que
-  la diseñada.
-  \item Bloquea el procesador. Durante \texttt{delay()} el programa no atiende la
-  consola, los botones, la telemetría ni una condición de seguridad, como cortar el freno si se
-  pierde el sensor~\cite{arduinoblink}.
-\end{enumerate}
-Si se trabaja en Arduino, la alternativa es la temporización no bloqueante con
-\texttt{millis()}/\texttt{micros()}~\cite{arduinoblink}. El instante siguiente se acumula
-(\texttt{siguiente += TS}), en vez de tomarse desde el instante actual
-(\texttt{siguiente = ahora + TS}), para no acumular deriva:
-\begin{lstlisting}[caption={Patrón no bloqueante equivalente en Arduino.},label={lst:millis},numbers=none]
-if ((int32_t)(micros() - siguiente) >= 0) {  // seguro ante desborde
-    siguiente += TS_US;                       // sin deriva acumulada
-    paso_de_control();                        // medir -> PID -> actuar
-}
-atender_serial_y_botones();                   // nunca se bloquea
-\end{lstlisting}
-En ESP-IDF, \texttt{vTaskDelay()} tiene el mismo problema que \texttt{delay()}: el periodo
-pasa a ser la espera más el tiempo de ejecución. \texttt{vTaskDelayUntil()} sí mantiene el
-periodo, pero el ESP32 usa \texttt{esp\_timer} (Listado~\ref{lst:main}), que además separa el
-control de la tarea de telemetría~\cite{espidf}.
-
-\lstinputlisting[caption={Módulo PID portable (\texttt{firmware/src/pid\_controller.c}), el mismo que usa la simulación.},label={lst:pid}]{\firmware/src/pid_controller.c}
-
-\subsection{Evidencia \simulado}
-Para comprobar el código sin el banco, \texttt{evidencias/simulacion\_pid.c} compila el mismo
-\texttt{pid\_controller.c} contra una planta \emph{ilustrativa}:
-$\dot\omega = -\omega/8 - 1{,}5 - 100\,b$, donde $b$ es la posición del servo, con
-$\tau_\text{servo}=\SI{50}{ms}$ y una trama PWM de retardo. Integra a 0,1~ms y el control corre
-a $T_s=\SI{20}{ms}$. Los parámetros son supuestos y no provienen de una identificación del banco. Las
-figuras y métricas se regeneran con \texttt{./compilar.sh}.
-
-\paragraph{Anti-windup.} La referencia pide \SI{140}{rad/s^2} durante 0,5~s, más de lo que el
-freno puede dar ($\approx\SI{120}{rad/s^2}$), y luego \SI{25}{rad/s^2}
-(Fig.~\ref{fig:aw}). Sin anti-windup el freno sigue apretado después de alcanzar la curva y el
-disco cae cerca de \SI{20}{rad/s} por debajo; como el freno no puede acelerarlo, queda más de
-1~s suelto ($u=0$) esperando a que la referencia lo alcance. Con clamping el IAE baja de \iaeAwNo{} a
-\iaeAwSi{}~rad y la fracción de muestras saturadas pasa de \satAwNo{} a \satAwSi{}\,\%.
-
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}
-\begin{groupplot}[group style={group size=1 by 2, vertical sep=0.6cm, x descriptions at=edge bottom},
-  width=0.92\linewidth, height=4.6cm, xmin=0, xmax=4, grid=major, grid style={gray!20},
-  legend style={font=\footnotesize, at={(0.99,0.97)}, anchor=north east}]
-\nextgroupplot[ylabel={$\omega$ [rad/s]}]
-  \addplot[black, dashed, thick] table[x=t, y=ref, col sep=comma] {evidencias/generado/aw_si.csv};
-  \addlegendentry{$\omega_\text{ref}$}
-  \addplot[blue!70!black, thick] table[x=t, y=omega, col sep=comma] {evidencias/generado/aw_si.csv};
-  \addlegendentry{con anti-windup}
-  \addplot[red!70!black, thick] table[x=t, y=omega, col sep=comma] {evidencias/generado/aw_no.csv};
-  \addlegendentry{sin anti-windup}
-\nextgroupplot[ylabel={$u$ [norm.]}, xlabel={$t$ [s]}, ymin=-0.05, ymax=1.1]
-  \addplot[blue!70!black, thick, const plot] table[x=t, y=u, col sep=comma] {evidencias/generado/aw_si.csv};
-  \addplot[red!70!black, thick, const plot] table[x=t, y=u, col sep=comma] {evidencias/generado/aw_no.csv};
-\end{groupplot}
-\end{tikzpicture}
-\caption{\simulado{} Seguimiento con una referencia que satura el freno al inicio.}
-\label{fig:aw}
-\end{figure}
-
-\paragraph{Temporizador frente a \texttt{delay()}.} Con la rampa alcanzable de
-\SI{40}{rad/s^2}, el mismo PID se ejecuta con el temporizador ($T_s$ exacto) y con un bucle
-\texttt{delay(20)} más un cálculo de 0,3~ms y una impresión serie de 2,5 a 4,5~ms
-(Fig.~\ref{fig:delay}). El periodo real medio sube a \periodoDelay~ms (máximo
-\periodoMaxDelay~ms). Como la referencia avanza con el contador de muestras, al final el
-firmware está atrasado \desfaseDelay~ms respecto al reloj real y la desaceleración efectiva
-baja a $\approx$\decelEfectivaDelay~rad/s$^2$. Respecto de la curva diseñada, el IAE pasa de
-\iaeTimer{} a \iaeDelay~rad y el RMSE de \rmseTimer{} a \rmseDelay~rad/s. Como las ganancias y
-el código son idénticos, la diferencia se debe solo a la temporización.
-
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}
-\begin{groupplot}[group style={group size=2 by 1, horizontal sep=1.6cm},
-  height=5cm, grid=major, grid style={gray!20},
-  legend style={font=\footnotesize, at={(0.99,0.97)}, anchor=north east}]
-\nextgroupplot[width=0.56\linewidth, xmin=0, xmax=4.5, xlabel={$t$ [s]}, ylabel={$\omega$ [rad/s]}]
-  \addplot[black, dashed, thick] table[x=t, y=ref, col sep=comma] {evidencias/generado/timer.csv};
-  \addlegendentry{$\omega_\text{ref}(t)$}
-  \addplot[blue!70!black, thick] table[x=t, y=omega, col sep=comma] {evidencias/generado/timer.csv};
-  \addlegendentry{temporizador}
-  \addplot[red!70!black, thick] table[x=t, y=omega, col sep=comma] {evidencias/generado/delay.csv};
-  \addlegendentry{\texttt{delay(20)}}
-\nextgroupplot[width=0.42\linewidth, xlabel={muestra $k$}, ylabel={periodo real [ms]}, ymin=19, ymax=26]
-  \addplot[blue!70!black, thick, domain=0:200] {20};
-  \addplot[red!70!black, only marks, mark size=0.6pt] table[x=k, y=periodo_ms, col sep=comma] {evidencias/generado/periodos_delay.csv};
-\end{groupplot}
-\end{tikzpicture}
-\caption{\simulado{} Izquierda: seguimiento de la rampa. Derecha: periodo entre muestras con \texttt{delay(20)} (rojo) frente al temporizador (azul).}
-\label{fig:delay}
-\end{figure}
-
-Cuando la planta esté armada, ambas comparaciones se repetirán en el banco, registrando el tiempo
-de ejecución (\texttt{ejecucion\_us}), el periodo real entre muestras y el seguimiento con la planta física.
+\subsection{Código}
+El programa completo para el ESP32 está en
+\texttt{programas\_microcontrolador/pregunta3\_pid/main\_tarea2.c}, y el PID discreto en
+\texttt{pid\_controller.c} de la misma carpeta (Anexo~\ref{sec:codigo}). El programa no usa
+\texttt{delay()} ni esperas bloqueantes en el lazo de control.

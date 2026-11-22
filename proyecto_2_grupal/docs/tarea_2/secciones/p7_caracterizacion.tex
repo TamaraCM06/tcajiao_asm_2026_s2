@@ -4,141 +4,82 @@
 de la respuesta al escalón (ejecutando la planta en físico con ustedes explicando y su
 funcionamiento en computadora, debe ser un solo vídeo).}
 
-\puntosextra{Se caracterizó la planta física con un escalón del freno y se obtuvo su función de
-transferencia local y su respuesta al impulso con \texttt{impulse} de MATLAB. El video
-\videoCaracterizacion{} muestra en una sola toma el ensayo en el banco, la generación del CSV, su
-carga en MATLAB, la función de transferencia y la respuesta al impulso.}
+El video con el ensayo en el banco y su análisis en MATLAB es \videoCaracterizacion.
 
 \subsection{Método}
-Se eligió un escalón del freno porque es la entrada que se puede aplicar de forma limpia y
-repetible: el servo pasa de un ángulo a otro en una sola orden (pregunta~1). El impulso ideal no
-se puede generar físicamente; por eso se identifica el modelo con el escalón y la respuesta al
-impulso se obtiene después del modelo, como pide el enunciado.
+Se usa un escalón del freno porque se puede aplicar de forma limpia y repetible; un impulso ideal
+no es realizable, así que la respuesta al impulso se obtiene del modelo identificado (pregunta~1).
+El motor acelera el disco, se corta, y tras un tramo de giro libre el servo pasa en una sola orden
+de 120° a 180° y se mantiene. El ESP32 registra cada 20~ms el tiempo, el ángulo ordenado y la
+velocidad en un archivo CSV.
 
-\paragraph{Ensayo y captura.}
-Se acelera el disco, se desconecta el motor y se registra un tramo de giro libre.
-Con el disco aún en movimiento, se cambia una sola vez el ángulo ordenado al servo
-y se mantiene el freno en esa posición. El script \texttt{visualizar\_ensayo.m},
-en \texttt{matlab\_modelado}, lee un CSV con una fila por muestra y tres columnas:
-\texttt{tiempo\_ms}, \texttt{freno\_deg} y \texttt{velocidad\_rpm}.
-El cambio de mando define el origen $t=0$ y la amplitud $\Delta u$ del escalón.
-La primera figura alinea la orden del servo con la velocidad medida.
-
-\paragraph{De la caída libre al modelo local.}
-El script ajusta una recta a las RPM en cada ventana de 300 ms anterior y posterior
-a la orden, usando solo muestras en movimiento. La pendiente previa $a_0$ (RPM/s)
-estima la caída libre cerca del punto de aplicación. La pendiente posterior permite
-observar cuánto cambia la desaceleración. Para predecir la velocidad $v(t)$ en RPM,
-se supone que el freno añade gradualmente una aceleración
-$K\Delta u(1-e^{-t/\tau})$. Al integrarla y sumar la caída libre se obtiene
+El script \texttt{visualizar\_ensayo.m} ajusta una recta a la velocidad en los 300~ms anteriores y
+posteriores al escalón. La pendiente previa $a_0$ es la caída libre por fricción. Suponiendo que el
+freno añade una aceleración que crece como $K\Delta u\,(1-e^{-t/\tau})$, la velocidad predicha es
 \[
-  \widehat v(t)=v(0)+a_0t+
-  K\Delta u\bigl[t-\tau(1-e^{-t/\tau})\bigr],\qquad t\geq 0.
+  \widehat v(t)=v(0)+a_0t+K\Delta u\bigl[t-\tau(1-e^{-t/\tau})\bigr],\qquad t\geq 0,
 \]
-$K$ expresa el cambio de pendiente en RPM/s por grado de mando y $\tau$ es la
-constante de tiempo en segundos. El script ajusta ambos parámetros por mínimos
-cuadrados desde la orden hasta la última muestra en movimiento anterior a la parada,
-o hasta el fin del registro. Superpone la predicción a las RPM y calcula el RMSE
-sobre las muestras de ajuste. Si $\tau$ es menor que el intervalo típico entre
-muestras, el registro apenas permite distinguir la rapidez de aplicación del freno.
-
-\paragraph{Respuesta al impulso.}
-La salida del modelo es la diferencia de velocidad respecto a la caída libre.
-Para una entrada incremental en grados, su función de transferencia y su
-respuesta a un impulso de área unitaria
-($1\,{}^\circ\!\cdot\mathrm{s}$) son
-\[
-  G(s)=\frac{K}{s(\tau s+1)},\qquad h(t)=K(1-e^{-t/\tau}),\quad t\geq 0.
-\]
-La segunda figura muestra cuántas RPM de diferencia predice el modelo tras ese
-impulso ideal, durante el tramo de giro analizado. Con Control System Toolbox
-el script usa \texttt{tf} e \texttt{impulse}. En instalaciones sin esa herramienta
-evalúa la expresión analítica de $h(t)$.
-
-\paragraph{Comprobación del cálculo \simulado.}
-Con una señal sintética a 50 Hz y un escalón de $20^\circ$ a $35^\circ$ a los
-$0{,}40$ s, el ajuste dio $K=-21{,}68$ (RPM/s)/grado,
-$\tau=0{,}0302$ s y un RMSE de $0{,}24$ RPM. Estos valores comprueban la
-implementación con una señal generada a partir del modelo propuesto.
+y $K$ y $\tau$ se ajustan por mínimos cuadrados hasta que el disco se detiene. El modelo
+resultante, del ángulo del freno al cambio de velocidad respecto a la caída libre, es
+\begin{equation}
+  G(s)=\frac{K}{s(\tau s+1)},
+  \label{eq:modelo_escalon}
+\end{equation}
+cuya respuesta al impulso se calcula con \texttt{tf} e \texttt{impulse} de MATLAB.
 
 \subsection{Resultados}
-\paragraph{Ensayo en el banco.}
-El ensayo presentado es \texttt{escalon\_02} (\texttt{experimentos/datos/escalon\_02.csv}). Se
-ejecutó con \texttt{ENSAYO 60 180 300}: el motor impulsa el disco al 60\,\%, el firmware corta el
-motor cuando la velocidad deja de subir e inicia el registro, y 300~ms después lleva el servo de
-120° a 180°. El registro tiene 500 muestras cada 20~ms, sin muestras perdidas (intervalos reales
-entre 19,7 y 20,3~ms). El CSV se capturó por la consola serie y se cargó en MATLAB con \texttt{visualizar\_ensayo.m},
-como se ve en el video \videoCaracterizacion.
+El ensayo presentado (\texttt{escalon\_02}) tiene 500 muestras sin pérdidas. La
+Fig.~\ref{fig:escalon02} muestra el escalón, la velocidad medida y el modelo ajustado, y la
+Tabla~\ref{tab:caracterizacion} resume los resultados.
 
 \begin{figure}[h]
 \centering
 \includegraphics[width=\linewidth]{matlab_escalon_02.jpg}
-\caption{Ensayo \texttt{escalon\_02} en \texttt{visualizar\_ensayo.m}: orden al servo (arriba) y
-velocidad medida con las rectas de 300~ms y el modelo ajustado (abajo).}
+\caption{Ensayo \texttt{escalon\_02}: orden al servo (arriba) y velocidad medida, rectas de
+300~ms y modelo ajustado (abajo).}
 \label{fig:escalon02}
 \end{figure}
 
 \begin{table}[h]
 \centering\small
-\caption{Resultados de la caracterización (\texttt{escalon\_02}).}
+\caption{Resultados de la caracterización.}
 \label{tab:caracterizacion}
 \begin{tabular}{@{}lr@{}}
 \toprule
 Magnitud & Valor \\
 \midrule
 Velocidad al cortar el motor & $\approx 300$~RPM \\
-Escalón del servo $\Delta u$ & $120^\circ \to 180^\circ$ ($60^\circ$) en $t = 0{,}301$~s \\
-Pendiente antes del freno (caída libre) & $-76{,}4$~RPM/s \\
+Escalón $\Delta u$ & $120^\circ\to 180^\circ$ en $t=0{,}301$~s \\
+Pendiente antes del freno & $-76{,}4$~RPM/s \\
 Pendiente después del freno & $-142{,}9$~RPM/s \\
 Ganancia $K$ & $-2{,}58$~(RPM/s)/grado \\
 Constante de tiempo $\tau$ & $0{,}274$~s \\
 RMSE del modelo & $25{,}0$~RPM \\
-Detención del disco & $t \approx 1{,}14$~s \\
+Detención del disco & $t\approx 1{,}14$~s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Con estos valores, la función de transferencia local del mando del freno al cambio de velocidad
-respecto a la caída libre es
+Con estos valores,
 \[
   G(s)=\frac{-2{,}58}{s\,(0{,}274\,s+1)}\ \frac{\text{RPM}}{\text{grado}},\qquad
   h(t)=-2{,}58\,\bigl(1-e^{-t/0{,}274}\bigr)\ \text{RPM},
 \]
-cuya respuesta al impulso calculó MATLAB con \texttt{impulse} (Fig.~\ref{fig:impulso02}).
+y la Fig.~\ref{fig:impulso02} muestra la respuesta al impulso obtenida con \texttt{impulse}.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.85\linewidth]{matlab_impulso_02.jpg}
+\includegraphics[width=0.8\linewidth]{matlab_impulso_02.jpg}
 \caption{Respuesta al impulso del modelo identificado (impulso de 1 grado$\cdot$s).}
 \label{fig:impulso02}
 \end{figure}
 
 \subsection{Análisis}
-\paragraph{Relación con el modelo teórico.}
-La pregunta~5 modela la planta con $J_\text{eq}\dot\omega = -b\,\omega - \tau_f$. El término
-$-b\,\omega$ y la fricción seca forman la caída libre, que el método estima con la recta previa
-($-76$~RPM/s) y resta. Lo que queda es el efecto del freno. La pregunta~5 suponía que
-$\Delta\tau_f = K_f\,\Delta u$ aparece de inmediato, pero el ensayo muestra que el torque de la goma
-crece con una constante de tiempo $\tau$, porque el servo tarda en llegar y la goma en apretar.
-Por eso la aceleración responde como un primer orden y la velocidad como su integral:
-$G(s)=K/(s(\tau s+1))$. Si $\tau\to 0$, se recupera la forma de la pregunta~5 con
-$K = -K_f/J_\text{eq}$ por grado. El resultado es coherente con la teoría y la complementa con la
-dinámica del actuador.
-
-\paragraph{Efecto del freno.}
-El freno casi duplica la desaceleración: de $-76$ a $-143$~RPM/s. $K<0$ confirma el signo
-esperado en la pregunta~5: más ángulo de freno quita velocidad. La constante $\tau = 0{,}27$~s
-agrupa el recorrido del servo de 60° (unos 0,1~s según su hoja de datos~\cite{mg90s}) y el tiempo
-que tarda la goma en hacer contacto pleno; es la dinámica que el PID tendrá que compensar. El
-RMSE de 25~RPM se debe sobre todo al ruido del sensor: con un solo flanco por marca, una marca
-mal detectada produce saltos de una muestra a otra, visibles en la Fig.~\ref{fig:escalon02}.
-
-\paragraph{Revisión del muestreo.}
-Con $\tau = 0{,}274$~s, el periodo propuesto en la pregunta~2 da $\tau/T_s \approx 14$ muestras
-por constante de tiempo, dentro de la regla de $\tau/10$ a $\tau/20$, y el ensayo completo deja
-unas 40 muestras entre el freno y la detención. Se mantiene $T_s = \SI{20}{ms}$.
-
-\paragraph{Limitaciones.}
-El modelo es local: vale cerca de 300~RPM y para un escalón de 120° a 180°. Para el proyecto
-se repetirá con otras velocidades y ángulos, se validará con ensayos no usados en el ajuste y se
-reducirá el ruido del sensor antes de diseñar el PID.
+El freno casi duplica la desaceleración, de $-76$ a $-143$~RPM/s, y $K<0$ confirma que más ángulo
+de freno quita velocidad. El resultado es coherente con el modelo de la pregunta~5: la caída libre
+corresponde a los términos de fricción, que el método resta, y el efecto del freno no es
+instantáneo sino que crece con $\tau=0{,}27$~s, que incluye el recorrido del servo y el tiempo de
+contacto de la goma. Si $\tau\to 0$, la ec.~\eqref{eq:modelo_escalon} se reduce a la forma de la
+pregunta~5 con $K=-K_f/J_\text{eq}$. El RMSE de 25~RPM proviene principalmente del ruido del
+sensor, que produce saltos entre muestras. El modelo es local: es válido cerca de 300~RPM y para
+este escalón, y debe validarse con otros ensayos antes de diseñar el PID.

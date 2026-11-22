@@ -1,22 +1,9 @@
-\section*{Sistema de referencia (objetivo del Proyecto Grupal 2)}
-\addcontentsline{toc}{section}{Sistema de referencia (objetivo del Proyecto Grupal 2)}
-Esta sección describe el sistema final que busca el Proyecto Grupal~2. No es el alcance de la
-Tarea~2, que solo lo usa como contexto para ejemplificar las respuestas. El banco consiste en un
-disco movido por un motor CD, una goma accionada por un servomotor MG90S que frena el disco, un sensor óptico TCRT5000
-frente a 10 marcas negras ($N=10$ pulsos por vuelta, un flanco por marca) y un ESP32 que ejecuta
-el PID discreto. En cada ensayo el motor lleva el disco a una velocidad inicial $\omega_0$
-repetible, se corta y el PID mueve el servo para que $\omega(t)$ siga una referencia
-decreciente. La propuesta es una rampa de desaceleración constante,
-\begin{equation}
-  \omega_\text{ref}(t) = \max\{\omega_0 - a\,t,\;0\},\qquad
-  a_\text{natural} < a < a_\text{freno,máx},
-  \label{eq:referencia}
-\end{equation}
-cuyos límites se miden en lazo abierto. El freno es un actuador unilateral, ya que solo puede quitar
-velocidad. Por eso el error se usa con signo, $e = \omega - \omega_\text{ref}$: si el disco va más
-rápido que la curva ($e>0$) el PID aprieta la goma, y si va más lento ($e<0$) la suelta, con el
-mando limitado a $u\in[0,1]$.
-
-Los cálculos de las preguntas 2 y 3 usan valores de ejemplo coherentes con el banco:
-$\omega_0\approx\SI{150}{rad/s}$ ($\approx 1430$~rpm), $a\approx\SI{40}{rad/s^2}$ y un
-frenado de 1,5 a 4~s. La pregunta~7 reporta la primera caracterización medida en el banco.
+\section*{Sistema de referencia}
+\addcontentsline{toc}{section}{Sistema de referencia}
+Las respuestas se ejemplifican con el banco de frenado del Proyecto Grupal~2: un disco movido por
+un motor CD, un freno de goma accionado por un servomotor MG90S, un sensor óptico TCRT5000 frente a
+10 marcas del disco ($N=10$ pulsos por vuelta) y un ESP32. En el proyecto final, el motor lleva el
+disco a una velocidad inicial $\omega_0$, se corta, y un PID mueve el servo para que la velocidad
+siga una referencia decreciente, por ejemplo $\omega_\text{ref}(t)=\max\{\omega_0-a\,t,\,0\}$. El
+freno solo puede quitar velocidad, por lo que el error se toma con signo, $e=\omega-\omega_\text{ref}$:
+si $e>0$ el freno aprieta y si $e<0$ suelta.

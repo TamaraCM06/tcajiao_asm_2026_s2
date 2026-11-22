@@ -3,25 +3,19 @@
 \enunciado{Construya la planta del proyecto (solo no tiene controlador pero si el resto de
 componentes) (40\,\% extra). Adjunte fotos y video de la construcción final.}
 
-\puntosextra{Se construyó la planta completa (fotos en la Fig.~\ref{fig:planta}) y se muestra
-funcionando en lazo abierto en el video \videoPlanta. Solo falta cerrar el lazo con el PID, que corresponde al Proyecto Grupal~2.}
-
-\subsection{Componentes y conexiones}
-La Fig.~\ref{fig:planta} muestra la planta construida y la Tabla~\ref{tab:planta} resume sus
-componentes, que implementan los bloques de la Fig.~\ref{fig:sistema}. La estructura es de
-cartón: es liviana, fácil de ajustar y suficiente para las velocidades del ensayo (unas 300~RPM).
+Se construyó la planta completa; solo falta cerrar el lazo con el PID, que corresponde al Proyecto
+Grupal~2. La Fig.~\ref{fig:planta} muestra la construcción final y la Tabla~\ref{tab:planta} sus
+componentes. El video de la planta funcionando en lazo abierto es \videoPlanta.
 
 \begin{figure}[h]
 \centering
 \begin{subfigure}[b]{0.44\linewidth}
   \centering\includegraphics[width=\linewidth]{planta_superior.jpg}
-  \caption{Vista superior: servo (izquierda), motor y disco, sensor en su caja (derecha),
-  protoboard con el ESP32, convertidor DC-DC y puente L298N.}
+  \caption{Vista superior.}
 \end{subfigure}\hfill
 \begin{subfigure}[b]{0.54\linewidth}
   \centering\includegraphics[width=\linewidth]{planta_lateral.jpg}
-  \caption{Vista lateral: motor CD sobre su soporte, disco y TCRT5000 dentro de la caja de
-  cartón frente a las marcas.}
+  \caption{Vista lateral: motor, disco y sensor en su caja.}
 \end{subfigure}
 \caption{Planta construida.}
 \label{fig:planta}
@@ -29,50 +23,32 @@ cartón: es liviana, fácil de ajustar y suficiente para las velocidades del ens
 
 \begin{table}[h]
 \centering\small
-\caption{Componentes y conexiones de la planta construida.}
+\caption{Componentes y conexiones de la planta.}
 \label{tab:planta}
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.3cm}@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.3cm}@{}}
 \toprule
 Componente & Función & Conexión \\
 \midrule
-Disco de cartón & Rueda frenada; 10 marcas negras equidistantes sobre fondo blanco & Eje del motor \\
-Motor CD & Lleva el disco a la velocidad inicial & Salidas OUT1/OUT2 del L298N \\
+Disco de cartón & Rueda frenada, con 10 marcas negras sobre fondo blanco & Eje del motor \\
+Motor CD & Lleva el disco a la velocidad inicial & OUT1/OUT2 del L298N \\
 Puente H L298N & Etapa de potencia del motor & ENA 25, IN1 26, IN2 33 \\
-Fuente del motor & Convertidor DC-DC ajustable con voltímetro, alimentado por USB & Bornes de potencia del L298N \\
-Servo MG90S + goma & Freno: 120° liberado, 180° frenado & Señal en GPIO18 (PWM 50~Hz) \\
-Sensor TCRT5000 & Un pulso por marca, 10 por vuelta & Salida en GPIO27, a 3,3~V \\
-ESP32 (ESP-IDF 5.5) & Mide, registra y manda freno y motor & USB a la computadora \\
+Convertidor DC-DC & Fuente ajustable del motor, alimentada por USB & Entrada de potencia del L298N \\
+Servo MG90S y goma & Freno: 120° liberado, 180° frenado & Señal en GPIO18 \\
+Sensor TCRT5000 & Un pulso por marca & Salida en GPIO27, a 3,3~V \\
+ESP32 & Medición, registro y mando del freno y del motor & USB a la computadora \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\subsection{Funcionamiento del sistema}
-\begin{itemize}
-  \item \textbf{Motor CD y puente H.} Un pin del ESP32 entrega 3,3~V y pocos miliamperios,
-  insuficientes para el motor, así que el L298N conmuta la corriente de una \textbf{fuente externa}
-  conectada a sus bornes de potencia. El ESP32 solo envía señales lógicas: IN1/IN2 fijan el sentido
-  y ENA, con PWM de 1~kHz, fija el porcentaje de voltaje aplicado. Para frenar, ENA pasa a bajo y el
-  motor queda en \emph{marcha libre}. Así el motor no frena el disco y la única acción de frenado es la
-  de la goma, que es la que se quiere caracterizar.
-  \item \textbf{Freno.} El MG90S es un servo de posición: recibe un pulso cada 20~ms cuyo ancho
-  (500 a 2500~µs) fija el ángulo. A 120° la goma está separada del disco y a 180° lo presiona. El
-  freno es unilateral, como se discutió en la pregunta~5: solo quita velocidad.
-  \item \textbf{Sensor óptico.} El TCRT5000 detecta por reflexión el paso de cada marca negra.
-  Va dentro de una caja de cartón que lo protege de la luz ambiente, que también contiene
-  infrarrojo y alteraría el umbral del comparador. El
-  ESP32 fecha un solo flanco por marca con una interrupción y calcula la velocidad por tiempo entre
-  marcas (pregunta~2). Un filtro descarta los flancos separados por menos de 500~µs, que son rebotes
-  del comparador del módulo y no marcas reales.
-  \item \textbf{ESP32 y computadora.} El firmware del banco (\texttt{firmware/} del repositorio)
-  recibe comandos por la consola serie desde la computadora: \texttt{FRENO} mueve el servo,
-  \texttt{MOTOR} impulsa el disco y \texttt{ENSAYO} ejecuta el ensayo de la pregunta~7. Durante una
-  captura envía una fila \texttt{tiempo\_ms, freno\_deg, velocidad\_rpm} cada 20~ms.
-  \item \textbf{Alimentación y tierra común.} El motor y el servo consumen picos de corriente que
-  harían caer el voltaje del ESP32. Por eso cada potencia va por su lado y todas las tierras se unen,
-  para que las señales lógicas tengan la misma referencia.
-\end{itemize}
+El ESP32 no puede entregar la corriente del motor, por lo que el puente H conmuta la fuente
+externa: IN1 e IN2 fijan el sentido y ENA, con PWM, el voltaje medio. Al cortar el motor, ENA pasa
+a nivel bajo y el motor queda en marcha libre, de modo que no frena el disco y la única acción de
+frenado es la de la goma. El servo es de posición: el ancho del pulso, entre 500 y 2500~µs cada
+20~ms, fija el ángulo. El sensor va dentro de una caja de cartón que lo protege de la luz ambiente,
+y el ESP32 mide la velocidad por el tiempo entre marcas (pregunta~2). Todas las tierras están
+unidas para que las señales tengan la misma referencia. Desde la computadora, el ESP32 recibe por
+la consola serie los comandos del banco (mover el freno, encender el motor o ejecutar un ensayo) y
+devuelve la velocidad medida.
 
-\subsection{Video en lazo abierto}
-El video \videoPlanta{} muestra la planta operando sin controlador: el motor acelera el disco, se
-corta, y el servo aplica la goma con un ángulo fijo, mientras el ESP32 mide la velocidad.
-
+En el video, el motor acelera el disco, se corta, y el servo aplica la goma en un ángulo fijo
+mientras el ESP32 mide la velocidad.

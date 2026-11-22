@@ -1,28 +1,19 @@
-\section{Programas del microcontrolador}
+\section{Programas y archivos}
 \label{sec:codigo}
-Los programas completos se entregan en el archivo comprimido, en la carpeta
-\texttt{programas\_microcontrolador/}, y están en el repositorio del grupo. La
-Tabla~\ref{tab:programas} indica qué programa corresponde a cada pregunta. Los listados de este
-anexo son los del programa de la pregunta~3; el módulo PID está en el Listado~\ref{lst:pid}.
+Los programas se entregan en el archivo comprimido. La Tabla~\ref{tab:programas} indica su
+ubicación y la pregunta a la que corresponden.
 
 \begin{table}[h]
 \centering\small
-\caption{Programas por pregunta (rutas dentro del comprimido).}
+\caption{Programas y archivos entregados.}
 \label{tab:programas}
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}X@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{1.6cm}>{\raggedright\arraybackslash}p{7.4cm}>{\raggedright\arraybackslash}X@{}}
 \toprule
-Pregunta & Archivo & Contenido \\
+Pregunta & Ubicación en el comprimido & Contenido \\
 \midrule
-3 (PID sin \texttt{delay}) & \texttt{pregunta3\_pid/main\_tarea2.c} & Lazo con \texttt{esp\_timer}, ISR del sensor y telemetría (Listado~\ref{lst:main}) \\
- & \texttt{pregunta3\_pid/pid\_controller.c/.h} & PID discreto con anti-windup (Listados~\ref{lst:pid} y \ref{lst:pidh}) \\
- & \texttt{pregunta3\_pid/estimador\_velocidad.c}, \texttt{conversion\_freno.c} & Velocidad por tiempo entre marcas y grados a pulso del servo \\
-6 y 7 (planta y ensayo) & \texttt{registrador\_banco/src/aplicacion.c} & Comandos \texttt{FRENO}, \texttt{MOTOR}, \texttt{ENSAYO} y registro cada 20~ms \\
- & \texttt{registrador\_banco/src/} (resto) & Sensor, servo, motor y protocolo serie \\
- & \texttt{registrador\_banco/sdkconfig.ensayo} & Pines y calibración usados en el ensayo \\
+3 & \texttt{programas\_microcontrolador/pregunta3\_pid/} & Lazo PID sin \texttt{delay()} para el ESP32 (\texttt{main\_tarea2.c}) y el PID discreto (\texttt{pid\_controller.c}) \\
+6 y 7 & \texttt{programas\_microcontrolador/registrador\_banco/} & Firmware del banco que ejecutó el ensayo y configuración usada (\texttt{sdkconfig.ensayo}) \\
+7 & \texttt{pregunta7/} & Datos del ensayo (\texttt{escalon\_02.csv}), script de MATLAB y consola de captura \\
 \bottomrule
 \end{tabularx}
 \end{table}
-
-\lstinputlisting[caption={Lazo de control sin \texttt{delay()} para el ESP32 (\texttt{main\_tarea2.c}).},label={lst:main}]{codigo/main_tarea2.c}
-
-\lstinputlisting[caption={Interfaz del PID (\texttt{pid\_controller.h}).},label={lst:pidh}]{\firmware/include/pid_controller.h}

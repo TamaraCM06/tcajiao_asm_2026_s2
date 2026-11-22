@@ -1,0 +1,27 @@
+% Estilo común de los diagramas: imita el tema por defecto de Mermaid usado en
+% proyecto_1_grupal/docs/avance2/diagramas (nodos lavanda, grupos amarillos,
+% etiquetas de flecha sobre gris, líneas punteadas para lo no permanente).
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[scaled=0.95]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
+\definecolor{nodofondo}{HTML}{ECECFF}
+\definecolor{nodoborde}{HTML}{9370DB}
+\definecolor{grupofondo}{HTML}{FFFFDE}
+\definecolor{grupoborde}{HTML}{AAAA33}
+\definecolor{etiqueta}{HTML}{E8E8E8}
+\definecolor{linea}{HTML}{333333}
+\tikzset{
+  every node/.style={text=linea},
+  nodo/.style={draw=nodoborde, fill=nodofondo, line width=0.6pt, align=center,
+    inner xsep=9pt, inner ysep=7pt, minimum height=13mm, font=\small},
+  opcional/.style={nodo, dash pattern=on 4pt off 3pt, fill=black!3},
+  flecha/.style={draw=linea, line width=0.6pt, -{Triangle[length=2.2mm,width=2mm]}},
+  punteada/.style={flecha, dash pattern=on 4pt off 3pt},
+  lbl/.style={fill=etiqueta, inner sep=2pt, align=center, font=\small},
+  grupo/.style={draw=grupoborde, fill=grupofondo, line width=0.6pt, inner sep=7mm},
+  titulo/.style={font=\small, anchor=north, inner sep=3pt},
+}

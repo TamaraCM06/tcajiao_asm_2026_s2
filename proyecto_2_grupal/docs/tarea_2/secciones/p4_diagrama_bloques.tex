@@ -2,9 +2,61 @@
 \label{sec:p4}
 \enunciado{Realice un diagrama de bloques del sistema completo, de una descripción en prosa de
 todos los componentes tanto continuos como discretos (25\,\%).}
-\pendiente{Pregunta 4 (25\,\%). Diagrama (TikZ o figura en \texttt{figuras/}) y prosa.
-\emph{Continuo:} motor CD, disco con inercia $J$, fricción viscosa y de Coulomb, goma y
-mecánica del servo. \emph{Discreto:} encoder con marcas de tiempo (ISR), estimación de
-$\omega[k]$, generador de $\omega_\text{ref}[k]$, comparador, PID con saturación y
-anti-windup, PWM del servo (ZOH, trama de 20 ms) y registro por USB. Indicar dónde está cada
-frontera continuo/discreto (muestreo $T_s$ y retención).}
+
+La Fig.~\ref{fig:sistema} muestra el lazo cerrado del banco. El grupo superior es la parte
+discreta, que ejecuta la Raspberry Pi Pico cada $T_s=\SI{20}{ms}$. El grupo inferior es la planta
+física, que evoluciona en tiempo continuo. El lazo cruza la frontera dos veces: el encoder convierte
+el giro en flancos que la Pico fecha y muestrea, y el PWM del servo retiene cada mando durante un
+periodo (retenedor de orden cero, ZOH)~\cite{astrom1997computer}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{diagramas/1_sistema_completo.png}
+\caption{Diagrama de bloques del sistema completo. Línea punteada: el motor solo actúa antes del frenado.}
+\label{fig:sistema}
+\end{figure}
+
+\subsection{Componentes continuos}
+\begin{itemize}
+  \item \textbf{Motor CD.} Lleva el disco hasta $\omega_0$ y se corta cuando empieza el frenado,
+  por eso su torque $\tau_m$ aparece en línea punteada. La Pico solo lo enciende o lo apaga.
+  \item \textbf{Disco.} Es la planta principal. Su velocidad $\omega(t)$ cambia según la
+  ec.~\eqref{eq:newton_rot}: la inercia $J_\text{eq}$ integra el torque neto, y la fricción viscosa
+  $b$ y la fricción seca lo frenan aunque no se aplique la goma.
+  \item \textbf{Goma.} Convierte la posición del brazo del servo en fuerza normal sobre el disco y,
+  por fricción, en el torque de frenado $\tau_f$. Es no lineal: no frena hasta hacer contacto (zona
+  muerta) y tiene un máximo.
+  \item \textbf{Servo MG90S.} Tiene su propio lazo interno de posición. Recibe un pulso cada 20~ms
+  y tarda del orden de $\tau_\text{servo}$ en llevar el brazo al ángulo pedido~\cite{mg90s}.
+  \item \textbf{Encoder óptico.} Las 12 marcas pasan frente al sensor y generan 24 flancos por
+  vuelta. La salida es digital, pero los flancos llegan cuando la rueda gira, no a un ritmo fijo.
+\end{itemize}
+
+\subsection{Componentes discretos}
+\begin{itemize}
+  \item \textbf{Estimación de $\omega[k]$.} Una interrupción guarda el instante de cada flanco con
+  resolución de 1~µs. En cada muestra $k$ se calcula $\omega[k]$ con el tiempo entre flancos, como
+  se justificó en la pregunta~2. Si pasan 100~ms sin flancos se toma $\omega[k]=0$.
+  \item \textbf{Referencia.} Genera la rampa $\omega_\text{ref}[k]=\max\{\omega_0-a\,kT_s,0\}$ de
+  la ec.~\eqref{eq:referencia}.
+  \item \textbf{Comparador.} Calcula $e[k]=\omega[k]-\omega_\text{ref}[k]$. Con este signo,
+  $e>0$ aprieta la goma y $e<0$ la suelta.
+  \item \textbf{PID discreto.} Aplica la ecuación en diferencias de la pregunta~3 con saturación a
+  $u\in[0,1]$ y anti-windup.
+  \item \textbf{PWM del servo (ZOH).} Convierte $u[k]$ en un pulso de 1000 a 2000~µs, que el servo
+  lee una vez por trama de 20~ms y que se mantiene hasta la siguiente muestra.
+  \item \textbf{Registro y consola.} Por USB se inicia el ensayo y se envía una línea CSV por
+  muestra a la computadora. Está fuera del lazo de control.
+\end{itemize}
+
+La Fig.~\ref{fig:firmware} detalla cómo se reparten estos bloques discretos en el firmware: la
+interrupción del encoder, el temporizador periódico que ejecuta el lazo y el bucle principal que
+atiende la consola y la telemetría sin afectar el periodo de control (pregunta~3).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.92\linewidth]{diagramas/2_firmware_pico.png}
+\caption{Contextos de ejecución del firmware en la Pico.}
+\label{fig:firmware}
+\end{figure}
+\FloatBarrier

@@ -3,7 +3,8 @@
 # Uso: ./compilar.sh          (todo)
 #      ./compilar.sh --solo-tex  (no recompila la simulación)
 #      ./compilar.sh --limpiar   (borra auxiliares y generados)
-# Requiere gcc y una distribución TeX con pdflatex, bibtex, pgfplots y listings.
+# Requiere gcc, pdftoppm (poppler) y una distribución TeX con pdflatex, bibtex,
+# pgfplots, listings y standalone.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -24,6 +25,15 @@ if [[ "${1:-}" != "--solo-tex" ]]; then
     gcc -std=c11 -O2 -Wall -Wextra -Werror -I"$FIRMWARE/include" \
         evidencias/simulacion_pid.c "$FIRMWARE/src/pid_controller.c" -lm -o "$AUX/simulacion_pid"
     "$AUX/simulacion_pid" "$GEN"
+
+    echo "==> Diagramas (pregunta 4): TikZ -> PNG a 300 ppp"
+    for fuente in diagramas/[0-9]*.tex; do
+        nombre=$(basename "$fuente" .tex)
+        (cd diagramas && pdflatex -interaction=nonstopmode -halt-on-error \
+            -output-directory="../$AUX" "$nombre.tex" >"../$AUX/$nombre.log") \
+            || { tail -n 20 "$AUX/$nombre.log"; exit 1; }
+        pdftoppm -r 300 -png -singlefile "$AUX/$nombre.pdf" "diagramas/$nombre"
+    done
 fi
 
 echo "==> LaTeX"

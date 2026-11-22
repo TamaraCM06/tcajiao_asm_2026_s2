@@ -1,0 +1,42 @@
+% Diagrama de bloques del sistema completo (Tarea 2, pregunta 4).
+\documentclass[border=4pt]{standalone}
+\input{estilo.tex}
+\begin{document}
+\begin{tikzpicture}[node distance=14mm]
+  % Parte discreta: Raspberry Pi Pico
+  \node[nodo] (ref) {Referencia\\$\omega_\text{ref}[k]=\omega_0-a\,kT_s$};
+  \node[nodo, right=16mm of ref] (cmp) {Comparador\\$e[k]=\omega[k]-\omega_\text{ref}[k]$};
+  \node[nodo, right=16mm of cmp] (pid) {PID discreto\\Euler hacia atrás\\saturación $\cdot$ anti-windup};
+  \node[nodo, right=16mm of pid] (pwm) {PWM del servo (ZOH)\\1000--2000\,µs $\cdot$ 50\,Hz};
+  \node[nodo, below=14mm of cmp] (est) {Estimación de $\omega[k]$\\tiempo entre flancos\\timeout 100\,ms};
+
+  % Parte continua: banco de frenado
+  \node[nodo, below=58mm of pwm] (servo) {Servo MG90S\\$\tau_\text{servo}\approx$ 50--100\,ms};
+  \node[nodo] (goma) at (servo -| pid) {Goma\\fuerza normal $\rightarrow\tau_f$};
+  \node[nodo] (disco) at (servo -| cmp) {Disco\\$J_\text{eq}\cdot b\cdot$ fricción seca};
+  \node[nodo] (enc) at (servo -| ref) {Encoder óptico\\12 marcas $\cdot$ 24 flancos/vuelta};
+  \node[opcional, below=12mm of disco] (motor) {Motor CD\\solo impulso inicial};
+
+  \node[nodo, above=16mm of ref] (pc) {PC $\cdot$ consola USB\\inicio de ensayo $\cdot$ registro CSV};
+
+  \begin{scope}[on background layer]
+    \node[grupo, fit=(ref)(pwm)(est), inner ysep=9mm] (gd) {};
+    \node[titulo] at (gd.north) {Discreto $\cdot$ Raspberry Pi Pico $\cdot$ $T_s=20$\,ms};
+    \node[grupo, fit=(enc)(servo)(motor), inner ysep=9mm] (gc) {};
+    \node[titulo] at (gc.north) {Continuo $\cdot$ banco de frenado};
+  \end{scope}
+
+  \draw[flecha] (ref) -- node[lbl]{$\omega_\text{ref}[k]$} (cmp);
+  \draw[flecha] (cmp) -- node[lbl]{$e[k]$} (pid);
+  \draw[flecha] (pid) -- node[lbl]{$u[k]\in[0,1]$} (pwm);
+  \draw[flecha] (est) -- node[lbl]{$\omega[k]$} (cmp);
+  \draw[flecha] (pwm) -- node[lbl]{pulso PWM} (servo);
+  \draw[flecha] (servo) -- node[lbl]{ángulo} (goma);
+  \draw[flecha] (goma) -- node[lbl]{$\tau_f(t)$} (disco);
+  \draw[flecha] (disco) -- node[lbl]{$\omega(t)$} (enc);
+  \draw[flecha] (enc.north) |- node[lbl, pos=0.25]{flancos\\(ISR)} (est.west);
+  \draw[punteada] (motor) -- node[lbl]{$\tau_m$, cortado al frenar} (disco);
+  \draw[flecha, {Triangle[length=2.2mm,width=2mm]}-{Triangle[length=2.2mm,width=2mm]}]
+    (pc.south) -- node[lbl]{USB} (gd.north -| pc.south);
+\end{tikzpicture}
+\end{document}

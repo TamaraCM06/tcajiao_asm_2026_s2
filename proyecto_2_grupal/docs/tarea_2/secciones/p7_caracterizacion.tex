@@ -50,7 +50,71 @@ $0{,}40$ s, el ajuste dio $K=-21{,}68$ (RPM/s)/grado,
 $\tau=0{,}0302$ s y un RMSE de $0{,}24$ RPM. Estos valores comprueban la
 implementación con una señal generada a partir del modelo propuesto.
 
-\pendiente{Incorporar la captura física y sus gráficas, reportar los parámetros
-medidos y contrastar la predicción con otro ensayo para el Proyecto 2. Revisar la
-Tabla~\ref{tab:ts} con los tiempos medidos. Enlazar un solo video que muestre la
-prueba en el banco y la respuesta al impulso en MATLAB.}
+\paragraph{Ensayo en el banco.}
+El ensayo presentado es \texttt{escalon\_02} (\texttt{experimentos/datos/escalon\_02.csv}). Se
+ejecutó con \texttt{ENSAYO 60 180 300}: el motor impulsa el disco al 60\,\%, el firmware corta el
+motor cuando la velocidad deja de subir e inicia el registro, y 300~ms después lleva el servo de
+120° a 180°. El registro tiene 500 muestras cada 20~ms, sin muestras perdidas (intervalos reales
+entre 19,7 y 20,3~ms). El video del ensayo en el banco y del análisis en MATLAB está en el
+Anexo~\ref{sec:videos} (\videoCaracterizacion).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{matlab_escalon_02.jpg}
+\caption{Ensayo \texttt{escalon\_02} en \texttt{visualizar\_ensayo.m}: orden al servo (arriba) y
+velocidad medida con las rectas de 300~ms y el modelo ajustado (abajo).}
+\label{fig:escalon02}
+\end{figure}
+
+\begin{table}[h]
+\centering\small
+\caption{Resultados de la caracterización (\texttt{escalon\_02}).}
+\label{tab:caracterizacion}
+\begin{tabular}{@{}lr@{}}
+\toprule
+Magnitud & Valor \\
+\midrule
+Velocidad al cortar el motor & $\approx 300$~RPM \\
+Escalón del servo $\Delta u$ & $120^\circ \to 180^\circ$ ($60^\circ$) en $t = 0{,}301$~s \\
+Pendiente antes del freno (caída libre) & $-76{,}4$~RPM/s \\
+Pendiente después del freno & $-142{,}9$~RPM/s \\
+Ganancia $K$ & $-2{,}58$~(RPM/s)/grado \\
+Constante de tiempo $\tau$ & $0{,}274$~s \\
+RMSE del modelo & $25{,}0$~RPM \\
+Detención del disco & $t \approx 1{,}14$~s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Con estos valores, la función de transferencia local del mando del freno al cambio de velocidad
+respecto a la caída libre es
+\[
+  G(s)=\frac{-2{,}58}{s\,(0{,}274\,s+1)}\ \frac{\text{RPM}}{\text{grado}},\qquad
+  h(t)=-2{,}58\,\bigl(1-e^{-t/0{,}274}\bigr)\ \text{RPM},
+\]
+cuya respuesta al impulso calculó MATLAB con \texttt{impulse} (Fig.~\ref{fig:impulso02}).
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{matlab_impulso_02.jpg}
+\caption{Respuesta al impulso del modelo identificado (impulso de 1 grado$\cdot$s).}
+\label{fig:impulso02}
+\end{figure}
+
+\paragraph{Análisis.}
+El freno casi duplica la desaceleración: de $-76$ a $-143$~RPM/s. $K<0$ confirma el signo
+esperado en la pregunta~5: más ángulo de freno quita velocidad. La constante $\tau = 0{,}27$~s
+agrupa el recorrido del servo de 60° (unos 0,1~s según su hoja de datos~\cite{mg90s}) y el tiempo
+que tarda la goma en hacer contacto pleno; es la dinámica que el PID tendrá que compensar. El
+RMSE de 25~RPM se debe sobre todo al ruido del sensor: con un solo flanco por marca, una marca
+mal detectada produce saltos de una muestra a otra, visibles en la Fig.~\ref{fig:escalon02}.
+
+\paragraph{Revisión del muestreo.}
+Con $\tau = 0{,}274$~s, el periodo propuesto en la pregunta~2 da $\tau/T_s \approx 14$ muestras
+por constante de tiempo, dentro de la regla de $\tau/10$ a $\tau/20$, y el ensayo completo deja
+unas 40 muestras entre el freno y la detención. Se mantiene $T_s = \SI{20}{ms}$.
+
+\paragraph{Limitaciones.}
+El modelo es local: vale cerca de 300~RPM y para un escalón de 120° a 180°. Para el proyecto
+se repetirá con otras velocidades y ángulos, se validará con ensayos no usados en el ajuste y se
+reducirá el ruido del sensor antes de diseñar el PID.

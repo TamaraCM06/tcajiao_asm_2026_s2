@@ -7,6 +7,7 @@ marca con `\pendiente{...}` (recuadro naranja en el PDF; buscar "Pendiente" ante
 ./compilar.sh            # simulación + PDF  -> informe.pdf
 ./compilar.sh --solo-tex # solo LaTeX
 ./compilar.sh --limpiar
+./empaquetar.sh          # Tarea2_ASM_Grupo1.zip: PDF + código + datos del ensayo
 ```
 
 Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `standalone`. Los auxiliares quedan en `build/`.
@@ -15,13 +16,14 @@ Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `stan
 |---|---|
 | `informe.tex` | Preámbulo y orden de secciones |
 | `secciones/p0_sistema.tex` | Descripción común del banco y convención de signo |
-| `secciones/p1..p7_*.tex` | Una pregunta por archivo (1 a 5 redactadas, método de la 7; extras 6 y 7 pendientes de la planta) |
+| `secciones/p1..p7_*.tex` | Una pregunta por archivo; 6 y 7 con los resultados del ensayo `escalon_02` |
 | `secciones/anexo_*.tex` | Listados del micro y enlaces de video |
 | `referencias.bib` | Bibliografía IEEE; agregar ahí las fuentes nuevas |
 | `codigo/main_tarea2.c` | Lazo PID sin `delay()` para el ESP32 con ESP-IDF (pregunta 3) |
 | `evidencias/simulacion_pid.c` | Simulación que usa `firmware/src/pid_controller.c`; genera CSV y métricas |
 | `evidencias/generado/` | Salidas de la simulación (se versionan para compilar sin gcc) |
 | `diagramas/` | Fuentes TikZ de la pregunta 4 (`estilo.tex` imita los diagramas Mermaid del avance 2 del Proyecto 1); `compilar.sh` genera los PNG |
-| `figuras/` | Logo de portada y fotos (pregunta 6) |
+| `figuras/` | Logo de portada y capturas de MATLAB del ensayo (pregunta 7) |
 
+Los enlaces de YouTube se cambian en `informe.tex` (`\videoPlanta`, `\videoCaracterizacion`).
 Toda evidencia simulada se etiqueta `[SIMULACIÓN]`; no mezclar con mediciones del banco.

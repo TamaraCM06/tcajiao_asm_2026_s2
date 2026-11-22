@@ -2,6 +2,37 @@
 \label{sec:p6}
 \enunciado{Construya la planta del proyecto (solo no tiene controlador pero si el resto de
 componentes) (40\,\% extra). Adjunte fotos y video de la construcción final.}
-\pendiente{Pregunta 6 (+40\,\%). Fotos en \texttt{figuras/planta\_*.jpg}, lista de
-materiales, esquema eléctrico (resumen de \texttt{docs/decisiones.md}) y enlace al video en
-lazo abierto en el Anexo~\ref{sec:videos}.}
+
+La planta quedó armada con todos los componentes del sistema de la Fig.~\ref{fig:sistema}; solo
+falta cerrar el lazo con el PID, que corresponde al Proyecto Grupal~2. El video de la planta
+funcionando en lazo abierto está en el Anexo~\ref{sec:videos} (\videoPlanta).
+
+\begin{table}[h]
+\centering\small
+\caption{Componentes y conexiones de la planta construida.}
+\label{tab:planta}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.6cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.4cm}@{}}
+\toprule
+Componente & Función & Conexión al ESP32 \\
+\midrule
+Disco de MDF & 10 marcas negras equidistantes sobre fondo blanco & --- \\
+Motor CD + puente L298N & Impulso inicial; ENA en bajo deja el disco en giro libre & ENA 25, IN1 26, IN2 33 \\
+Servo MG90S + goma & Freno: 120° liberado, 180° frenado & Señal 18 (PWM 50~Hz) \\
+Sensor TCRT5000 & Un pulso por marca (10 por vuelta) & DO 27, alimentado a 3,3~V \\
+ESP32 (ESP-IDF 5.5) & Registro, mando del freno y del motor & USB: consola y CSV \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+El firmware del banco (registrador de \texttt{firmware/}) acepta comandos por la consola
+serie: \texttt{FRENO} mueve el servo, \texttt{MOTOR} impulsa el disco y \texttt{ENSAYO} ejecuta el
+ensayo de la pregunta~7 de forma automática. Los motores comparten la tierra con el ESP32 y el
+motor CD se alimenta con una fuente externa a través del puente.
+
+\IfFileExists{figuras/planta.jpg}{%
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\linewidth]{planta.jpg}
+\caption{Planta construida.}
+\label{fig:planta}
+\end{figure}}{}

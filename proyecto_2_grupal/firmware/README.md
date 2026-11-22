@@ -8,7 +8,7 @@
 | Plataforma | ESP32 clasico, ESP-IDF 5.5.5 |
 | Alcance | Captura a lazo abierto con TCRT5000, MG90S y motor manual |
 | Estado | Registrador integrado y receptor MATLAB implementado |
-| Revision | Codigo, documentacion y diff; aun sin pruebas funcionales |
+| Revision | Codigo, documentacion, diff, compilacion ESP-IDF y 19 pruebas C host |
 | Pendiente fisico | GPIO, niveles, alimentacion, calibracion y montaje |
 
 ## 1.2. Configuracion y compilacion
@@ -19,10 +19,10 @@ del modulo TCRT5000: la ficha del fototransistor no describe su placa comparador
 
 | Accion desde la raiz | Comando PowerShell |
 |---|---|
-| Configurar | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion menuconfig |
-| Compilar al completar | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion build |
-| Programar placa configurada | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion flash -Puerto COMx |
-| Monitor | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion monitor -Puerto COMx |
+| Configurar | powershell.exe -NoProfile -ExecutionPolicy Bypass -File proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion menuconfig |
+| Compilar al completar | powershell.exe -NoProfile -ExecutionPolicy Bypass -File proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion build |
+| Programar placa configurada | powershell.exe -NoProfile -ExecutionPolicy Bypass -File proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion flash -Puerto COMx |
+| Monitor | powershell.exe -NoProfile -ExecutionPolicy Bypass -File proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion monitor -Puerto COMx |
 
 [ejecutar_idf.ps1](ejecutar_idf.ps1) usa una copia temporal ASCII por los problemas
 de rutas acentuadas observados en el proyecto anterior. menuconfig conserva
@@ -106,8 +106,11 @@ MATLAB tambien debe comprobar los conteos y la presencia de fin.
 
 ## 1.7. Verificacion y siguiente bloque
 
-Se revisaron codigo, documentacion y diff de los bloques. Compilacion ESP-IDF,
-pruebas C host y comprobaciones del receptor se reservan para el cierre de esta
-integracion. No se ha programado ni accionado hardware en este feature.
+Se revisaron codigo, documentacion y diff. La compilacion ESP-IDF y 19 pruebas
+C host finalizaron correctamente; no equivalen a funcionamiento fisico. El
+analizador MATLAB no reporta observaciones. Sus 10 pruebas de ejecucion quedan
+pendientes porque MATLAB solicita activacion de licencia. Ver
+[auditoria](../docs/verificacion_registrador.md) y [pruebas host](tests/README.md).
+No se ha programado ni accionado hardware en este feature.
 El siguiente bloque fisico es comprobar el montaje y adquirir un ensayo abierto;
 despues corresponde identificar y validar el modelo antes de integrar PID.

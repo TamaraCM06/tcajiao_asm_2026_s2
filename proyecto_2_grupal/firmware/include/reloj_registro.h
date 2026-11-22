@@ -20,4 +20,7 @@ void reloj_registro_iniciar(reloj_registro_t *reloj, int64_t inicio_us);
 /* Admite una muestra real por periodo; contabiliza huecos sin rellenarlos. */
 bool reloj_registro_muestrear(reloj_registro_t *reloj, int64_t tiempo_us, uint32_t periodo_ms);
 
+/* Contabiliza vencimientos anteriores al cierre que no llegaron a producir muestra. */
+void reloj_registro_cerrar(reloj_registro_t *reloj, int64_t fin_us, uint32_t periodo_ms);
+
 #endif

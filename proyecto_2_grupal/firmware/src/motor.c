@@ -46,7 +46,14 @@ esp_err_t motor_ordenar(double porcentaje, int64_t tiempo_us)
     }
     uint32_t duty = (uint32_t)lround(porcentaje * 4095.0 / 100.0);
     esp_err_t resultado = ledc_set_duty_and_update(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, duty, 0);
-    if (resultado != ESP_OK) return resultado;
+    if (resultado != ESP_OK) {
+        ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0);
+        gpio_set_level(limites.motor_entrada1_gpio, 0);
+        gpio_set_level(limites.motor_entrada2_gpio, 0);
+        impulso_porcentaje = 0;
+        inicializado = false;
+        return resultado;
+    }
     if (porcentaje == 0) {
         gpio_set_level(limites.motor_entrada1_gpio, 0);
         gpio_set_level(limites.motor_entrada2_gpio, 0);

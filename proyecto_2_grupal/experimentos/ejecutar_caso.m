@@ -20,6 +20,7 @@ function sesion = ejecutar_caso(puerto, nombre, parametros)
     vigilancia = [];
     cerrada = false;
     inicioPC = [];
+    inicioPendiente = false;
     stopPorTimeout = false;
     try
         conexion = serialport(puerto, 115200, Timeout=2);
@@ -80,6 +81,10 @@ function sesion = ejecutar_caso(puerto, nombre, parametros)
         if registro.Finalizado && strcmp(strtrim(comando), 'START')
             error('ASM:Finalizado', 'Abre otra sesion con nombre nuevo para el siguiente ensayo.');
         end
+        if strcmp(strtrim(comando), 'START')
+            inicioPC = tic;
+            inicioPendiente = true;
+        end
         writeline(conexion, comando);
     end
 
@@ -89,12 +94,23 @@ function sesion = ejecutar_caso(puerto, nombre, parametros)
             linea = char(readline(origen));
             estabaActivo = registro.Activo;
             registro.procesar(linea);
-            if registro.Activo && ~estabaActivo, inicioPC = tic; end
+            if registro.Activo && ~estabaActivo, inicioPC = tic; inicioPendiente = false; end
+            if startsWith(strtrim(linea), '# ')
+                mensaje = jsondecode(strtrim(linea(3:end)));
+                if inicioPendiente && strcmp(mensaje.tipo, 'error')
+                    inicioPendiente = false;
+                    inicioPC = [];
+                end
+            end
             if startsWith(strtrim(linea), '# '), fprintf('%s\n', strtrim(linea)); end
             if registro.Finalizado && ~isempty(vigilancia), stop(vigilancia); end
         catch excepcion
-            try, writeline(conexion, 'STOP'); catch, end
+            try
+                writeline(conexion, 'STOP');
+            catch
+            end
             registro.cerrar(['error_recepcion: ' excepcion.message]);
+            if ~isempty(vigilancia), stop(vigilancia); end
             warning('ASM:Recepcion', '%s', excepcion.message);
         end
     end
@@ -102,13 +118,26 @@ function sesion = ejecutar_caso(puerto, nombre, parametros)
     % Detecta falta de cierre sin depender de que lleguen nuevas lineas del puerto.
     function vigilar(~, ~)
         if cerrada || registro.Finalizado || isempty(inicioPC), return; end
+        if inicioPendiente && toc(inicioPC) > 5
+            try
+                writeline(conexion, 'STOP');
+            catch
+            end
+            registro.cerrar('timeout_sin_inicio');
+            stop(vigilancia);
+            warning('ASM:Incompleta', 'START no recibio inicio de captura.');
+            return;
+        end
         duracionMs = parametros.duracion_ms;
         if isfield(registro.Metadatos.configuracion, 'ensayo')
             duracionMs = registro.Metadatos.configuracion.ensayo.duracion_ms;
         end
         if toc(inicioPC) > duracionMs / 1000 + 5 && ~stopPorTimeout
             stopPorTimeout = true;
-            try, writeline(conexion, 'STOP'); catch, end
+            try
+                writeline(conexion, 'STOP');
+            catch
+            end
         elseif toc(inicioPC) > duracionMs / 1000 + 8
             registro.cerrar('timeout_sin_fin');
             stop(vigilancia);

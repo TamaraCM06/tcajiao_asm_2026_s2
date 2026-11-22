@@ -8,7 +8,7 @@
 | Implementado | Receptor serial minimo para ESP32; CSV y metadatos JSON |
 | Analisis del companero | Consume el CSV; no se modifica ni se replica h(t) |
 | Plataforma PC | MATLAB R2025b localizado; utiliza serialport, sin toolbox de identificacion |
-| Verificacion | Revision de codigo; pruebas finales pendientes |
+| Verificacion | mlint sin observaciones; 10 pruebas preparadas, ejecucion pendiente por licencia |
 | Hardware | Requiere configuracion y calibracion del firmware |
 
 ## 1.2. Entrada y operaciones
@@ -55,6 +55,10 @@ fin cinco segundos despues del tiempo configurado y conserva captura incompleta
 si el cierre sigue ausente tres segundos mas. No sobrescribir ni corregir datos
 crudos para mejorar el ajuste.
 
+Si START no recibe inicio en cinco segundos, el receptor solicita STOP y conserva
+el ensayo como incompleto. Un error explicito del firmware permite corregir la
+orden y reintentar antes de comenzar el registro.
+
 ## 1.4. Compatibilidad y continuidad
 
 [casos.json](casos.json) conserva las plantillas deshabilitadas del futuro PID.
@@ -78,3 +82,14 @@ mecanicas antes de comparar. El modelo debe validarse con corridas independiente
 Fuente de comunicacion: [serialport de MathWorks](https://www.mathworks.com/help/matlab/ref/serialport.html).
 El codigo de analisis h(t) del companero aun no esta en esta rama; confirmar con
 el sus unidades y convencion de entrada antes de interpretar un modelo.
+
+## 1.6. Pruebas del receptor
+
+| Accion MATLAB con licencia activa | Expresion |
+|---|---|
+| Ejecutar las 10 pruebas | resultados = runtests('proyecto_2_grupal/experimentos/tests'); assertSuccess(resultados); |
+
+Las pruebas usan archivos temporales y no abren puertos. Cubren columnas,
+conteos, tiempos repetidos, NaN, cierre ausente, texto intercalado, configuracion
+incompleta, inicio duplicado y no sobrescritura. La prueba con trama C requiere
+ejecutar primero las [pruebas host](../firmware/tests/README.md).

@@ -11,9 +11,10 @@ archivos hasta las 23:50. Fuente: [enunciado v7](docs/referencias/Proyectos_ASM_
 | Plataforma confirmada | ESP32 clasico, ESP-IDF 5.5.5 |
 | Bloque actual | Registrador de frenado a lazo abierto para MATLAB |
 | Hardware | TCRT5000, MG90S y puente tipo L298N; conexiones y calibraciones pendientes |
-| Implementado | Firmware de captura y receptor MATLAB; verificacion final pendiente |
+| Implementado | Firmware de captura y receptor MATLAB minimo |
 | Modelo identificado, PID y extra 2 | Pendientes; el registro no acredita esos requisitos |
-| Verificacion | Revision de codigo y documentacion; compilacion y pruebas al cerrar el bloque |
+| Verificacion | Compilacion ESP-IDF y 19 pruebas C host; analizador MATLAB sin observaciones |
+| Pendientes | Ejecucion de pruebas MATLAB por licencia; comprobaciones fisicas |
 
 ## 1.2. Organizacion
 
@@ -45,3 +46,6 @@ Trabajo incremental en sb/features/samplings. Conservar datos crudos y
 configuracion efectiva por ensayo; separar simulacion de medicion. El PDF
 presenta discrepancias development/develop y s1/s2: confirmar con el profesor
 antes de cambiar nombres. Se conserva el historico de proyectos anteriores.
+
+La [auditoria del bloque](docs/verificacion_registrador.md) registra cambios,
+compatibilidad, comprobaciones y limites. No se ha medido el funcionamiento fisico.

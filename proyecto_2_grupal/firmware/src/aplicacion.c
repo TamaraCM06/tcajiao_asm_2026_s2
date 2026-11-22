@@ -27,6 +27,7 @@ static const char *motivo_cierre;
 static uint32_t muestras_enviadas;
 static uint32_t numero_ensayo;
 static uint32_t pulsos_rechazados_iniciales;
+static uint32_t pulsos_rechazados_finales;
 static int64_t tiempo_fin_us;
 static estado_velocidad_t estado_sensor_anterior;
 
@@ -83,6 +84,9 @@ static void terminar_registro(const char *motivo, bool correcto)
     registrando = false;
     cerrando = true;
     tiempo_fin_us = esp_timer_get_time();
+    int64_t limite_us = reloj.inicio_us + (int64_t)ensayo.duracion_ms * 1000;
+    reloj_registro_cerrar(&reloj, tiempo_fin_us < limite_us ? tiempo_fin_us : limite_us, ensayo.periodo_ms);
+    pulsos_rechazados_finales = sensor_optico_leer().pulsos_rechazados;
     motivo_cierre = motivo;
     cierre_correcto &= correcto;
     esp_err_t resultado_motor = motor_ordenar(0, tiempo_fin_us);
@@ -97,7 +101,6 @@ static void terminar_registro(const char *motivo, bool correcto)
 static void intentar_cierre(void)
 {
     if (!cerrando) return;
-    lectura_velocidad_t lectura = sensor_optico_leer();
     bool completo = cierre_correcto && !protocolo_fallo() &&
         muestras_enviadas == reloj.muestras_producidas && reloj.vencimientos_perdidos == 0;
     if (protocolo_emitir("# {\"tipo\":\"fin\",\"ensayo\":%" PRIu32 ",\"motivo\":\"%s\",\"completo\":%s,"
@@ -105,7 +108,7 @@ static void intentar_cierre(void)
         "\"pulsos_rechazados\":%" PRIu32 ",\"dt_min_us\":%" PRId64 ",\"dt_max_us\":%" PRId64 ","
         "\"tiempo_fin_ms\":%.3f,\"liberado_deg\":%d}", numero_ensayo, motivo_cierre,
         completo ? "true" : "false", reloj.muestras_producidas, muestras_enviadas,
-        reloj.vencimientos_perdidos, lectura.pulsos_rechazados - pulsos_rechazados_iniciales,
+        reloj.vencimientos_perdidos, pulsos_rechazados_finales - pulsos_rechazados_iniciales,
         reloj.intervalo_minimo_us, reloj.intervalo_maximo_us,
         (tiempo_fin_us - reloj.inicio_us) / 1000.0, montaje.servo_liberado_deg)) cerrando = false;
 }
@@ -245,7 +248,7 @@ static void preparar_hardware(void)
     if (resultado == ESP_OK) resultado = servo_freno_iniciar(&montaje);
     if (resultado == ESP_OK) resultado = sensor_optico_iniciar(&montaje);
     hardware_listo = resultado == ESP_OK;
-    motivo_hardware = hardware_listo ? "listo_sin_posicion_servo" : "fallo_inicializacion";
+    motivo_hardware = hardware_listo ? "listo" : "fallo_inicializacion";
 }
 
 /* Coordina serial y muestras notificadas; mantiene el motor vigilado aun sin PC. */

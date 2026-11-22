@@ -27,3 +27,14 @@ bool reloj_registro_muestrear(reloj_registro_t *reloj, int64_t tiempo_us, uint32
     ++reloj->muestras_producidas;
     return true;
 }
+
+/* Excluye el instante exacto de cierre; no exige una muestra fuera del intervalo abierto. */
+void reloj_registro_cerrar(reloj_registro_t *reloj, int64_t fin_us, uint32_t periodo_ms)
+{
+    if (!periodo_ms || fin_us <= reloj->inicio_us) return;
+    int64_t indice_final = (fin_us - reloj->inicio_us - 1) / ((int64_t)periodo_ms * 1000);
+    if (indice_final > reloj->ultimo_indice) {
+        reloj->vencimientos_perdidos += (uint32_t)(indice_final - reloj->ultimo_indice);
+        reloj->ultimo_indice = indice_final;
+    }
+}

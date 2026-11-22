@@ -67,7 +67,7 @@ Fase del ZOH, ec.~\eqref{eq:fase_zoh} & $0{,}08/2 = \SI{0{,}04}{rad}$ & $2{,}3^\
 Muestras por subida & $t_r\approx 2{,}2/\omega_b \approx \SI{0{,}5}{s}$; $N_r = 0{,}5/0{,}02$ & $\approx 25 \geq 10$ \\
 Muestras por frenado & $3{,}75\ \text{s}/0{,}02$ (rampa de \SI{40}{rad/s^2}) & $\approx 190$ para identificar \\
 Actuador & Servo con trama PWM de 20~ms~\cite{mg90s} & Un mando nuevo por trama; muestrear más rápido no se aplica \\
-Cálculo & PID en \texttt{float} en el RP2040 (sin FPU)~\cite{rp2040}: decenas de µs & $\ll T_s$; se mide en la placa \\
+Cálculo & PID en \texttt{float} en el ESP32, con FPU de precisión simple~\cite{esp32}: pocos µs & $\ll T_s$; se mide en la placa \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -77,23 +77,22 @@ porque el servo solo lee el pulso una vez por trama de 50~Hz: si llegan dos mand
 misma trama, uno se pierde. El límite inferior que dan las reglas
 ($f_s\approx$ 16 Hz) deja margen para un lazo más rápido si el modelo lo permite.
 
-\paragraph{Compatibilidad con el encoder.}
+\paragraph{Compatibilidad con el sensor.}
 El periodo de control no depende de la velocidad máxima del disco. Esa velocidad sirve para
 validar el sensor. La velocidad se estima por \emph{tiempo entre flancos}, no contando
 flancos en una ventana~\cite{petrella2007speed}:
 \begin{itemize}
   \item \emph{Conteo por ventana:} la resolución es $\Delta\omega = 2\pi/(N T_s) =
-  2\pi/(24\cdot 0{,}02) = \SI{13{,}1}{rad/s}$ por flanco (26,2 con 12), cerca del 9\,\% a
+  2\pi/(24\cdot 0{,}02) = \SI{13{,}1}{rad/s}$ por pulso, cerca del 9\,\% a
   \SI{150}{rad/s} y peor al frenar, por lo que no es adecuado.
-  \item \emph{Tiempo entre flancos:} con marcas de tiempo de 1~µs y el periodo de una marca
-  completa ($2$ flancos), a \SI{150}{rad/s} se mide
-  $T_\text{marca}=4\pi/(N\omega)=\SI{3{,}49}{ms}$, una resolución del $0{,}03\,\%$.
-  Los flancos llegan cada 1,75~ms (573 por segundo), una tasa que la interrupción atiende
-  sin dificultad.
+  \item \emph{Tiempo entre flancos:} se usa un solo tipo de flanco por marca, de modo que el
+  ancho de la marca no afecta la medición. Con marcas de tiempo de 1~µs, a \SI{150}{rad/s} se
+  mide $T_\text{marca}=2\pi/(N\omega)=\SI{1{,}75}{ms}$, una resolución del $0{,}06\,\%$.
+  Llegan 573 pulsos por segundo, una tasa que la interrupción atiende sin dificultad.
 \end{itemize}
 Con ese método, la medición deja de renovarse en cada muestra cuando $T_\text{marca}>T_s$, es
-decir, bajo $\omega^*=4\pi/(N T_s)=\SI{26}{rad/s}$, y se declara $\omega=0$ si pasan
-100~ms sin flanco ($\omega_\text{mín}\approx\SI{5{,}2}{rad/s}$). Es aceptable porque cerca de
+decir, bajo $\omega^*=2\pi/(N T_s)=\SI{13{,}1}{rad/s}$, y se declara $\omega=0$ si pasan
+100~ms sin flanco ($\omega_\text{mín}\approx\SI{2{,}6}{rad/s}$). Es aceptable porque cerca de
 cero no hace falta controlar fino.
 
 \paragraph{Riesgo de aliasing por marcas no uniformes.}
@@ -108,7 +107,7 @@ baja velocidad.
 
 \paragraph{Conclusión.} Se propone $T_s = \SI{20}{ms}$ ($f_s=\SI{50}{Hz}$) porque cumple las tres
 reglas con margen, coincide con la trama del servo, deja unas 190 muestras por frenado para la
-identificación y el encoder lo soporta con medición por periodo. El valor se revisará con la
+identificación y el sensor lo soporta con medición por periodo. El valor se revisará con la
 constante de tiempo medida en la pregunta~7: si el lazo diseñado necesitara
 $\omega_c > \SI{12}{rad/s}$, se pasaría a 10~ms con un servo digital de trama más rápida. La
 comparación de 20 frente a 50~ms queda prevista como punto extra del proyecto.

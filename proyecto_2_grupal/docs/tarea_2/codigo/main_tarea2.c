@@ -1,184 +1,202 @@
 /* Tarea 2, pregunta 3: lazo PID del banco de frenado sin delay().
- * Raspberry Pi Pico (Pico SDK). El periodo Ts lo fija un temporizador por
- * hardware; el encoder se lee por interrupcion y el bucle principal solo
- * atiende la consola y vacia la telemetria. Pines y limites son provisionales
- * hasta cerrar el esquema electrico (docs/decisiones.md). La telemetria usa el
- * formato de muestras de docs/manual_operacion.md, mas la columna ejecucion_us. */
+ * ESP32 con ESP-IDF 5.5. El periodo Ts lo fija un esp_timer periodico; el sensor
+ * TCRT5000 se lee por interrupcion con el estimador del registrador y una tarea
+ * aparte imprime la telemetria. Pines y calibracion son provisionales y deben
+ * coincidir con los del registrador (docs/decisiones.md). Las tres primeras
+ * columnas siguen el contrato tiempo_ms,freno_deg,velocidad_rpm. */
 #include <math.h>
 #include <stdio.h>
 
-#include "hardware/clocks.h"
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
-#include "hardware/sync.h"
-#include "pico/stdlib.h"
+#include "conversion_freno.h"
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "esp_timer.h"
+#include "estimador_velocidad.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 #include "pid_controller.h"
 
-#define PIN_ENCODER 2
-#define PIN_SERVO 15
-#define PIN_MOTOR 16
+#define GPIO_SENSOR 27
+#define GPIO_SERVO 18
+#define GPIO_MOTOR_ENA 25
+#define GPIO_MOTOR_IN1 26
+#define GPIO_MOTOR_IN2 33
 
-#define TS_US 20000            /* Ts = 20 ms (50 Hz), ver pregunta 2 */
-#define FLANCOS_POR_VUELTA 24  /* 12 marcas, ambos flancos */
-#define TIMEOUT_ENCODER_US 100000
-#define SERVO_US_LIBRE 1000    /* Goma sin contacto: calibrar */
-#define SERVO_US_MAXIMO 2000   /* Frenado maximo seguro: calibrar */
+#define TS_US 20000              /* Ts = 20 ms (50 Hz), ver pregunta 2 */
+#define PULSOS_POR_VUELTA 24     /* 24 marcas, un flanco por marca */
+#define TIMEOUT_SENSOR_US 100000
+#define FRENO_LIBRE_DEG 10.0     /* Goma sin contacto: calibrar */
+#define FRENO_MAXIMO_DEG 60.0    /* Frenado maximo seguro: calibrar */
 
-#define OMEGA_INICIAL 150.0f   /* rad/s */
-#define DESACELERACION 40.0f   /* rad/s^2, entre decel. natural y maxima */
+#define RPM_A_RAD_S (2.0f * (float)M_PI / 60.0f)
+#define OMEGA_INICIAL 150.0f     /* rad/s */
+#define DESACELERACION 40.0f     /* rad/s^2, entre decel. natural y maxima */
 #define OMEGA_FIN 5.0f
 
 typedef enum { REPOSO, IMPULSO, FRENADO } estado_t;
 static const char *const NOMBRE_ESTADO[] = {"REPOSO", "IMPULSO", "FRENADO"};
 
 typedef struct {
-    float t_s, ref, omega, u_solicitada, u_aplicada; /* ref = NAN si no aplica */
+    float tiempo_ms, freno_deg, velocidad_rpm, referencia_rpm; /* NAN si no aplica */
+    float u_norm;
     uint16_t ejecucion_us;
     uint8_t estado;
-    bool saturado, motor;
+    bool saturado;
 } muestra_t;
 
-enum { CAPACIDAD_COLA = 64 };
-static muestra_t cola[CAPACIDAD_COLA];
-static volatile uint32_t escritura, lectura, descartadas;
+/* Calibracion del MG90S en el formato del registrador: grados -> microsegundos. */
+static const configuracion_hardware_t SERVO = {
+    .servo_frecuencia_hz = 50, .servo_minimo_deg = 0, .servo_maximo_deg = 180,
+    .servo_pulso_minimo_us = 500, .servo_pulso_maximo_us = 2500};
 
-static volatile uint64_t flancos_us[3];
-static volatile uint32_t n_flancos;
-
+static portMUX_TYPE proteccion = portMUX_INITIALIZER_UNLOCKED;
+static estimador_velocidad_t estimador;
+static QueueHandle_t cola;
+static volatile uint32_t descartadas;
 static volatile estado_t estado = REPOSO;
 static pid_controlador_t pid;
 static uint32_t k_frenado;
-static uint64_t t_inicio_us;
-static uint slice_servo;
+static int64_t t_inicio_us;
 
-/* ISR del encoder: solo guarda la marca de tiempo; no se pierde ningun flanco. */
-static void al_flanco(uint gpio, uint32_t eventos)
+/* ISR del sensor: solo fecha el flanco; no se pierde ninguna marca. */
+static void al_flanco(void *argumento)
 {
-    (void)gpio;
-    (void)eventos;
-    flancos_us[n_flancos % 3] = time_us_64();
-    n_flancos++;
+    (void)argumento;
+    const int64_t tiempo_us = esp_timer_get_time();
+    portENTER_CRITICAL_ISR(&proteccion);
+    estimador_registrar(&estimador, tiempo_us, 0, TIMEOUT_SENSOR_US);
+    portEXIT_CRITICAL_ISR(&proteccion);
 }
 
-/* omega por tiempo entre flancos. Se toma t_k - t_(k-2), un periodo completo
- * marca negra + espacio cafe, para que la asimetria del ancho de las marcas
- * no aparezca como ruido. */
-static float medir_omega(uint64_t ahora)
+/* Copia el estimador bajo seccion critica y calcula las RPM fuera de ella. */
+static lectura_velocidad_t leer_velocidad(int64_t ahora_us)
 {
-    const uint32_t guardado = save_and_disable_interrupts();
-    const uint32_t n = n_flancos;
-    const uint64_t t_ultimo = flancos_us[(n + 2) % 3];  /* flanco n - 1 */
-    const uint64_t t_anterior = flancos_us[n % 3];      /* flanco n - 3 */
-    restore_interrupts(guardado);
-
-    if (n < 3 || ahora - t_ultimo > TIMEOUT_ENCODER_US) return 0.0f;
-    const float dt = (float)(t_ultimo - t_anterior) * 1e-6f;
-    return (2.0f * (float)M_PI * 2.0f / FLANCOS_POR_VUELTA) / dt;
+    portENTER_CRITICAL(&proteccion);
+    const estimador_velocidad_t copia = estimador;
+    portEXIT_CRITICAL(&proteccion);
+    return estimador_leer(&copia, ahora_us, PULSOS_POR_VUELTA, TIMEOUT_SENSOR_US);
 }
 
-static void aplicar_freno(float u)
+/* u en [0, 1] -> angulo calibrado -> pulso PWM. Devuelve el angulo ordenado. */
+static float aplicar_freno(float u)
 {
-    const float pulso = SERVO_US_LIBRE + u * (SERVO_US_MAXIMO - SERVO_US_LIBRE);
-    pwm_set_gpio_level(PIN_SERVO, (uint16_t)pulso); /* 1 cuenta = 1 us */
+    const double grados = FRENO_LIBRE_DEG + u * (FRENO_MAXIMO_DEG - FRENO_LIBRE_DEG);
+    uint32_t pulso_us;
+    if (freno_convertir_pulso(&SERVO, grados, &pulso_us)) {
+        const uint32_t duty = (uint32_t)llround(pulso_us * SERVO.servo_frecuencia_hz * 65536.0 / 1e6);
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    }
+    return (float)grados;
 }
 
-/* Se ejecuta cada Ts exactos: el SDK reprograma la alarma desde el inicio
- * del llamado anterior (retardo negativo), no desde que termina. */
-static bool al_periodo(repeating_timer_t *t)
+/* ENA en bajo deja el motor en marcha libre (L298N). */
+static void motor(bool encendido)
 {
-    (void)t;
-    if (estado == REPOSO) return true;
-    const uint64_t inicio = time_us_64();
-    const float omega = medir_omega(inicio);
+    gpio_set_level(GPIO_MOTOR_IN1, encendido);
+    gpio_set_level(GPIO_MOTOR_IN2, 0);
+    gpio_set_level(GPIO_MOTOR_ENA, encendido);
+}
+
+/* Se ejecuta cada Ts: esp_timer programa cada disparo sobre el anterior, de modo
+ * que el tiempo de ejecucion no se suma al periodo. */
+static void al_periodo(void *argumento)
+{
+    (void)argumento;
+    if (estado == REPOSO) return;
+    const int64_t inicio = esp_timer_get_time();
+    const lectura_velocidad_t lectura = leer_velocidad(inicio);
+    const float rpm = isfinite(lectura.velocidad_rpm) ? (float)lectura.velocidad_rpm : 0.0f;
+    const float omega = rpm * RPM_A_RAD_S;
 
     if (estado == IMPULSO && omega >= OMEGA_INICIAL) {
-        gpio_put(PIN_MOTOR, 0); /* Se corta el motor y empieza la referencia */
+        motor(false); /* Se corta el motor y empieza la referencia */
         pid_reiniciar(&pid);
         k_frenado = 0;
         estado = FRENADO;
     }
 
-    muestra_t m = {.t_s = (float)(inicio - t_inicio_us) * 1e-6f, .ref = NAN, .omega = omega,
-                   .estado = (uint8_t)estado, .motor = (estado == IMPULSO)};
+    muestra_t m = {.tiempo_ms = (float)(inicio - t_inicio_us) / 1000.0f,
+                   .freno_deg = (float)FRENO_LIBRE_DEG,
+                   .velocidad_rpm = (float)lectura.velocidad_rpm,
+                   .referencia_rpm = NAN, .u_norm = NAN, .estado = (uint8_t)estado};
     if (estado == FRENADO) {
         const float t_ref = k_frenado * (TS_US * 1e-6f);
-        m.ref = fmaxf(OMEGA_INICIAL - DESACELERACION * t_ref, 0.0f);
-        m.u_aplicada = pid_paso(&pid, m.ref, omega);
-        m.u_solicitada = pid.u_sin_limite;
+        const float ref = fmaxf(OMEGA_INICIAL - DESACELERACION * t_ref, 0.0f);
+        m.u_norm = pid_paso(&pid, ref, omega);
+        m.freno_deg = aplicar_freno(m.u_norm);
+        m.referencia_rpm = ref / RPM_A_RAD_S;
         m.saturado = pid.saturado;
-        aplicar_freno(m.u_aplicada);
         k_frenado++;
-        if (omega < OMEGA_FIN && m.ref <= 0.0f) {
+        if (omega < OMEGA_FIN && ref <= 0.0f) {
             aplicar_freno(0.0f);
             estado = REPOSO;
         }
     }
-    m.ejecucion_us = (uint16_t)(time_us_64() - inicio);
+    m.ejecucion_us = (uint16_t)(esp_timer_get_time() - inicio);
+    if (xQueueSend(cola, &m, 0) != pdTRUE) descartadas++; /* Nunca se espera aqui */
+}
 
-    const uint32_t siguiente = (escritura + 1) % CAPACIDAD_COLA;
-    if (siguiente == lectura) {
-        descartadas++; /* Se pierde telemetria, nunca el periodo de control */
-    } else {
-        cola[escritura] = m;
-        escritura = siguiente;
+/* Tarea sin requisitos de tiempo: imprime muestras y atiende la consola. Se
+ * bloquea esperando la cola (eventos), no con una espera fija. */
+static void tarea_telemetria(void *argumento)
+{
+    (void)argumento;
+    printf("tiempo_ms,freno_deg,velocidad_rpm,referencia_rpm,error_rpm,u_norm,"
+           "saturado,estado,ejecucion_us\n");
+    muestra_t m;
+    for (;;) {
+        if (xQueueReceive(cola, &m, pdMS_TO_TICKS(50)) == pdTRUE) {
+            if (isnan(m.referencia_rpm)) { /* Impulso: sin referencia ni mando */
+                printf("%.3f,%.1f,%.2f,,,,0,%s,%u\n", m.tiempo_ms, m.freno_deg,
+                       m.velocidad_rpm, NOMBRE_ESTADO[m.estado], m.ejecucion_us);
+            } else {
+                printf("%.3f,%.1f,%.2f,%.2f,%.2f,%.4f,%d,%s,%u\n", m.tiempo_ms, m.freno_deg,
+                       m.velocidad_rpm, m.referencia_rpm, m.velocidad_rpm - m.referencia_rpm,
+                       m.u_norm, m.saturado, NOMBRE_ESTADO[m.estado], m.ejecucion_us);
+            }
+        }
+        const int c = getchar(); /* stdin por UART0 no bloquea: EOF sin datos */
+        if (c == 's' && estado == REPOSO) {
+            t_inicio_us = esp_timer_get_time();
+            motor(true);
+            estado = IMPULSO;
+        }
     }
-    return true;
 }
 
-static void iniciar_servo(void)
+void app_main(void)
 {
-    gpio_set_function(PIN_SERVO, GPIO_FUNC_PWM);
-    slice_servo = pwm_gpio_to_slice_num(PIN_SERVO);
-    pwm_config cfg = pwm_get_default_config();
-    pwm_config_set_clkdiv(&cfg, (float)clock_get_hz(clk_sys) / 1e6f); /* 1 MHz */
-    pwm_config_set_wrap(&cfg, 20000 - 1);                             /* 20 ms */
-    pwm_init(slice_servo, &cfg, true);
+    const gpio_config_t salidas = {
+        .pin_bit_mask = (1ULL << GPIO_MOTOR_ENA) | (1ULL << GPIO_MOTOR_IN1) | (1ULL << GPIO_MOTOR_IN2),
+        .mode = GPIO_MODE_OUTPUT};
+    gpio_config(&salidas);
+    motor(false);
+
+    const ledc_timer_config_t pwm = {.speed_mode = LEDC_LOW_SPEED_MODE, .timer_num = LEDC_TIMER_0,
+        .duty_resolution = LEDC_TIMER_16_BIT, .freq_hz = 50, .clk_cfg = LEDC_USE_APB_CLK};
+    ledc_timer_config(&pwm);
+    const ledc_channel_config_t canal = {.gpio_num = GPIO_SERVO, .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0, .timer_sel = LEDC_TIMER_0, .duty = 0, .hpoint = 0};
+    ledc_channel_config(&canal);
     aplicar_freno(0.0f);
-}
 
-int main(void)
-{
-    stdio_init_all();
-    gpio_init(PIN_MOTOR);
-    gpio_set_dir(PIN_MOTOR, GPIO_OUT);
-    gpio_put(PIN_MOTOR, 0);
-    iniciar_servo();
-
-    gpio_init(PIN_ENCODER);
-    gpio_pull_up(PIN_ENCODER);
-    gpio_set_irq_enabled_with_callback(PIN_ENCODER,
-                                       GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL,
-                                       true, &al_flanco);
+    estimador_reiniciar(&estimador);
+    const gpio_config_t entrada = {.pin_bit_mask = 1ULL << GPIO_SENSOR, .mode = GPIO_MODE_INPUT,
+        .intr_type = GPIO_INTR_NEGEDGE};
+    gpio_config(&entrada);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(GPIO_SENSOR, al_flanco, NULL);
 
     /* Ganancias provisionales (pregunta 3); se redisenan con el modelo. */
     pid_iniciar(&pid, 0.04f, 0.08f, 0.0005f, TS_US * 1e-6f, 0.04f, 0.0f, 1.0f, true);
 
-    repeating_timer_t temporizador;
-    add_repeating_timer_us(-TS_US, al_periodo, NULL, &temporizador);
+    cola = xQueueCreate(64, sizeof(muestra_t));
+    xTaskCreate(tarea_telemetria, "telemetria", 4096, NULL, 3, NULL);
 
-    printf("t_s,referencia_rad_s,velocidad_rad_s,error_rad_s,u_solicitada_norm,"
-           "u_aplicada_norm,saturado,motor_habilitado,estado,ejecucion_us\n");
-    while (true) {
-        /* Consola no bloqueante: 's' inicia un ensayo. */
-        const int c = getchar_timeout_us(0);
-        if (c == 's' && estado == REPOSO) {
-            t_inicio_us = time_us_64();
-            gpio_put(PIN_MOTOR, 1);
-            estado = IMPULSO;
-        }
-        if (lectura != escritura) {
-            const muestra_t m = cola[lectura];
-            lectura = (lectura + 1) % CAPACIDAD_COLA;
-            if (isnan(m.ref)) { /* Sin referencia ni mando durante el impulso */
-                printf("%.3f,,%.3f,,,,0,%d,%s,%u\n", m.t_s, m.omega, m.motor,
-                       NOMBRE_ESTADO[m.estado], m.ejecucion_us);
-            } else {
-                printf("%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%d,%d,%s,%u\n", m.t_s, m.ref, m.omega,
-                       m.omega - m.ref, m.u_solicitada, m.u_aplicada, m.saturado, m.motor,
-                       NOMBRE_ESTADO[m.estado], m.ejecucion_us);
-            }
-        } else {
-            tight_loop_contents();
-        }
-    }
+    esp_timer_handle_t temporizador;
+    const esp_timer_create_args_t argumentos = {.callback = al_periodo, .name = "pid"};
+    esp_timer_create(&argumentos, &temporizador);
+    esp_timer_start_periodic(temporizador, TS_US);
 }

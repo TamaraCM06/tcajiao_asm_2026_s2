@@ -2,9 +2,9 @@
 \addcontentsline{toc}{section}{Sistema de referencia (objetivo del Proyecto Grupal 2)}
 Esta sección describe el sistema final que busca el Proyecto Grupal~2. No es el alcance de la
 Tarea~2, que solo lo usa como contexto para ejemplificar las respuestas. El banco consiste en un
-disco movido por un motor CD, una goma accionada por un servomotor MG90S que frena el disco, un encoder óptico de 12 marcas
-($N=24$ flancos por vuelta si se cuentan ambos) y una Raspberry Pi Pico que ejecuta el PID
-discreto. En cada ensayo el motor lleva el disco a una velocidad inicial $\omega_0$
+disco movido por un motor CD, una goma accionada por un servomotor MG90S que frena el disco, un sensor óptico TCRT5000
+frente a 24 marcas negras ($N=24$ pulsos por vuelta, un flanco por marca) y un ESP32 que ejecuta
+el PID discreto. En cada ensayo el motor lleva el disco a una velocidad inicial $\omega_0$
 repetible, se corta y el PID mueve el servo para que $\omega(t)$ siga una referencia
 decreciente. La propuesta es una rampa de desaceleración constante,
 \begin{equation}

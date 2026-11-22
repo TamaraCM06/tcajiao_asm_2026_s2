@@ -23,7 +23,7 @@ Cuando no hay saturación, el controlador equivale a
 El proyecto exige además las siguientes decisiones de implementación.
 \begin{itemize}
   \item La derivada pura amplifica el ruido
-  del encoder, por eso se aplica $K_d s/(T_f s+1)$ con $T_f\approx 2T_s$. Derivar $\omega$ en
+  del sensor, por eso se aplica $K_d s/(T_f s+1)$ con $T_f\approx 2T_s$. Derivar $\omega$ en
   lugar de $e$ evita saltos cuando cambia la referencia~\cite{astrom2006advanced}.
   \item El mando se satura a los límites calibrados del freno, que van de la goma sin contacto al
   frenado máximo seguro.
@@ -52,19 +52,19 @@ valores de partida que se rediseñarán con el modelo identificado.
 \subsection{Estructura temporal: periodo fijo sin bloqueo}
 El periodo $T_s$ usado para calcular $K_iT_s$, $K_d/T_s$ y los polos en $z$ tiene que ser el
 periodo real. La implementación (Listados~\ref{lst:pid} y~\ref{lst:main}) separa tres
-contextos~\cite{picosdk}:
+contextos~\cite{espidf}:
 \begin{enumerate}
-  \item La interrupción del encoder (\texttt{gpio\_set\_irq\_enabled\_with\_callback}) se
-  activa en ambos flancos y solo guarda \texttt{time\_us\_64()}, así que no se pierde ninguna marca.
-  \item El temporizador periódico (\texttt{add\_repeating\_timer\_us(-20000, ...)}) usa un
-  retardo negativo, que hace que el SDK programe cada llamado 20~ms después del \emph{inicio} del
-  anterior, de modo que el tiempo de ejecución no se suma al periodo. En cada tic se mide
+  \item La interrupción del sensor (\texttt{gpio\_isr\_handler\_add}) se activa en un flanco por
+  marca y solo fecha el pulso con \texttt{esp\_timer\_get\_time()} en el estimador del
+  registrador, así que no se pierde ninguna marca.
+  \item El temporizador periódico (\texttt{esp\_timer\_start\_periodic}, 20~ms) programa cada
+  disparo sobre el instante del anterior, de modo que el tiempo de ejecución no se suma al periodo. En cada tic se mide
   $\omega$, se calcula $\omega_\text{ref}(kT_s)$, se ejecuta \texttt{pid\_paso}, se escribe el
   PWM del servo y se encola la muestra. Primero se lee y se actúa, y después se guarda el
   registro, para minimizar la latencia entre medición y mando.
-  \item El bucle principal no tiene requisitos de tiempo. Lee la consola con
-  \texttt{getchar\_timeout\_us(0)}, que no bloquea, y vacía la cola de telemetría por USB. Si la
-  cola se llena se descarta telemetría y se cuenta, pero nunca se retrasa el control.
+  \item Una tarea de FreeRTOS sin requisitos de tiempo espera muestras en la cola
+  (\texttt{xQueueReceive}), las imprime por la UART y lee la consola sin bloquear. Si la cola se
+  llena se descarta telemetría y se cuenta, pero nunca se retrasa el control.
 \end{enumerate}
 El tiempo de ejecución de cada paso se registra (\texttt{ejecucion\_us}) para demostrar que es
 mucho menor que $T_s$.
@@ -84,7 +84,7 @@ delay(20); \}} tiene tres problemas:
   la diseñada.
   \item Bloquea el procesador. Durante \texttt{delay()} el programa no atiende la
   consola, los botones, la telemetría ni una condición de seguridad, como cortar el freno si se
-  pierde el encoder~\cite{arduinoblink}.
+  pierde el sensor~\cite{arduinoblink}.
 \end{enumerate}
 Si se trabaja en Arduino, la alternativa es la temporización no bloqueante con
 \texttt{millis()}/\texttt{micros()}~\cite{arduinoblink}. El instante siguiente se acumula
@@ -97,8 +97,10 @@ if ((int32_t)(micros() - siguiente) >= 0) {  // seguro ante desborde
 }
 atender_serial_y_botones();                   // nunca se bloquea
 \end{lstlisting}
-En la Pico se prefiere el temporizador por hardware (Listado~\ref{lst:main}), porque además
-garantiza el periodo aunque el bucle principal esté ocupado.
+En ESP-IDF, \texttt{vTaskDelay()} tiene el mismo problema que \texttt{delay()}: el periodo
+pasa a ser la espera más el tiempo de ejecución. \texttt{vTaskDelayUntil()} sí mantiene el
+periodo, pero el ESP32 usa \texttt{esp\_timer} (Listado~\ref{lst:main}), que además separa el
+control de la tarea de telemetría~\cite{espidf}.
 
 \lstinputlisting[caption={Módulo PID portable (\texttt{firmware/src/pid\_controller.c}), el mismo que usa la simulación.},label={lst:pid}]{\firmware/src/pid_controller.c}
 

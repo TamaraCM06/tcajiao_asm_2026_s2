@@ -18,7 +18,7 @@ Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `stan
 | `secciones/p1..p7_*.tex` | Una pregunta por archivo (1 a 5 redactadas, método de la 7; extras 6 y 7 pendientes de la planta) |
 | `secciones/anexo_*.tex` | Listados del micro y enlaces de video |
 | `referencias.bib` | Bibliografía IEEE; agregar ahí las fuentes nuevas |
-| `codigo/main_tarea2.c` | Lazo PID sin `delay()` para la Pico (pregunta 3) |
+| `codigo/main_tarea2.c` | Lazo PID sin `delay()` para el ESP32 con ESP-IDF (pregunta 3) |
 | `evidencias/simulacion_pid.c` | Simulación que usa `firmware/src/pid_controller.c`; genera CSV y métricas |
 | `evidencias/generado/` | Salidas de la simulación (se versionan para compilar sin gcc) |
 | `diagramas/` | Fuentes TikZ de la pregunta 4 (`estilo.tex` imita los diagramas Mermaid del avance 2 del Proyecto 1); `compilar.sh` genera los PNG |

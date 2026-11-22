@@ -6,7 +6,7 @@
 /* PID discreto de posicion con periodo fijo Ts.
  * Convencion del banco: e = omega - omega_ref. Un disco mas rapido que la
  * referencia (e > 0) aumenta el mando del freno u, normalizado en [u_min, u_max].
- * No depende del Pico SDK: se compila igual en la placa y en las pruebas del PC. */
+ * No depende de ningun SDK: se compila igual en el ESP32 y en las pruebas del PC. */
 typedef struct {
     float kp, ki, kd;     /* Ganancias en unidades de u por rad/s */
     float ts;             /* Periodo de muestreo de diseno [s] */

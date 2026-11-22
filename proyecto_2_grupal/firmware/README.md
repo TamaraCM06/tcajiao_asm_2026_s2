@@ -1,6 +1,7 @@
 # Firmware Raspberry Pi Pico
 
-Estado: módulos por implementar. Confirmar placa, sensor, actuador y asignación
+Estado: `pid_controller.{h,c}` implementado y probado en simulación
+(`docs/tarea_2/evidencias/`); el resto de módulos por implementar. Confirmar placa, sensor, actuador y asignación
 de pines antes de escribir control de hardware. No hay aplicación compilable aún.
 
 ## Archivos previstos

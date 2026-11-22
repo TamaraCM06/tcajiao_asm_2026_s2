@@ -1,38 +1,43 @@
-# Firmware Raspberry Pi Pico
+# 1. Firmware del registrador ESP32
 
-Estado: módulos por implementar. Confirmar placa, sensor, actuador y asignación
-de pines antes de escribir control de hardware. No hay aplicación compilable aún.
+## 1.1. Estado
 
-## Archivos previstos
-
-| Archivo | Responsabilidad |
+| Campo | Valor |
 |---|---|
-| `CMakeLists.txt` | Objetivo Pico SDK, fuentes y bibliotecas realmente usadas |
-| `pico_sdk_import.cmake` | Importador oficial de la versión elegida del SDK |
-| `include/config.h` | GPIO, Ts, pulsos/vuelta, unidades, límites y parámetros calibrados |
-| `include/speed_sensor.h`, `src/speed_sensor.c` | Adquisición de pulsos, conversión a rad/s, timeout y ruido |
-| `include/motor_driver.h`, `src/motor_driver.c` | Impulso inicial y corte/reducción controlada del motor |
-| `include/brake_servo.h`, `src/brake_servo.c` | Mando del freno, calibración y saturación física |
-| `include/pid_controller.h`, `src/pid_controller.c` | PID discreto, filtro derivativo, anti-windup y reinicio de estado |
-| `include/reference.h`, `src/reference.c` | Trayectoria temporal decreciente y alcanzable |
-| `include/telemetry.h`, `src/telemetry.c` | Registro de muestras y configuración según contrato de datos |
-| `src/main.c` | Estados reposo, impulso, frenado, liberación y fallo; temporización |
+| Responsable | Santiago, Persona 3 |
+| Plataforma | ESP32 clasico, ESP-IDF 5.5.5 |
+| Alcance | Captura a lazo abierto con TCRT5000, MG90S y motor manual |
+| Estado | Base implementada; adquisicion e integracion en curso |
+| Revision | Codigo, documentacion y diff; aun sin pruebas funcionales |
+| Pendiente fisico | GPIO, niveles, alimentacion, calibracion y montaje |
 
-Las interfaces se crearán con la implementación para evitar archivos vacíos que
-aparenten funcionalidad. Registrar versión del SDK y toolchain cuando se agregue
-la compilación; no copiar el SDK completo al repositorio.
+## 1.2. Configuracion y compilacion
 
-## Criterios para implementar
+El firmware no asigna GPIO ni posiciones fisicas por defecto. menuconfig exige
+confirmar conexiones y completar la calibracion. Verificar el nivel electrico
+del modulo TCRT5000: la ficha del fototransistor no describe su placa comparadora.
 
-- Definir la convención de signo del error y comprobar que un exceso de velocidad
-  aumenta el frenado. El actuador solo desacelera.
-- Ejecutar el control con Ts definido y medir sus tiempos reales. La transmisión
-  no debe bloquear el muestreo; contabilizar muestras perdidas.
-- Separar impulso del motor y maniobra de frenado según el protocolo experimental.
-- Saturar el mando con límites calibrados y evitar acumulación integral. Definir
-  la liberación, el reinicio del PID y el comportamiento ante pérdida del sensor.
-- Registrar referencia, velocidad, error, mando aplicado y saturación tanto en
-  acción fija como con PID; documentar la discretización y filtro elegidos.
+| Accion desde la raiz | Comando PowerShell |
+|---|---|
+| Configurar | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion menuconfig |
+| Compilar al completar | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion build |
+| Programar placa configurada | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion flash -Puerto COMx |
+| Monitor | & proyecto_2_grupal/firmware/ejecutar_idf.ps1 -Accion monitor -Puerto COMx |
 
-Ver [contrato de datos](../experimentos/README.md) y
-[decisiones pendientes](../docs/decisiones.md).
+[ejecutar_idf.ps1](ejecutar_idf.ps1) usa una copia temporal ASCII por los problemas
+de rutas acentuadas observados en el proyecto anterior. menuconfig conserva
+sdkconfig local, ignorado en Git. Despues de cambiar fuentes o configuracion,
+ejecutar build: flash utiliza la ultima copia compilada.
+
+## 1.3. Arquitectura
+
+| Modulo | Responsabilidad |
+|---|---|
+| hardware | Configuracion y validacion sin accionar perifericos |
+| estimador_velocidad y sensor_optico | Calculo portable y captura |
+| servo_freno y motor | Conversion calibrada y mando |
+| protocolo_serial | Comandos y transmision desacoplada |
+| aplicacion | Coordinacion y tiempo real |
+
+Solo se crean interfaces al implementar su responsabilidad. No se incluye
+todavia PID ni secuencia automatica de aceleracion.

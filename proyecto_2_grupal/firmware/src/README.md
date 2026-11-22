@@ -1,4 +1,4 @@
-# Implementación
+# 1. Implementacion C
 
-Ubicación de los módulos C descritos en el [plan de firmware](../README.md).
-El control, la adquisición y la telemetría deben tener responsabilidades separadas.
+Fuentes del [registrador ESP32](../README.md). Separar captura de pulsos,
+calculo de velocidad, actuadores, coordinacion y transmision.

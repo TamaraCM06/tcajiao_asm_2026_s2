@@ -13,7 +13,8 @@
 
 ## 1.2. Entrada y operaciones
 
-[ejecutar_caso.m](ejecutar_caso.m) es la unica entrada de captura. Resuelve rutas
+[ejecutar_caso.m](ejecutar_caso.m) es la entrada de captura en MATLAB; [consola_banco.py](consola_banco.py)
+es la equivalente en Python (seccion 1.4). Resuelve rutas
 desde su archivo y guarda en datos, sin depender del directorio de trabajo.
 Agregar esta carpeta al path de MATLAB antes de llamar a la funcion.
 
@@ -54,6 +55,24 @@ filtrado ni remuestreo en PC. El timeout del receptor solicita STOP si no llega
 fin cinco segundos despues del tiempo configurado y conserva captura incompleta
 si el cierre sigue ausente tres segundos mas. No sobrescribir ni corregir datos
 crudos para mejorar el ajuste.
+
+## 1.4. Consola Python y ensayo automatico
+
+[consola_banco.py](consola_banco.py) abre el puerto con un prompt visible, envia los mismos
+comandos y guarda cada captura en datos/ con el mismo CSV y un JSON de metadatos; al cerrar
+imprime un resumen (pendientes antes/despues del freno y tiempo de detencion). Requiere
+pyserial, incluido en el entorno Python de ESP-IDF.
+
+| Paso | Comando | Significado |
+|---|---|---|
+| Abrir | python consola_banco.py --nombre escalon | Captura en datos/escalon_NN.csv |
+| Configurar | CONFIG 20 10000 100 | Fila cada 20 ms, 10 s, cero tras 100 ms sin pulsos |
+| Liberar | FRENO 120 | Angulo liberado calibrado |
+| Ensayo | ENSAYO 60 180 300 | Motor 60 %; en la velocidad maxima corta y registra; freno a 180 grados tras 300 ms |
+
+El caso presentado en la Tarea 2 es [escalon_02](datos/escalon_02.csv), anotado en
+[registro_ensayos.csv](datos/registro_ensayos.csv). Se analiza con
+../matlab_modelado/visualizar_ensayo.m.
 
 Si START no recibe inicio en cinco segundos, el receptor solicita STOP y conserva
 el ensayo como incompleto. Un error explicito del firmware permite corregir la

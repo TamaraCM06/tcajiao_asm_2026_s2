@@ -1,6 +1,6 @@
 # Requisitos y evidencias
 
-Fuente: [enunciado v7](referencias/Proyectos_ASM_Proyecto_Grupal2_v7.pdf).
+Fuente: [enunciado v7](referencias/ENUNCIADO_PROYECTO_2.md).
 Todo está pendiente de ejecución; esta tabla asigna destinos, no acredita cumplimiento.
 
 | Requisito | Sección del PDF | Evidencia prevista |
@@ -28,7 +28,7 @@ Las bonificaciones de la sección 4 son opcionales y no sustituyen estos requisi
 
 ## Relación con Tarea 2
 
-El [enunciado de Tarea 2 v5](referencias/Tareas_ASM_Tarea2_v5.pdf) corresponde a
+El [enunciado de Tarea 2 v5](referencias/ENUNCIADO_TAREA_2.md) corresponde a
 una entrega separada, el 22 de noviembre de 2026. Pide teoría de impulso/escalón,
 muestreo propuesto, código PID en microcontrolador sin `delay`, diagrama completo
 y representación matemática de la planta. Construcción y caracterización física

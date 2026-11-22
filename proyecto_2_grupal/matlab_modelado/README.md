@@ -21,7 +21,7 @@ el error y documentar cualquier remuestreo o filtrado. Conservar los datos crudo
 
 ## Relación con la tarea y el proyecto final
 
-En [Tarea 2](../docs/referencias/Tareas_ASM_Tarea2_v5.pdf), el modelo teórico ayuda
+En [Tarea 2](../docs/referencias/ENUNCIADO_TAREA_2.md), el modelo teórico ayuda
 a explicar impulso, escalón, muestreo y comportamiento esperado sin controlador;
 la caracterización física con MATLAB aparece en el apartado de puntos extra.
 

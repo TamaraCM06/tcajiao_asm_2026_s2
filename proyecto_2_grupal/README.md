@@ -2,7 +2,7 @@
 
 CE 1110 — Análisis de Señales Mixtas, II semestre de 2026.
 Entrega y defensa: **2 de diciembre de 2026**; archivos hasta las **23:50**.
-Fuente: [enunciado v7](docs/referencias/Proyectos_ASM_Proyecto_Grupal2_v7.pdf),
+Fuente: [enunciado v7](docs/referencias/ENUNCIADO_PROYECTO_2.md),
 secciones 1–6. Es un banco didáctico de frenado; el antibloqueo simplificado es opcional.
 
 Estado: estructura inicial, protocolos propuestos y plantillas. No hay firmware,

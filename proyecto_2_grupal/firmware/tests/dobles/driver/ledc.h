@@ -18,6 +18,8 @@ esp_err_t ledc_timer_config(const ledc_timer_config_t *parametros);
 esp_err_t ledc_channel_config(const ledc_channel_config_t *parametros);
 /* Registra duty o simula fallo del periferico. */
 esp_err_t ledc_set_duty_and_update(int modo, int canal, uint32_t duty, uint32_t punto);
+/* Instalacion del servicio de fades que exige ledc_set_duty_and_update. */
+esp_err_t ledc_fade_func_install(int banderas);
 /* Simula salida PWM detenida en nivel bajo. */
 esp_err_t ledc_stop(int modo, int canal, uint32_t nivel);
 #endif

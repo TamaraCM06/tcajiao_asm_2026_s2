@@ -6,6 +6,7 @@
 #include "sensor_optico.h"
 #include "servo_freno.h"
 #include "esp_app_desc.h"
+#include "driver/ledc.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -244,7 +245,9 @@ static void preparar_hardware(void)
     montaje = hardware_cargar();
     motivo_hardware = hardware_validar(&montaje);
     if (motivo_hardware) return;
-    esp_err_t resultado = motor_iniciar(&montaje);
+    /* ledc_set_duty_and_update (servo y motor) exige el servicio de fades instalado. */
+    esp_err_t resultado = ledc_fade_func_install(0);
+    if (resultado == ESP_OK) resultado = motor_iniciar(&montaje);
     if (resultado == ESP_OK) resultado = servo_freno_iniciar(&montaje);
     if (resultado == ESP_OK) resultado = sensor_optico_iniciar(&montaje);
     hardware_listo = resultado == ESP_OK;

@@ -83,6 +83,7 @@ double servo_freno_angulo(void) { return angulo_virtual; }
 /* Comprueba la liberacion comandada en el montaje simulado. */
 bool servo_freno_liberado(void) { return angulo_virtual == montaje.servo_liberado_deg; }
 /* Sustituye instalacion del puente. */
+esp_err_t ledc_fade_func_install(int banderas) { (void)banderas; return ESP_OK; }
 esp_err_t motor_iniciar(const configuracion_hardware_t *parametros) { (void)parametros; return ESP_OK; }
 /* Cuenta ordenes para detectar una reactivacion indebida durante captura. */
 esp_err_t motor_ordenar(double porcentaje, int64_t tiempo_us)

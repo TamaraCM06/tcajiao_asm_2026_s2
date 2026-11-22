@@ -24,10 +24,11 @@
 #define GPIO_MOTOR_IN2 33
 
 #define TS_US 20000              /* Ts = 20 ms (50 Hz), ver pregunta 2 */
-#define PULSOS_POR_VUELTA 24     /* 24 marcas, un flanco por marca */
+#define PULSOS_POR_VUELTA 10     /* 10 marcas, un flanco por marca */
 #define TIMEOUT_SENSOR_US 100000
-#define FRENO_LIBRE_DEG 10.0     /* Goma sin contacto: calibrar */
-#define FRENO_MAXIMO_DEG 60.0    /* Frenado maximo seguro: calibrar */
+#define REBOTE_MINIMO_US 500     /* Rechaza flancos dobles del comparador */
+#define FRENO_LIBRE_DEG 120.0    /* Goma sin contacto */
+#define FRENO_MAXIMO_DEG 180.0   /* Frenado maximo */
 
 #define RPM_A_RAD_S (2.0f * (float)M_PI / 60.0f)
 #define OMEGA_INICIAL 150.0f     /* rad/s */
@@ -65,7 +66,7 @@ static void al_flanco(void *argumento)
     (void)argumento;
     const int64_t tiempo_us = esp_timer_get_time();
     portENTER_CRITICAL_ISR(&proteccion);
-    estimador_registrar(&estimador, tiempo_us, 0, TIMEOUT_SENSOR_US);
+    estimador_registrar(&estimador, tiempo_us, REBOTE_MINIMO_US, TIMEOUT_SENSOR_US);
     portEXIT_CRITICAL_ISR(&proteccion);
 }
 

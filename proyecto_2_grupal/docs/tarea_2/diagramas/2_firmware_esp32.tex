@@ -8,7 +8,7 @@
   \node[nodo, right=26mm of fl] (st) {\texttt{esp\_timer\_get\_time()}\\estimador del registrador};
 
   % Temporizador periódico
-  \node[nodo, below=30mm of fl] (med) {Mide $\omega$\\$(2\pi/24)/\Delta t$};
+  \node[nodo, below=30mm of fl] (med) {Mide $\omega$\\$(2\pi/10)/\Delta t$};
   \node[nodo, right=13mm of med] (refk) {Referencia y error\\$e=\omega-(\omega_0-a\,kT_s)$};
   \node[nodo, right=13mm of refk] (pidk) {\texttt{pid\_paso}\\P + I + D filtrado\\saturación $\cdot$ clamping};
   \node[nodo, right=13mm of pidk] (pwmk) {PWM del servo\\LEDC $\cdot$ ángulo calibrado};

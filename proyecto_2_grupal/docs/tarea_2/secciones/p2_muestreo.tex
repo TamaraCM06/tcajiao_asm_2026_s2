@@ -83,22 +83,22 @@ validar el sensor. La velocidad se estima por \emph{tiempo entre flancos}, no co
 flancos en una ventana~\cite{petrella2007speed}:
 \begin{itemize}
   \item \emph{Conteo por ventana:} la resolución es $\Delta\omega = 2\pi/(N T_s) =
-  2\pi/(24\cdot 0{,}02) = \SI{13{,}1}{rad/s}$ por pulso, cerca del 9\,\% a
+  2\pi/(10\cdot 0{,}02) = \SI{31{,}4}{rad/s}$ por pulso, cerca del 21\,\% a
   \SI{150}{rad/s} y peor al frenar, por lo que no es adecuado.
   \item \emph{Tiempo entre flancos:} se usa un solo tipo de flanco por marca, de modo que el
   ancho de la marca no afecta la medición. Con marcas de tiempo de 1~µs, a \SI{150}{rad/s} se
-  mide $T_\text{marca}=2\pi/(N\omega)=\SI{1{,}75}{ms}$, una resolución del $0{,}06\,\%$.
-  Llegan 573 pulsos por segundo, una tasa que la interrupción atiende sin dificultad.
+  mide $T_\text{marca}=2\pi/(N\omega)=\SI{4{,}19}{ms}$, una resolución del $0{,}024\,\%$.
+  Llegan 239 pulsos por segundo, una tasa que la interrupción atiende sin dificultad.
 \end{itemize}
 Con ese método, la medición deja de renovarse en cada muestra cuando $T_\text{marca}>T_s$, es
-decir, bajo $\omega^*=2\pi/(N T_s)=\SI{13{,}1}{rad/s}$, y se declara $\omega=0$ si pasan
-100~ms sin flanco ($\omega_\text{mín}\approx\SI{2{,}6}{rad/s}$). Es aceptable porque cerca de
+decir, bajo $\omega^*=2\pi/(N T_s)=\SI{31{,}4}{rad/s}$, y se declara $\omega=0$ si pasan
+100~ms sin flanco ($\omega_\text{mín}\approx\SI{6{,}3}{rad/s}$). Es aceptable porque cerca de
 cero no hace falta controlar fino.
 
 \paragraph{Riesgo de aliasing por marcas no uniformes.}
 Si las marcas no son idénticas, $T_\text{marca}$ tiene un rizado que se repite cada vuelta, con
 frecuencia fundamental $f_\text{vuelta}=\omega/2\pi$ ($\approx 24$~Hz a \SI{150}{rad/s}) y
-armónicos hasta $12f_\text{vuelta}$. Esas componentes caen dentro de la banda de muestreo o se
+armónicos hasta $5f_\text{vuelta}$. Esas componentes caen dentro de la banda de muestreo o se
 reflejan en ella, y al frenar barren hacia frecuencias bajas, así que un filtro pasabajos fijo
 no las separa del control. Se puede corregir con marcas uniformes (verificables con el histograma
 de $T_\text{marca}$ a velocidad constante) y, si hace falta, promediar sobre una vuelta

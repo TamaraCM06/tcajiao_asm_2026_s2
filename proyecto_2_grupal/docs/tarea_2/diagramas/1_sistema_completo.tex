@@ -14,7 +14,7 @@
   \node[nodo, below=58mm of pwm] (servo) {Servo MG90S\\$\tau_\text{servo}\approx$ 50--100\,ms};
   \node[nodo] (goma) at (servo -| pid) {Goma\\fuerza normal $\rightarrow\tau_f$};
   \node[nodo] (disco) at (servo -| cmp) {Disco\\$J_\text{eq}\cdot b\cdot$ fricción seca};
-  \node[nodo] (enc) at (servo -| ref) {Sensor TCRT5000\\24 marcas $\cdot$ 1 pulso/marca};
+  \node[nodo] (enc) at (servo -| ref) {Sensor TCRT5000\\10 marcas $\cdot$ 1 pulso/marca};
   \node[opcional, below=12mm of disco] (motor) {Motor CD + L298N\\solo impulso inicial};
 
   \node[nodo, above=16mm of ref] (pc) {PC $\cdot$ consola UART (USB)\\inicio de ensayo $\cdot$ registro CSV};

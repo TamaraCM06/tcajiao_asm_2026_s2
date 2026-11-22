@@ -10,7 +10,7 @@ del repositorio. Los acuerdos no acreditan compra, montaje ni medicion.
 | Microcontrolador | ESP32 clasico; ESP-IDF 5.5.5 disponible | Confirmar placa fisica |
 | Sensor | Modulo TCRT5000 frente a anillo reflectivo | Salida digital, nivel y polaridad |
 | Disco | MDF cafe de aproximadamente 120 mm por 3 mm | Montaje y velocidad admitida |
-| Marcas | 24 negras equidistantes, fondo blanco recomendado | Verificar pulsos efectivos; un flanco por marca |
+| Marcas | 10 negras equidistantes, fondo blanco recomendado; un flanco por marca (PULSOS_POR_VUELTA = 10) | Rechazo de rebotes de 500 us |
 | Distancia | Inicio propuesto 2 a 3 mm | Ajuste experimental con cinta real |
 | Freno | MG90S y goma | Posicion liberada, limites, pulsos y sentido |
 | Motor | Motor DC para impulso inicial | Modelo, corriente, fuente y acople |

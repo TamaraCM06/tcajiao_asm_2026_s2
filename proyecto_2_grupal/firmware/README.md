@@ -47,7 +47,7 @@ registrador; tampoco hay secuencia automatica de aceleracion.
 
 ## 1.4. Medicion optica
 
-Se calcula RPM = 60000000 / (pulsos_por_vuelta por intervalo_us). Las 24 marcas
+Se calcula RPM = 60000000 / (pulsos_por_vuelta por intervalo_us). Las 10 marcas
 son una propuesta del montaje: comprobar un flanco por marca. Un primer pulso
 no entrega velocidad. El calculo utiliza el ultimo intervalo aceptado, sin
 suavizado; nuevas filas pueden reutilizar esa estimacion entre pulsos.

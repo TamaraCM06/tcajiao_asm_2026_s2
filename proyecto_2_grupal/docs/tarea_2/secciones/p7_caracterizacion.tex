@@ -1,8 +1,19 @@
-\section{Caracterización por respuesta al escalón (extra)}
+\section{Caracterización por respuesta al escalón (puntos extra)}
 \label{sec:p7}
 \enunciado{Caracterice el sistema mediante la respuesta al escalón (40\,\% extra). Adjunte un vídeo
 de la respuesta al escalón (ejecutando la planta en físico con ustedes explicando y su
 funcionamiento en computadora, debe ser un solo vídeo).}
+
+\puntosextra{Se caracterizó la planta física con un escalón del freno y se obtuvo su función de
+transferencia local y su respuesta al impulso con \texttt{impulse} de MATLAB. El video
+\videoCaracterizacion{} muestra en una sola toma el ensayo en el banco, la generación del CSV, su
+carga en MATLAB, la función de transferencia y la respuesta al impulso.}
+
+\subsection{Método}
+Se eligió un escalón del freno porque es la entrada que se puede aplicar de forma limpia y
+repetible: el servo pasa de un ángulo a otro en una sola orden (pregunta~1). El impulso ideal no
+se puede generar físicamente; por eso se identifica el modelo con el escalón y la respuesta al
+impulso se obtiene después del modelo, como pide el enunciado.
 
 \paragraph{Ensayo y captura.}
 Se acelera el disco, se desconecta el motor y se registra un tramo de giro libre.
@@ -50,13 +61,14 @@ $0{,}40$ s, el ajuste dio $K=-21{,}68$ (RPM/s)/grado,
 $\tau=0{,}0302$ s y un RMSE de $0{,}24$ RPM. Estos valores comprueban la
 implementación con una señal generada a partir del modelo propuesto.
 
+\subsection{Resultados}
 \paragraph{Ensayo en el banco.}
 El ensayo presentado es \texttt{escalon\_02} (\texttt{experimentos/datos/escalon\_02.csv}). Se
 ejecutó con \texttt{ENSAYO 60 180 300}: el motor impulsa el disco al 60\,\%, el firmware corta el
 motor cuando la velocidad deja de subir e inicia el registro, y 300~ms después lleva el servo de
 120° a 180°. El registro tiene 500 muestras cada 20~ms, sin muestras perdidas (intervalos reales
-entre 19,7 y 20,3~ms). El video del ensayo en el banco y del análisis en MATLAB está en el
-Anexo~\ref{sec:videos} (\videoCaracterizacion).
+entre 19,7 y 20,3~ms). El CSV se capturó por la consola serie y se cargó en MATLAB con \texttt{visualizar\_ensayo.m},
+como se ve en el video \videoCaracterizacion.
 
 \begin{figure}[h]
 \centering
@@ -101,7 +113,19 @@ cuya respuesta al impulso calculó MATLAB con \texttt{impulse} (Fig.~\ref{fig:im
 \label{fig:impulso02}
 \end{figure}
 
-\paragraph{Análisis.}
+\subsection{Análisis}
+\paragraph{Relación con el modelo teórico.}
+La pregunta~5 modela la planta con $J_\text{eq}\dot\omega = -b\,\omega - \tau_f$. El término
+$-b\,\omega$ y la fricción seca forman la caída libre, que el método estima con la recta previa
+($-76$~RPM/s) y resta. Lo que queda es el efecto del freno. La pregunta~5 suponía que
+$\Delta\tau_f = K_f\,\Delta u$ aparece de inmediato, pero el ensayo muestra que el torque de la goma
+crece con una constante de tiempo $\tau$, porque el servo tarda en llegar y la goma en apretar.
+Por eso la aceleración responde como un primer orden y la velocidad como su integral:
+$G(s)=K/(s(\tau s+1))$. Si $\tau\to 0$, se recupera la forma de la pregunta~5 con
+$K = -K_f/J_\text{eq}$ por grado. El resultado es coherente con la teoría y la complementa con la
+dinámica del actuador.
+
+\paragraph{Efecto del freno.}
 El freno casi duplica la desaceleración: de $-76$ a $-143$~RPM/s. $K<0$ confirma el signo
 esperado en la pregunta~5: más ángulo de freno quita velocidad. La constante $\tau = 0{,}27$~s
 agrupa el recorrido del servo de 60° (unos 0,1~s según su hoja de datos~\cite{mg90s}) y el tiempo

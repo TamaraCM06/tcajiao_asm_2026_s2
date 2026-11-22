@@ -1,10 +1,28 @@
 \section{Programas del microcontrolador}
 \label{sec:codigo}
-El módulo PID está en el Listado~\ref{lst:pid}. El programa del ESP32 usa ESP-IDF~\cite{espidf}
-y dos módulos portables del registrador del banco (\texttt{estimador\_velocidad.c} y
-\texttt{conversion\_freno.c}); los pines y la calibración del servo son provisionales hasta
-cerrar el esquema eléctrico.
+Los programas completos se entregan en el archivo comprimido, en la carpeta
+\texttt{programas\_microcontrolador/}, y están en el repositorio del grupo. La
+Tabla~\ref{tab:programas} indica qué programa corresponde a cada pregunta. Los listados de este
+anexo son los del programa de la pregunta~3; el módulo PID está en el Listado~\ref{lst:pid}.
 
-\lstinputlisting[caption={Lazo de control sin \texttt{delay()} (\texttt{docs/tarea\_2/codigo/main\_tarea2.c}, ESP32).},label={lst:main}]{codigo/main_tarea2.c}
+\begin{table}[h]
+\centering\small
+\caption{Programas por pregunta (rutas dentro del comprimido).}
+\label{tab:programas}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{6.2cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+Pregunta & Archivo & Contenido \\
+\midrule
+3 (PID sin \texttt{delay}) & \texttt{pregunta3\_pid/main\_tarea2.c} & Lazo con \texttt{esp\_timer}, ISR del sensor y telemetría (Listado~\ref{lst:main}) \\
+ & \texttt{pregunta3\_pid/pid\_controller.c/.h} & PID discreto con anti-windup (Listados~\ref{lst:pid} y \ref{lst:pidh}) \\
+ & \texttt{pregunta3\_pid/estimador\_velocidad.c}, \texttt{conversion\_freno.c} & Velocidad por tiempo entre marcas y grados a pulso del servo \\
+6 y 7 (planta y ensayo) & \texttt{registrador\_banco/src/aplicacion.c} & Comandos \texttt{FRENO}, \texttt{MOTOR}, \texttt{ENSAYO} y registro cada 20~ms \\
+ & \texttt{registrador\_banco/src/} (resto) & Sensor, servo, motor y protocolo serie \\
+ & \texttt{registrador\_banco/sdkconfig.ensayo} & Pines y calibración usados en el ensayo \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
-\lstinputlisting[caption={Interfaz del PID (\texttt{firmware/include/pid\_controller.h}).},label={lst:pidh}]{\firmware/include/pid_controller.h}
+\lstinputlisting[caption={Lazo de control sin \texttt{delay()} para el ESP32 (\texttt{main\_tarea2.c}).},label={lst:main}]{codigo/main_tarea2.c}
+
+\lstinputlisting[caption={Interfaz del PID (\texttt{pid\_controller.h}).},label={lst:pidh}]{\firmware/include/pid_controller.h}

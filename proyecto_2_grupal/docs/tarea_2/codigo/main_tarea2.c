@@ -31,9 +31,12 @@
 #define FRENO_MAXIMO_DEG 180.0   /* Frenado maximo */
 
 #define RPM_A_RAD_S (2.0f * (float)M_PI / 60.0f)
-#define OMEGA_INICIAL 150.0f     /* rad/s */
-#define DESACELERACION 40.0f     /* rad/s^2, entre decel. natural y maxima */
+/* Valores del banco medidos en la pregunta 7 (escalon_02): ~300 RPM al cortar el motor,
+ * caida libre de 8 rad/s^2 y frenado maximo de 15 rad/s^2. */
+#define OMEGA_INICIAL 28.0f      /* rad/s (~270 RPM) */
+#define DESACELERACION 11.0f     /* rad/s^2, entre la caida libre y el frenado maximo */
 #define OMEGA_FIN 5.0f
+#define IMPULSO_MAXIMO_US 5000000 /* Corta el motor si no alcanza OMEGA_INICIAL */
 
 typedef enum { REPOSO, IMPULSO, FRENADO } estado_t;
 static const char *const NOMBRE_ESTADO[] = {"REPOSO", "IMPULSO", "FRENADO"};
@@ -111,6 +114,11 @@ static void al_periodo(void *argumento)
     const float rpm = isfinite(lectura.velocidad_rpm) ? (float)lectura.velocidad_rpm : 0.0f;
     const float omega = rpm * RPM_A_RAD_S;
 
+    if (estado == IMPULSO && inicio - t_inicio_us > IMPULSO_MAXIMO_US) {
+        motor(false); /* Seguridad: no alcanzo la velocidad inicial */
+        estado = REPOSO;
+        return;
+    }
     if (estado == IMPULSO && omega >= OMEGA_INICIAL) {
         motor(false); /* Se corta el motor y empieza la referencia */
         pid_reiniciar(&pid);
@@ -190,8 +198,10 @@ void app_main(void)
     gpio_install_isr_service(0);
     gpio_isr_handler_add(GPIO_SENSOR, al_flanco, NULL);
 
-    /* Ganancias provisionales (pregunta 3); se redisenan con el modelo. */
-    pid_iniciar(&pid, 0.04f, 0.08f, 0.0005f, TS_US * 1e-6f, 0.04f, 0.0f, 1.0f, true);
+    /* Ganancias desde el modelo de la pregunta 7: con u en [0, 1] (60 grados de freno),
+     * a_max = |K| * 60 = 155 RPM/s = 16 rad/s^2 y polo del freno en 1/tau = 3,6 rad/s.
+     * Cruce en 2 rad/s (Kp = 2/16) y cero del PI en 0,5 rad/s: margen de fase ~45 grados. */
+    pid_iniciar(&pid, 0.125f, 0.0625f, 0.005f, TS_US * 1e-6f, 0.04f, 0.0f, 1.0f, true);
 
     cola = xQueueCreate(64, sizeof(muestra_t));
     xTaskCreate(tarea_telemetria, "telemetria", 4096, NULL, 3, NULL);

@@ -26,7 +26,8 @@ cp "$P2/firmware/include/hardware.h" "$MICRO/pregunta3_pid/"
 # Preguntas 6 y 7: firmware del banco que ejecuto el ensayo, con la configuracion usada.
 cp -r "$P2/firmware/src" "$P2/firmware/include" "$P2/firmware/CMakeLists.txt" \
       "$P2/firmware/sdkconfig.defaults" "$MICRO/registrador_banco/"
-rm -f "$MICRO"/registrador_banco/{src,include}/README.md
+rm -f "$MICRO"/registrador_banco/{src,include}/README.md \
+      "$MICRO"/registrador_banco/src/pid_controller.c "$MICRO"/registrador_banco/include/pid_controller.h  # no los compila el banco
 { echo "# Configuracion ASM2 usada en el ensayo escalon_02 (extracto de sdkconfig)"
   grep -E '^(CONFIG_ASM_|# CONFIG_ASM_)' "$P2/firmware/sdkconfig"; } > "$MICRO/registrador_banco/sdkconfig.ensayo"
 

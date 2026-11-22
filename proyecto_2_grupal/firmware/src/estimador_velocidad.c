@@ -32,6 +32,7 @@ lectura_velocidad_t estimador_leer(const estimador_velocidad_t *estimador,
     int64_t tiempo_us, uint32_t pulsos_por_vuelta, int64_t timeout_us)
 {
     lectura_velocidad_t lectura = {.estado = VELOCIDAD_ESPERANDO,
+        .tiempo_lectura_us = tiempo_us,
         .velocidad_rpm = NAN, .edad_pulso_us = -1,
         .pulsos_aceptados = estimador->pulsos_aceptados,
         .pulsos_rechazados = estimador->pulsos_rechazados};

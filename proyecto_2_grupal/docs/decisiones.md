@@ -16,7 +16,7 @@ del repositorio. Los acuerdos no acreditan compra, montaje ni medicion.
 | Motor | Motor DC para impulso inicial | Modelo, corriente, fuente y acople |
 | Puente | Fotografia compatible con modulo tipo L298N | Confirmar integrado, jumpers y alimentacion |
 | Mando | Manual desde ESP32; START corta motor y registra | Comprobacion fisica |
-| Transmision | Tres columnas CSV y receptor MATLAB minimo | Integracion en curso |
+| Transmision | Tres columnas CSV y receptor MATLAB minimo implementados | Verificacion final y captura fisica |
 | PID y referencia | Bloque posterior | Identificacion y sintonizacion |
 | Eje y transmision | Eje 8 mm, dos 608ZZ y rueda de goma propuestos | Compatibilidad y desacoplamiento |
 

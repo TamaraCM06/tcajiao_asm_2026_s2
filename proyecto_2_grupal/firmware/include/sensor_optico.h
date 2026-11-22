@@ -12,6 +12,6 @@ esp_err_t sensor_optico_iniciar(const configuracion_hardware_t *parametros);
 void sensor_optico_configurar_timeout(int64_t timeout_us);
 
 /* Obtiene una instantanea protegida frente a la interrupcion de pulsos. */
-lectura_velocidad_t sensor_optico_leer(int64_t tiempo_us);
+lectura_velocidad_t sensor_optico_leer(void);
 
 #endif

@@ -1,6 +1,7 @@
 #include "hardware.h"
 #include "driver/gpio.h"
 #include "sdkconfig.h"
+#include <stddef.h>
 
 /* Identifica GPIO reservados para UART0, flash o arranque del ESP32 clasico. */
 static bool gpio_reservado(int numero_gpio)

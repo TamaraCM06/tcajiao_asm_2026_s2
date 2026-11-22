@@ -7,7 +7,7 @@
 | Responsable | Santiago, Persona 3 |
 | Plataforma | ESP32 clasico, ESP-IDF 5.5.5 |
 | Alcance | Captura a lazo abierto con TCRT5000, MG90S y motor manual |
-| Estado | Base, sensor y actuadores implementados; integracion en curso |
+| Estado | Registrador integrado y receptor MATLAB implementado |
 | Revision | Codigo, documentacion y diff; aun sin pruebas funcionales |
 | Pendiente fisico | GPIO, niveles, alimentacion, calibracion y montaje |
 
@@ -63,3 +63,51 @@ microsegundos admite sentido inverso; rechaza ordenes fuera de limites. No hay
 lectura de posicion ni de fuerza. Los temporizadores PWM de servo y motor son
 distintos. Cambiar el porcentaje de motor no reinicia el limite de impulso continuo.
 El limite es software; no reemplaza una desconexion fisica de alimentacion.
+
+## 1.6. Comandos y datos
+
+| Linea ASCII terminada en LF | Efecto |
+|---|---|
+| CONFIG | Consulta los cuatro grupos de configuracion |
+| CONFIG periodo_ms duracion_ms timeout_ms | Aplica tres enteros en reposo con motor cortado; reinicia el estimador |
+| STATUS | Estado, motivo de bloqueo y mandos actuales |
+| FRENO grados | Ordena un angulo calibrado; requiere motor cortado |
+| MOTOR porcentaje | Impulso en un sentido; requiere CONFIG y liberacion ordenada; 0 corta |
+| START | Exige dos pulsos recientes y freno liberado; corta motor y registra |
+| STOP | Cierra registro, corta motor y libera el freno calibrado |
+
+| Parametro de ensayo | Intervalo admitido | Inicial |
+|---|---|---|
+| periodo_ms | Entero de 10 a 60000 ms | Sin configurar |
+| duracion_ms | Entero desde periodo_ms hasta 3600000 ms | Sin configurar |
+| timeout_ms | Entero de 1 a 60000 ms, mayor al rechazo minimo de pulso | Sin configurar |
+
+El limite de 100 filas/s deja margen en UART de 115200 baudios para filas de
+menos de 64 bytes y metadatos. No demuestra que 100 Hz sea adecuado para la
+dinamica del montaje. Definir el periodo con mediciones; no son periodos de PID.
+
+El protocolo 1 emite mensajes JSON precedidos por numeral y espacio. Un ensayo
+contiene inicio, cuatro grupos de configuracion, cabecera CSV, filas y fin.
+Los eventos de freno y estado optico se intercalan como metadatos. El receptor
+los separa: el CSV conserva solo tiempo_ms,freno_deg,velocidad_rpm.
+
+El tiempo se toma en ESP32 despues del corte aceptado del motor; no es tiempo
+de llegada a la computadora. Se exporta con tres decimales de milisegundo.
+La lectura sin intervalo valido es NaN; el cero por timeout es inferido. Los
+estados opticos son 0 esperando, 1 valido y 2 sin pulsos. START exige estado 1.
+
+Durante captura se rechazan CONFIG y motor positivo. Cada periodo admite una
+sola muestra real. La cola transmite hasta 64 lineas de 512 bytes; si se llena,
+se detiene el ensayo y se reintenta el cierre tras drenar las muestras previas.
+El cierre informa producidas, enviadas, vencimientos perdidos e intervalos reales
+minimo/maximo. La condicion completo describe integridad de captura; no valida
+el montaje, la calibracion ni el modelo. No hay confirmacion individual UART:
+MATLAB tambien debe comprobar los conteos y la presencia de fin.
+
+## 1.7. Verificacion y siguiente bloque
+
+Se revisaron codigo, documentacion y diff de los bloques. Compilacion ESP-IDF,
+pruebas C host y comprobaciones del receptor se reservan para el cierre de esta
+integracion. No se ha programado ni accionado hardware en este feature.
+El siguiente bloque fisico es comprobar el montaje y adquirir un ensayo abierto;
+despues corresponde identificar y validar el modelo antes de integrar PID.

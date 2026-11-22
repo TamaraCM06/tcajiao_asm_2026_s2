@@ -1,102 +1,60 @@
-# Manual de operación y defensa — por completar
+# 1. Operacion del registrador y continuidad del proyecto
 
-Este documento es una plantilla. Completar con el hardware y software reales antes
-de operar el banco. No constituye todavía un procedimiento validado.
+## 1.1. Estado
 
-1. Identificar componentes, conexiones, alimentación y versión del firmware.
-2. Documentar fijación, protección del disco y velocidad máxima validada.
-3. Explicar compilación y carga, dependencias y configuración de adquisición.
-4. Definir arranque, calibración/verificación del sensor y velocidad inicial repetible.
-5. Explicar selección de acción fija o PID y referencia decreciente.
-6. Definir parada normal, liberación del freno y respuesta ante fallos.
-7. Indicar cómo guardar un ensayo y reproducir métricas y gráficas.
-8. Preparar una defensa de 15 minutos que muestre giro/medición, freno, registro,
-   PID real, seguimiento y comparación, y explique modelo, Ts y ganancias.
+Responsable del bloque: Santiago. Guia del software implementado; el montaje
+fisico y sus valores siguen pendientes. No constituye evidencia de ensayo real.
 
-## Registro y protocolos experimentales
+## 1.2. Preparacion del banco
 
-El contrato de señales está en [experimentos](../experimentos/README.md).
-En `experimentos/datos/registro_ensayos.csv`, guardar la fase, repetición,
-velocidad medida, versión Git y observaciones. La celda
-`configuracion_efectiva_json` conservará una copia completa de los parámetros
-resueltos, calibraciones y versiones utilizadas, aunque luego cambie `casos.json`.
-Separar ajuste y validación por ensayos completos usando el campo `fase`.
-Conservar intentos fallidos con su motivo de exclusión y etiquetar simulaciones.
+1. Completar [decisiones](decisiones.md), fijar disco y soportes y definir velocidad admitida.
+2. Verificar fuente, tierra comun y salida digital del modulo optico compatible con 3,3 V.
+3. Confirmar puente tipo L298N, conexiones y jumpers; retirar ENA para controlarlo.
+4. Calibrar MG90S sin aplicar limites supuestos: grados, pulsos, liberacion y contacto.
+5. Elegir GPIO admitidos en menuconfig y completar limites de motor y servo.
+6. Confirmar conexiones verificadas, compilar y programar segun [firmware](../firmware/README.md).
+7. Comprobar un flanco por marca y contar pulsos reales en una vuelta lenta.
+8. Medir rango de RPM y elegir periodo de registro y timeout compatibles.
 
-## Formato de muestras propuesto
+## 1.3. Ensayo manual
 
-Cada captura usa coma como separador, punto decimal y UTF-8, con una fila por
-instante adquirido y el siguiente encabezado:
+Seguir [captura MATLAB](../experimentos/README.md): abrir una sesion con nombre
+nuevo, ordenar liberacion, impulsar y enviar START cuando la velocidad inicial
+sea adecuada. START deshabilita el motor y fija el origen temporal. Conservar un
+tramo previo al cambio de freno; aplicar el angulo elegido mediante FRENO.
+El firmware registra el instante del cambio. STOP o la duracion maxima terminan
+la captura y ordenan liberacion. Documentar si el motor siguio acoplado.
 
-```csv
-t_s,referencia_rad_s,velocidad_rad_s,error_rad_s,u_solicitada_norm,u_aplicada_norm,saturado,motor_habilitado,estado
-```
+Al cerrar, revisar completo en el JSON, cantidades, muestras invalidas, perdidas,
+tiempos y estado optico. Una captura completa puede contener cero inferido o
+lecturas NaN: revisar los eventos antes de identificar la planta. Registrar
+calibracion, repeticion, velocidad inicial medida, commit y observaciones en
+el inventario del equipo. Conservar intentos fallidos con su motivo de exclusion.
 
-| Campo | Significado |
-|---|---|
-| `t_s` | Tiempo monotónico desde el inicio, segundos |
-| `referencia_rad_s` | Referencia, rad/s; vacío si no aplica |
-| `velocidad_rad_s` | Velocidad medida, rad/s |
-| `error_rad_s` | Velocidad menos referencia; vacío si no aplica |
-| `u_solicitada_norm` | Mando del freno antes de limitar |
-| `u_aplicada_norm` | Mando limitado entre 0 (liberado) y 1 (máximo calibrado) |
-| `saturado` | 1 si el límite modificó el mando; 0 si no |
-| `motor_habilitado` | 1 si se permite accionar el motor; 0 si está cortado |
-| `estado` | Estado de la máquina del firmware |
+## 1.4. Identificacion y validacion posteriores
 
-La conversión a PWM/posición depende de la calibración; no asumir una relación
-lineal entre mando y par. Esta organización y el protocolo serial son decisiones
-del proyecto, no formatos prescritos por el enunciado.
+Aplicar acciones conocidas desde condiciones iniciales controladas. Separar
+ensayos completos de ajuste y validacion; no repartir una misma corrida como
+sustituto de datos nuevos. Considerar friccion, zona muerta, retardo y saturacion.
+Definir region de validez del modelo y justificar el muestreo. El receptor no
+reemplaza el analisis MATLAB existente del companero.
 
-# Protocolos experimentales
+## 1.5. PID y comparacion final pendientes
 
-Antes de cada ensayo: comprobar fijación y protección del disco, calibración,
-registro activo, límites de velocidad y forma de detener el banco. Estas
-comprobaciones deben concretarse para el montaje real en el manual.
+Disenar una referencia decreciente realizable, discretizacion, derivada filtrada,
+saturacion y anti-windup. Estudiar Kp, Ki y Kd, aunque alguno termine en cero.
+Conservar modificaciones y graficas de sintonizacion.
 
-## Identificación y validación — etapa 3
-
-1. Calibrar sensor y freno; registrar pulsos/vuelta, zona muerta, límites y retardo.
-2. Definir velocidades iniciales y entradas conocidas, incluyendo acción fija
-   o escalones de frenado. Registrar cómo se corta/reduce el motor.
-3. Arrancar de manera repetible y registrar u(t), velocidad y tiempos reales.
-4. Separar ensayos completos para ajuste y validación; no repartir muestras de
-   una misma corrida entre ambos grupos como sustituto de validación independiente.
-5. Ajustar un modelo local de velocidad o desaceleración y validarlo sobre datos
-   no usados en el ajuste. Documentar región de validez, fricción y no linealidades.
-6. Justificar Ts con la dinámica y los límites del sensor; registrar polos y ceros
-   cuando el modelo lo permita.
-
-## Diseño y sintonización — etapas 4 y 5
-
-Definir referencia decreciente realizable y convención de error. Documentar ecuación
-PID, discretización, derivada filtrada, anti-windup y saturación. Conservar cada
-configuración de Kp, Ki y Kd, las gráficas y el efecto observado. Estudiar los tres
-términos aunque la configuración final deje alguno en cero con justificación.
-
-## Comparación final — etapa 6
-
-Mínimo **12 ensayos**: 2 condiciones × 2 velocidades iniciales × 3 repeticiones.
-La tabla usa etiquetas; elegir los valores físicos después de calibrar el banco.
-
-| Condición | Velocidad inicial | Repeticiones mínimas |
+| Condicion final | Velocidad inicial | Repeticiones minimas |
 |---|---|---|
-| Lazo abierto, acción fija | Baja | 3 |
-| Lazo abierto, acción fija | Alta | 3 |
+| Lazo abierto, accion fija | Baja | 3 |
+| Lazo abierto, accion fija | Alta | 3 |
 | PID, referencia temporal | Baja | 3 |
 | PID, referencia temporal | Alta | 3 |
 
-Fijar antes de medir: tolerancia de velocidad inicial, referencia por velocidad,
-mando de lazo abierto, ganancias finales, Ts, duración, umbral de parada e intervalo
-de evaluación. Usar la misma referencia de evaluación al comparar ambos controles
-para cada velocidad, aunque en lazo abierto no se realimente esa referencia.
-Alternar el orden de pruebas y registrar temperatura/desgaste si afectan al freno.
-
-Registrar referencia, velocidad, error y acción de control. Reportar IAE o RMSE,
-tiempo de frenado, oscilaciones, saturación y variabilidad entre ensayos. Definir el
-umbral y tiempo de permanencia que se usarán para declarar la parada. Documentar
-exclusiones y repetir para conservar el mínimo de ensayos válidos.
-
-Una menor duración de frenado por sí sola no demuestra un mejor ABS: el banco no
-mide deslizamiento rueda–vehículo. Las mejoras opcionales requieren datos y análisis
-adicionales y solo se evalúan cuando funciona el alcance básico.
+Los 12 ensayos finales son posteriores a este bloque. Definir tolerancias de
+inicio, referencia, umbral de parada e intervalo comun antes de medir. Comparar
+IAE/RMSE, tiempo, oscilaciones, saturacion y variabilidad. Menor tiempo de
+frenado por si solo no demuestra mejor ABS; no se mide deslizamiento vehicular.
+Preparar defensa de 15 minutos con evidencia real. El extra 2 requiere dos
+configuraciones del control y resultados experimentales, ademas de lo basico.

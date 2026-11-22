@@ -1,41 +1,35 @@
-# Adquisición, modelado y análisis MATLAB
+# 1. Modelado y analisis MATLAB
 
-Estado: scripts pendientes de implementación. Ejecutarlos en el futuro resolviendo
-rutas desde su propio archivo, sin depender del directorio de trabajo de MATLAB.
-Registrar versión de MATLAB y toolboxes efectivamente usados.
+## 1.1. Responsabilidad y estado
 
-| Script previsto | Entradas y salidas |
+El companero mantiene el analisis que recibe CSV y calcula h(t); ese codigo
+todavia no aparece en esta rama. Este bloque de Santiago implementa
+[recepcion serial](../experimentos/README.md), no un segundo identificador.
+
+| Entrada | Estado |
 |---|---|
-| `identificacion_planta.m` | Datos de identificación → modelo local; validación con ensayos independientes |
-| `simulacion_pid.m` | Modelo, Ts y trayectoria → diseño discreto y simulaciones etiquetadas |
-| `analisis_metricas.m` | Comparación final → IAE/RMSE, tiempo de frenado, oscilaciones, saturación y variabilidad |
+| tiempo_ms,freno_deg,velocidad_rpm | Contrato vigente del registrador abierto |
+| Modelo experimental validado | Pendiente de datos reales y analisis del equipo |
+| Diseno y simulacion PID | Pendiente |
+| Metricas de comparacion final | Pendientes |
 
-Leer datos desde `../experimentos/datos/` y guardar salidas en `../resultados/`.
-No duplicar capturas en esta carpeta. Registrar el método de identificación,
-condiciones de validez, zona muerta, retardo y saturación; analizar polos y ceros
-cuando corresponda. El ajuste y la validación deben usar ensayos diferentes.
+## 1.2. Unidades y condiciones
 
-Definir el intervalo común de evaluación, tratamiento de muestras perdidas y
-umbral de parada antes de comparar ensayos. Usar el tiempo medido para integrar
-el error y documentar cualquier remuestreo o filtrado. Conservar los datos crudos.
+Convertir milisegundos a segundos si el analisis lo requiere. RPM significa
+vueltas por minuto; rad/s = RPM por 2 pi / 60. La entrada freno_deg es una
+orden de posicion, no par medido. Revisar NaN y eventos de ausencia de pulsos;
+un cero por timeout no prueba que el sensor este conectado. Conservar el CSV
+original y documentar cualquier filtrado o remuestreo.
 
-## Relación con la tarea y el proyecto final
+Ajustar y validar con ensayos distintos. Registrar condiciones iniciales,
+retardo, friccion, zona muerta, saturacion y acople del motor. Guardar modelos,
+figuras y metricas derivados en resultados, sin duplicar capturas.
 
-En [Tarea 2](../docs/referencias/Tareas_ASM_Tarea2_v5.pdf), el modelo teórico ayuda
-a explicar impulso, escalón, muestreo y comportamiento esperado sin controlador;
-la caracterización física con MATLAB aparece en el apartado de puntos extra.
+## 1.3. Relacion con las entregas
 
-En el proyecto final, el modelo se obtiene de mediciones de la planta real y se
-valida con otros ensayos. Sirve para diseñar y justificar el controlador y el
-muestreo. La simulación permite estudiar ganancias antes de probarlas; el análisis
-posterior compara los ensayos físicos de acción fija y PID.
-
-MATLAB se ejecuta en la computadora. El PID final se ejecutará en la Pico mediante
-`firmware/`; MATLAB podrá configurar casos y registrar datos, pero no sustituye
-la demostración del controlador digital real. El proyecto exige modelado y análisis,
-sin imponer MATLAB como única herramienta. La comunicación y los scripts aún no
-están implementados.
-
-La ejecución y adquisición tendrán una única entrada en
-`../experimentos/ejecutar_caso.m` (pendiente). Esta carpeta se dedicará al
-modelado, simulación y análisis; no mantendrá un segundo programa de envío de casos.
+La [Tarea 2](../docs/referencias/Tareas_ASM_Tarea2_v5.pdf) usa un modelo teorico
+para explicar impulso, escalon, muestreo y planta sin controlador; la
+caracterizacion fisica es extra. El proyecto final exige identificacion real,
+validacion y justificacion del controlador y muestreo. El PID final se
+ejecutara en ESP32. MATLAB configura y analiza; no sustituye la demostracion
+fisica del control.

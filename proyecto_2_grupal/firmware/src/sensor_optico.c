@@ -46,9 +46,10 @@ void sensor_optico_configurar_timeout(int64_t timeout_us)
 }
 
 /* Copia estado atomico y realiza el calculo flotante fuera de la seccion critica. */
-lectura_velocidad_t sensor_optico_leer(int64_t tiempo_us)
+lectura_velocidad_t sensor_optico_leer(void)
 {
     portENTER_CRITICAL(&proteccion_sensor);
+    int64_t tiempo_us = esp_timer_get_time();
     estimador_velocidad_t copia_estimador = estimador;
     int64_t copia_timeout_us = tiempo_sin_pulsos_us;
     portEXIT_CRITICAL(&proteccion_sensor);

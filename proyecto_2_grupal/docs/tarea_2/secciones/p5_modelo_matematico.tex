@@ -1,0 +1,96 @@
+\section{Representación matemática y respuesta esperada sin controlador}
+\label{sec:p5}
+\enunciado{De una representación matemática del sistema según la teoría. Explique cómo debería
+quedar la respuesta final de la planta (sin controlador) y algunos posibles valores que se puedan
+extraer teóricamente}
+
+\subsection{Representación matemática del sistema}
+El sistema de frenado se modela como un disco en rotación que, después de alcanzar una velocidad
+angular inicial $\omega_0$, deja de recibir torque de accionamiento del motor DC y desacelera por
+efecto de la fricción. La planta tiene como entrada la acción del freno $u(t)$, aplicada mediante
+una goma movida por un servomotor MG90S, y como salida la velocidad angular $\omega(t)$ del disco.
+Según la segunda ley de Newton para sistemas rotacionales, la suma de torques es igual al momento
+de inercia equivalente multiplicado por la aceleración angular~\cite{openstax_rotacion}:
+\begin{equation}
+  J_\text{eq}\,\frac{d\omega(t)}{dt} = \tau_m(t) - b\,\omega(t) - \tau_f(t)
+  \label{eq:newton_rot}
+\end{equation}
+En esta expresión, $J_\text{eq}$ representa el momento de inercia equivalente
+(\si{kg\cdot m^2}), $\tau_m$ el torque del motor (\si{N\cdot m}), $b$ el coeficiente de fricción
+viscosa (\si{N\cdot m\cdot s/rad}) y $\tau_f$ el torque resistivo del freno (\si{N\cdot m}).
+Durante la etapa de frenado se aproxima $\tau_m \approx 0$, aunque los elementos que permanecen
+acoplados al eje siguen contribuyendo a la inercia y a las pérdidas mecánicas. Para obtener una
+función de transferencia aproximada, se consideran variaciones pequeñas $\Delta\omega$ y
+$\Delta u$ y se supone localmente $\Delta\tau_f \approx K_f\,\Delta u$. Sustituyendo en la
+ecuación rotacional se obtiene la ecuación incremental, y posteriormente se aplica Laplace con
+condiciones iniciales incrementales nulas:
+\begin{gather*}
+  J_\text{eq}\,\frac{d\,\Delta\omega(t)}{dt} + b\,\Delta\omega(t) = -K_f\,\Delta u(t) \\[4pt]
+  (J_\text{eq}s + b)\,\Delta\Omega(s) = -K_f\,\Delta U(s)
+\end{gather*}
+\begin{equation}
+  G(s) = \frac{\Delta\Omega(s)}{\Delta U(s)} \approx \frac{-K_f}{J_\text{eq}s + b}
+  \label{eq:planta_G}
+\end{equation}
+El signo negativo indica que incrementar el frenado disminuye la velocidad. Esta función de
+transferencia es una aproximación lineal alrededor de un intervalo de operación, no un modelo
+válido para toda la detención, pues la fricción, la presión de la goma y el comportamiento del
+servo pueden ser no lineales~\cite{ctms_motor}. Esta simplificación se adopta porque permite
+estudiar la relación entre la acción de frenado y la velocidad mediante la transformada de
+Laplace, y proporciona un punto de partida para el diseño del controlador PID. La validez de la
+aproximación no se da por supuesta: posteriormente se comprobará mediante la comparación del
+modelo con datos experimentales en MATLAB, delimitando las condiciones de operación en las que
+resulte representativo.
+
+\subsection{Respuesta esperada de la planta sin controlador}
+Sin PID, el servomotor aplica una posición de frenado fija y no corrige los cambios de velocidad
+medidos. Si durante esa prueba se aproxima el torque resistivo total como constante y positivo,
+$\tau_\text{res}$, la ecuación de movimiento se simplifica a:
+\begin{equation}
+  J_\text{eq}\,\frac{d\omega(t)}{dt} = -\tau_\text{res}
+  \label{eq:torque_constante}
+\end{equation}
+Despejando la derivada de la velocidad e integrando con la condición inicial
+$\omega(0)=\omega_0$, se obtiene la respuesta temporal. Se impone además $\omega(t)\geq 0$, ya
+que la acción del freno no invierte el sentido del movimiento:
+\begin{gather*}
+  \frac{d\omega}{dt} = -\frac{\tau_\text{res}}{J_\text{eq}}
+  \quad\Longrightarrow\quad
+  \omega(t) = \omega_0 - \frac{\tau_\text{res}}{J_\text{eq}}\,t
+\end{gather*}
+\begin{equation}
+  \omega(t) = \max\left\{0,\ \omega_0 - \frac{\tau_\text{res}}{J_\text{eq}}\,t\right\}
+  \label{eq:respuesta_lineal}
+\end{equation}
+Por lo tanto, se espera una curva de velocidad aproximadamente lineal y decreciente hasta llegar a
+\SI{0}{rad/s}. Una mayor acción de frenado produciría una pendiente más negativa y un menor tiempo
+de detención. En el prototipo real pueden observarse desviaciones respecto a esa recta debido al
+rozamiento viscoso, la fricción seca y el retardo de aplicación del freno. Incluso sin ejercer
+presión con la zapata, el disco eventualmente se detendría por las pérdidas mecánicas; por eso se
+deben comparar las curvas con y sin frenado aplicado.
+
+\subsection{Valores que pueden extraerse teóricamente}
+Las magnitudes teóricas se expresan en función de los parámetros del sistema, sin asignarles
+valores numéricos. En general, el momento de inercia de un cuerpo que gira alrededor de un eje se
+calcula a partir de su distribución de masa. Para un disco macizo y homogéneo, de masa $m$ y radio
+$R$, esta relación se simplifica a~\cite{openstax_rotacion}:
+\begin{equation}
+  J_\text{disco} = \int r^2\,dm
+  \quad\Longrightarrow\quad
+  J_\text{disco} = \frac{1}{2}\,mR^2
+  \label{eq:inercia_disco}
+\end{equation}
+Si varios elementos giran alrededor del mismo eje, su inercia se incorpora al momento equivalente
+mediante $J_\text{eq} = J_\text{disco} + \sum J_i$. Bajo la hipótesis de torque resistivo total
+constante, es posible determinar simbólicamente la aceleración angular y el tiempo de detención:
+\begin{equation}
+  \alpha = -\frac{\tau_\text{res}}{J_\text{eq}}\,;\qquad
+  t_\text{det} = \frac{J_\text{eq}\,\omega_0}{\tau_\text{res}}
+  \label{eq:alfa_tdet}
+\end{equation}
+La velocidad inicial se expresa en rad/s mediante $\omega_0 = 2\pi\cdot\text{RPM}_0/60$. Las
+ecuaciones de movimiento son generales para sistemas rotacionales; la expresión
+$J_\text{disco} = \tfrac{1}{2}mR^2$ corresponde específicamente a un disco uniforme. En esta etapa
+no se asignan valores reales a los parámetros: posteriormente se identificarán y ajustarán en
+MATLAB utilizando mediciones experimentales de entrada y velocidad, y se validará la capacidad
+predictiva del modelo.

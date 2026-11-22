@@ -1,0 +1,9 @@
+\section{Programas del microcontrolador}
+\label{sec:codigo}
+El módulo PID está en el Listado~\ref{lst:pid}. El programa de la Pico usa el Pico
+SDK~\cite{picosdk}; los pines y límites del servo son provisionales hasta cerrar el esquema
+eléctrico.
+
+\lstinputlisting[caption={Lazo de control sin \texttt{delay()} (\texttt{docs/tarea\_2/codigo/main\_tarea2.c}).},label={lst:main}]{codigo/main_tarea2.c}
+
+\lstinputlisting[caption={Interfaz del PID (\texttt{firmware/include/pid\_controller.h}).},label={lst:pidh}]{\firmware/include/pid_controller.h}

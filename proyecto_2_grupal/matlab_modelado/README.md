@@ -1,10 +1,19 @@
 # Adquisición, modelado y análisis MATLAB
 
-Estado: scripts pendientes de implementación. Ejecutarlos en el futuro resolviendo
-rutas desde su propio archivo, sin depender del directorio de trabajo de MATLAB.
+Estado: `visualizar_ensayo.m` implementado (Tarea 2, pregunta 7); el resto pendiente.
+Los scripts resuelven rutas desde su propio archivo, sin depender del directorio de
+trabajo de MATLAB.
+
+| Script | Entradas y salidas |
+|---|---|
+| `visualizar_ensayo.m` | CSV de un escalón del servo con `tiempo_ms`, `freno_deg` y `velocidad_rpm` → gráficas, ajuste de K y τ, respuesta al impulso |
+
+Ese CSV es el formato de captura usado para la Tarea 2. Para el proyecto, migrar el
+script al [formato de muestras](../docs/manual_operacion.md#formato-de-muestras-propuesto)
+(segundos, rad/s y mando normalizado) para que lea las mismas capturas que el firmware.
 Registrar versión de MATLAB y toolboxes efectivamente usados.
 
-| Script previsto | Entradas y salidas |
+| Script previsto (proyecto) | Entradas y salidas |
 |---|---|
 | `identificacion_planta.m` | Datos de identificación → modelo local; validación con ensayos independientes |
 | `simulacion_pid.m` | Modelo, Ts y trayectoria → diseño discreto y simulaciones etiquetadas |

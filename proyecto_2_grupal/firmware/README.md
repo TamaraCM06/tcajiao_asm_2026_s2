@@ -35,5 +35,5 @@ la compilación; no copiar el SDK completo al repositorio.
 - Registrar referencia, velocidad, error, mando aplicado y saturación tanto en
   acción fija como con PID; documentar la discretización y filtro elegidos.
 
-Ver [contrato de datos](../experimentos/README.md) y
+Ver [formato de muestras](../docs/manual_operacion.md#formato-de-muestras-propuesto) y
 [decisiones pendientes](../docs/decisiones.md).

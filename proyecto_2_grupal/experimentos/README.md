@@ -30,8 +30,9 @@ casos.json → ejecutar_caso.m (PC) → USB/UART → firmware en la Pico
    La interfaz exacta se definirá al implementar el programa.
 3. El programa combinará `comunes` con el caso elegido (prioridad del caso),
    validará parámetros y enviará la configuración al firmware.
-4. La Pico ejecutará el ensayo y devolverá mediciones; el programa guardará cada
-   repetición en un CSV y añadirá una fila a
+4. La Pico ejecutará el ensayo y devolverá mediciones con el
+   [formato de muestras](../docs/manual_operacion.md#formato-de-muestras-propuesto);
+   el programa guardará cada repetición en un CSV y añadirá una fila a
    [datos/registro_ensayos.csv](datos/registro_ensayos.csv).
 
 Los cuatro casos actuales son plantillas deshabilitadas para acción fija/PID y

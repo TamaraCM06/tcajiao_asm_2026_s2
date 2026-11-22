@@ -245,10 +245,11 @@ static void preparar_hardware(void)
     montaje = hardware_cargar();
     motivo_hardware = hardware_validar(&montaje);
     if (motivo_hardware) return;
-    /* ledc_set_duty_and_update (servo y motor) exige el servicio de fades instalado. */
-    esp_err_t resultado = ledc_fade_func_install(0);
-    if (resultado == ESP_OK) resultado = motor_iniciar(&montaje);
+    esp_err_t resultado = motor_iniciar(&montaje);
     if (resultado == ESP_OK) resultado = servo_freno_iniciar(&montaje);
+    /* ledc_set_duty_and_update (servo y motor) exige el servicio de fades, y su
+     * instalacion requiere LEDC ya configurado: va despues de ambos iniciar. */
+    if (resultado == ESP_OK) resultado = ledc_fade_func_install(0);
     if (resultado == ESP_OK) resultado = sensor_optico_iniciar(&montaje);
     hardware_listo = resultado == ESP_OK;
     motivo_hardware = hardware_listo ? "listo" : "fallo_inicializacion";

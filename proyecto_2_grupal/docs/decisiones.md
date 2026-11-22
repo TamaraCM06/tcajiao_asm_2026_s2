@@ -23,15 +23,15 @@ del repositorio. Los acuerdos no acreditan compra, montaje ni medicion.
 
 ## 1.2. Conexiones y calibracion
 
-No hay GPIO elegidos. La configuracion queda inhabilitada hasta completar y
-verificar el montaje. Se excluyen pines de flash, arranque, UART0 y 16/17 por
+GPIO usados en el ensayo del 22 de noviembre (escalon_02); la configuracion efectiva queda
+en el JSON de cada captura. menuconfig sigue inhabilitado hasta verificar el montaje. Se excluyen pines de flash, arranque, UART0 y 16/17 por
 posible PSRAM. GPIO 34 a 39 solo admiten entrada y no tienen pull-up interno.
 
 | Senal | GPIO ESP32 | Dato requerido |
 |---|---|---|
-| Salida digital TCRT5000 | Pendiente | Alimentacion, tension medida y flanco |
-| MG90S | Pendiente | Fuente externa, frecuencia, pulsos, grados y liberacion |
-| ENA, IN1, IN2 | Pendientes | Retirar jumper ENA para mando por GPIO; confirmar modulo |
+| Salida digital TCRT5000 | 27 | 3,3 V; flanco de bajada; rechazo de pulsos < 500 us |
+| MG90S | 18 | 50 Hz, 500-2500 us para 0-180 grados; liberado 120, frenado 180 |
+| ENA, IN1, IN2 | 25, 26, 33 | Sin jumper en ENA; PWM 1 kHz; maximo 60 %, impulso maximo 15 s |
 | Tierra comun | No aplica | ESP32, sensor, servo y driver |
 | Registro | UART0 por USB de la placa | 115200 baudios, 8N1 |
 

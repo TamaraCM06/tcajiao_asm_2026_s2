@@ -7,7 +7,7 @@
 | Responsable | Santiago, Persona 3 |
 | Plataforma | ESP32 clasico, ESP-IDF 5.5.5 |
 | Alcance | Captura a lazo abierto con TCRT5000, MG90S y motor manual |
-| Estado | Base y captura optica implementadas; integracion en curso |
+| Estado | Base, sensor y actuadores implementados; integracion en curso |
 | Revision | Codigo, documentacion y diff; aun sin pruebas funcionales |
 | Pendiente fisico | GPIO, niveles, alimentacion, calibracion y montaje |
 
@@ -54,3 +54,12 @@ No sustituye ajustar contraste y evitar oscilaciones del comparador. Tras una
 pausa igual o mayor al timeout se necesitan dos pulsos nuevos. La ausencia de
 pulsos produce cero estimado por timeout, no confirma integridad del sensor.
 Las instantaneas se protegen frente a escrituras simultaneas de la interrupcion.
+
+## 1.5. Actuadores
+
+El arranque mantiene ENA deshabilitado y el PWM del servo sin pulsos. El operador
+debe ordenar la liberacion calibrada antes de impulsar. La conversion grados a
+microsegundos admite sentido inverso; rechaza ordenes fuera de limites. No hay
+lectura de posicion ni de fuerza. Los temporizadores PWM de servo y motor son
+distintos. Cambiar el porcentaje de motor no reinicia el limite de impulso continuo.
+El limite es software; no reemplaza una desconexion fisica de alimentacion.

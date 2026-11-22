@@ -3,12 +3,29 @@
 \enunciado{Construya la planta del proyecto (solo no tiene controlador pero si el resto de
 componentes) (40\,\% extra). Adjunte fotos y video de la construcción final.}
 
-\puntosextra{Se construyó la planta completa y se muestra funcionando en lazo abierto en el
-video \videoPlanta. Solo falta cerrar el lazo con el PID, que corresponde al Proyecto Grupal~2.}
+\puntosextra{Se construyó la planta completa (fotos en la Fig.~\ref{fig:planta}) y se muestra
+funcionando en lazo abierto en el video \videoPlanta. Solo falta cerrar el lazo con el PID, que corresponde al Proyecto Grupal~2.}
 
 \subsection{Componentes y conexiones}
-La Tabla~\ref{tab:planta} resume la planta construida, que implementa los bloques de la
-Fig.~\ref{fig:sistema}.
+La Fig.~\ref{fig:planta} muestra la planta construida y la Tabla~\ref{tab:planta} resume sus
+componentes, que implementan los bloques de la Fig.~\ref{fig:sistema}. La estructura es de
+cartón: es liviana, fácil de ajustar y suficiente para las velocidades del ensayo (unas 300~RPM).
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}[b]{0.44\linewidth}
+  \centering\includegraphics[width=\linewidth]{planta_superior.jpg}
+  \caption{Vista superior: servo (izquierda), motor y disco, sensor en su caja (derecha),
+  protoboard con el ESP32, convertidor DC-DC y puente L298N.}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.54\linewidth}
+  \centering\includegraphics[width=\linewidth]{planta_lateral.jpg}
+  \caption{Vista lateral: motor CD sobre su soporte, disco y TCRT5000 dentro de la caja de
+  cartón frente a las marcas.}
+\end{subfigure}
+\caption{Planta construida.}
+\label{fig:planta}
+\end{figure}
 
 \begin{table}[h]
 \centering\small
@@ -18,10 +35,10 @@ Fig.~\ref{fig:sistema}.
 \toprule
 Componente & Función & Conexión \\
 \midrule
-Disco de MDF & Rueda frenada; 10 marcas negras equidistantes sobre fondo blanco & Eje del motor \\
+Disco de cartón & Rueda frenada; 10 marcas negras equidistantes sobre fondo blanco & Eje del motor \\
 Motor CD & Lleva el disco a la velocidad inicial & Salidas OUT1/OUT2 del L298N \\
 Puente H L298N & Etapa de potencia del motor & ENA 25, IN1 26, IN2 33 \\
-Fuente del motor & Alimenta el motor a través del puente & Bornes +12V y GND del L298N \\
+Fuente del motor & Convertidor DC-DC ajustable con voltímetro, alimentado por USB & Bornes de potencia del L298N \\
 Servo MG90S + goma & Freno: 120° liberado, 180° frenado & Señal en GPIO18 (PWM 50~Hz) \\
 Sensor TCRT5000 & Un pulso por marca, 10 por vuelta & Salida en GPIO27, a 3,3~V \\
 ESP32 (ESP-IDF 5.5) & Mide, registra y manda freno y motor & USB a la computadora \\
@@ -40,7 +57,9 @@ ESP32 (ESP-IDF 5.5) & Mide, registra y manda freno y motor & USB a la computador
   \item \textbf{Freno.} El MG90S es un servo de posición: recibe un pulso cada 20~ms cuyo ancho
   (500 a 2500~µs) fija el ángulo. A 120° la goma está separada del disco y a 180° lo presiona. El
   freno es unilateral, como se discutió en la pregunta~5: solo quita velocidad.
-  \item \textbf{Sensor óptico.} El TCRT5000 detecta por reflexión el paso de cada marca negra. El
+  \item \textbf{Sensor óptico.} El TCRT5000 detecta por reflexión el paso de cada marca negra.
+  Va dentro de una caja de cartón que lo protege de la luz ambiente, que también contiene
+  infrarrojo y alteraría el umbral del comparador. El
   ESP32 fecha un solo flanco por marca con una interrupción y calcula la velocidad por tiempo entre
   marcas (pregunta~2). Un filtro descarta los flancos separados por menos de 500~µs, que son rebotes
   del comparador del módulo y no marcas reales.
@@ -57,10 +76,3 @@ ESP32 (ESP-IDF 5.5) & Mide, registra y manda freno y motor & USB a la computador
 El video \videoPlanta{} muestra la planta operando sin controlador: el motor acelera el disco, se
 corta, y el servo aplica la goma con un ángulo fijo, mientras el ESP32 mide la velocidad.
 
-\IfFileExists{figuras/planta.jpg}{%
-\begin{figure}[h]
-\centering
-\includegraphics[width=0.8\linewidth]{planta.jpg}
-\caption{Planta construida.}
-\label{fig:planta}
-\end{figure}}{}

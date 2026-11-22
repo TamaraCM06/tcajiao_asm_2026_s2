@@ -5,8 +5,10 @@ Entrega y defensa: **2 de diciembre de 2026**; archivos hasta las **23:50**.
 Fuente: [enunciado v7](docs/referencias/ENUNCIADO_PROYECTO_2.md),
 secciones 1–6. Es un banco didáctico de frenado; el antibloqueo simplificado es opcional.
 
-Estado: estructura inicial, protocolos propuestos y plantillas. No hay firmware,
-scripts MATLAB, modelo identificado ni resultados experimentales implementados todavía.
+Estado: PID discreto implementado en `firmware/` y probado en simulación; Tarea 2
+redactada en `docs/tarea_2/` (preguntas 1 a 5 y método de la 7); script MATLAB para
+visualizar un ensayo al escalón. Faltan la planta armada, el modelo identificado con
+datos reales y los resultados experimentales.
 Raspberry Pi Pico/Pico SDK y MATLAB son elecciones de la propuesta del grupo,
 no plataformas impuestas por el enunciado del proyecto. La Tarea 2 sí menciona
 MATLAB en su apartado de caracterización extra.
@@ -17,7 +19,7 @@ MATLAB en su apartado de caracterización extra.
 proyecto_2_grupal/
 ├── firmware/
 │   ├── include/                 # Interfaces y configuración de hardware
-│   └── src/                     # Adquisición, actuadores, PID y máquina de estados
+│   └── src/                     # Adquisición, actuadores, PID (pid_controller.c) y estados
 ├── matlab_modelado/             # Adquisición, identificación, simulación y métricas
 ├── experimentos/
 │   ├── casos.json              # Parámetros comunes y casos de todos los ensayos
@@ -28,7 +30,8 @@ proyecto_2_grupal/
 │   ├── figuras/                 # Gráficas de datos reales y simulaciones identificadas
 │   └── metricas/                # Resultados por ensayo y estadísticas por condición
 └── docs/
-    ├── referencias/             # Enunciado y bibliografía de apoyo
+    ├── referencias/             # Enunciados de Tarea 2 y Proyecto 2 en markdown
+    ├── tarea_2/                 # Informe LaTeX de la Tarea 2, diagramas y evidencias
     ├── requisitos.md            # Correspondencia entre requisitos y evidencias
     ├── decisiones.md            # Pines, montaje, calibraciones y decisiones
     └── manual_operacion.md      # Guion de operación y defensa por completar

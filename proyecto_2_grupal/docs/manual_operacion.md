@@ -15,7 +15,8 @@ de operar el banco. No constituye todavía un procedimiento validado.
 
 ## Registro y protocolos experimentales
 
-El contrato de señales está en [experimentos](../experimentos/README.md).
+El flujo de casos y datos está en [experimentos](../experimentos/README.md); el formato
+de cada captura se define abajo.
 En `experimentos/datos/registro_ensayos.csv`, guardar la fase, repetición,
 velocidad medida, versión Git y observaciones. La celda
 `configuracion_efectiva_json` conservará una copia completa de los parámetros
@@ -29,7 +30,7 @@ Cada captura usa coma como separador, punto decimal y UTF-8, con una fila por
 instante adquirido y el siguiente encabezado:
 
 ```csv
-t_s,referencia_rad_s,velocidad_rad_s,error_rad_s,u_solicitada_norm,u_aplicada_norm,saturado,motor_habilitado,estado
+t_s,referencia_rad_s,velocidad_rad_s,error_rad_s,u_solicitada_norm,u_aplicada_norm,saturado,motor_habilitado,estado,ejecucion_us
 ```
 
 | Campo | Significado |
@@ -42,7 +43,8 @@ t_s,referencia_rad_s,velocidad_rad_s,error_rad_s,u_solicitada_norm,u_aplicada_no
 | `u_aplicada_norm` | Mando limitado entre 0 (liberado) y 1 (máximo calibrado) |
 | `saturado` | 1 si el límite modificó el mando; 0 si no |
 | `motor_habilitado` | 1 si se permite accionar el motor; 0 si está cortado |
-| `estado` | Estado de la máquina del firmware |
+| `estado` | Estado de la máquina del firmware (`IMPULSO`, `FRENADO`) |
+| `ejecucion_us` | Duración del paso de control en esa muestra, µs |
 
 La conversión a PWM/posición depende de la calibración; no asumir una relación
 lineal entre mando y par. Esta organización y el protocolo serial son decisiones

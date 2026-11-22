@@ -27,6 +27,7 @@ void pid_reiniciar(pid_controlador_t *pid)
     pid->derivada = 0.0f;
     pid->omega_previa = 0.0f;
     pid->primera = true;
+    pid->u_sin_limite = 0.0f;
     pid->saturado = false;
 }
 
@@ -48,6 +49,7 @@ float pid_paso(pid_controlador_t *pid, float omega_ref, float omega)
     const float p = pid->kp * e;
     const float u_sin_limite = p + pid->integral + pid->derivada;
     const float u = recortar(u_sin_limite, pid->u_min, pid->u_max);
+    pid->u_sin_limite = u_sin_limite;
     pid->saturado = (u != u_sin_limite);
 
     /* Clamping: no se integra si el mando ya esta en un limite y el error

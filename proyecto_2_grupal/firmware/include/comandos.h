@@ -6,7 +6,8 @@
 
 #define COMANDO_LONGITUD_MAXIMA 128
 typedef enum { COMANDO_INVALIDO, COMANDO_CONFIG_CONSULTA, COMANDO_CONFIG,
-    COMANDO_MOTOR, COMANDO_FRENO, COMANDO_START, COMANDO_STOP, COMANDO_STATUS } tipo_comando_t;
+    COMANDO_MOTOR, COMANDO_FRENO, COMANDO_START, COMANDO_STOP, COMANDO_STATUS,
+    COMANDO_ENSAYO } tipo_comando_t;
 typedef struct { tipo_comando_t tipo; double valores[3]; } comando_t;
 typedef struct { uint32_t periodo_ms; uint32_t duracion_ms; uint32_t timeout_ms; } configuracion_ensayo_t;
 

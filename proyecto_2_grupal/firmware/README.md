@@ -78,6 +78,7 @@ El limite es software; no reemplaza una desconexion fisica de alimentacion.
 | MOTOR porcentaje | Impulso en un sentido; requiere CONFIG y liberacion ordenada; 0 corta |
 | START | Exige dos pulsos recientes y freno liberado; corta motor y registra |
 | STOP | Cierra registro, corta motor y libera el freno calibrado |
+| ENSAYO porcentaje grados espera_ms | Automatico: impulsa el motor; cuando la velocidad lleva 0,5 s sin subir mas de 2 %, corta el motor y registra como START, y aplica FRENO grados tras espera_ms (0 a 10000). Requiere CONFIG y freno liberado |
 
 | Parametro de ensayo | Intervalo admitido | Inicial |
 |---|---|---|

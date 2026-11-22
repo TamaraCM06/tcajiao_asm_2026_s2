@@ -1,4 +1,5 @@
 #include "comandos.h"
+#include "conversion_freno.h"
 #include "hardware.h"
 #include "motor.h"
 #include "protocolo_serial.h"
@@ -31,6 +32,17 @@ static uint32_t pulsos_rechazados_iniciales;
 static uint32_t pulsos_rechazados_finales;
 static int64_t tiempo_fin_us;
 static estado_velocidad_t estado_sensor_anterior;
+
+/* ENSAYO automatico: acelera hasta que la velocidad deja de subir, entonces corta el
+ * motor, registra como START y aplica el freno tras la espera pedida. */
+#define MESETA_TOLERANCIA 0.02      /* subida relativa que aun cuenta como aceleracion */
+#define MESETA_VENTANA_US 500000    /* tiempo sin nuevo maximo para declarar velocidad maxima */
+static bool acelerando;
+static bool freno_pendiente;
+static double freno_automatico_deg;
+static uint32_t espera_freno_ms;
+static double rpm_maxima;
+static int64_t inicio_meseta_us;
 
 /* Solicita una lectura a la tarea coordinadora, sin transmitir desde el callback. */
 static void solicitar_muestra(void *argumento)
@@ -168,6 +180,64 @@ static void iniciar_registro(void)
     adquirir_muestra();
 }
 
+/* Valida ENSAYO completo antes de mover nada y arranca la aceleracion vigilada. */
+static void iniciar_ensayo_automatico(const comando_t *comando)
+{
+    double porcentaje = comando->valores[0], angulo = comando->valores[1], espera = comando->valores[2];
+    uint32_t pulso_us;
+    if (!hardware_listo) { informar_error(motivo_hardware); return; }
+    if (registrando || acelerando) { informar_error("ensayo_activo"); return; }
+    if (!ensayo.periodo_ms) { informar_error("falta_CONFIG"); return; }
+    if (!servo_freno_liberado()) { informar_error("ordenar_freno_liberado"); return; }
+    if (espera < 0 || espera > 10000 || floor(espera) != espera ||
+        !freno_convertir_pulso(&montaje, angulo, &pulso_us)) {
+        informar_error("parametros_ENSAYO_invalidos"); return;
+    }
+    int64_t ahora = esp_timer_get_time();
+    if (porcentaje <= 0 || motor_ordenar(porcentaje, ahora) != ESP_OK) { informar_error("mando_rechazado"); return; }
+    acelerando = true;
+    freno_pendiente = false;
+    freno_automatico_deg = angulo;
+    espera_freno_ms = (uint32_t)espera;
+    rpm_maxima = 0;
+    inicio_meseta_us = ahora;
+    informar_evento("motor", porcentaje, ahora);
+}
+
+/* Avanza el ENSAYO en cada vuelta del bucle: detecta la velocidad maxima y aplica el freno. */
+static void vigilar_ensayo_automatico(int64_t tiempo_us)
+{
+    if (acelerando) {
+        if (motor_porcentaje() <= 0) {  /* limite de impulso, STOP o MOTOR 0 */
+            acelerando = false;
+            informar_error("velocidad_maxima_no_alcanzada");
+            return;
+        }
+        lectura_velocidad_t lectura = sensor_optico_leer();
+        if (lectura.estado != VELOCIDAD_VALIDA) { inicio_meseta_us = tiempo_us; return; }
+        if (lectura.velocidad_rpm > rpm_maxima * (1.0 + MESETA_TOLERANCIA)) {
+            rpm_maxima = lectura.velocidad_rpm;
+            inicio_meseta_us = tiempo_us;
+        } else if (tiempo_us - inicio_meseta_us >= MESETA_VENTANA_US) {
+            acelerando = false;
+            informar_evento("velocidad_maxima", rpm_maxima, tiempo_us);
+            iniciar_registro();
+            freno_pendiente = registrando;
+        }
+        return;
+    }
+    if (freno_pendiente && !registrando) freno_pendiente = false;
+    if (freno_pendiente && tiempo_us - reloj.inicio_us >= (int64_t)espera_freno_ms * 1000) {
+        freno_pendiente = false;
+        if (servo_freno_ordenar(freno_automatico_deg) != ESP_OK) {
+            informar_error("mando_rechazado");
+            terminar_registro("fallo_actuador", false);
+            return;
+        }
+        if (!informar_evento("freno", freno_automatico_deg, tiempo_us)) terminar_registro("cola_llena", false);
+    }
+}
+
 /* Consulta estado sin enviar NaN como un numero JSON invalido. */
 static void informar_estado(void)
 {
@@ -185,6 +255,7 @@ static void ejecutar_comando(const char *linea)
     comando_t comando = comando_interpretar(linea);
     if (comando.tipo == COMANDO_STATUS) { informar_estado(); return; }
     if (comando.tipo == COMANDO_STOP) {
+        acelerando = freno_pendiente = false;
         if (registrando) terminar_registro("STOP", true);
         else if (!cerrando) {
             if (hardware_listo) {
@@ -215,7 +286,8 @@ static void ejecutar_comando(const char *linea)
         protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"CONFIG\"}");
         return;
     }
-    if (comando.tipo == COMANDO_START) { iniciar_registro(); return; }
+    if (comando.tipo == COMANDO_START) { acelerando = false; iniciar_registro(); return; }
+    if (comando.tipo == COMANDO_ENSAYO) { iniciar_ensayo_automatico(&comando); return; }
     if (comando.tipo != COMANDO_MOTOR && comando.tipo != COMANDO_FRENO) {
         informar_error("comando_invalido"); return;
     }
@@ -273,6 +345,7 @@ void app_main(void)
     for (;;) {
         int64_t tiempo_us = esp_timer_get_time();
         if (motor_vigilar(tiempo_us)) informar_evento("limite_impulso_motor", 0, tiempo_us);
+        vigilar_ensayo_automatico(tiempo_us);
         if (protocolo_fallo() && motor_porcentaje() > 0) motor_ordenar(0, tiempo_us);
         if (registrando && protocolo_fallo()) terminar_registro("fallo_uart", false);
         if (registrando && tiempo_us - reloj.inicio_us >= (int64_t)ensayo.duracion_ms * 1000)

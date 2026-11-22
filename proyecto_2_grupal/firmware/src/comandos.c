@@ -32,6 +32,7 @@ comando_t comando_interpretar(const char *linea)
         return comando;
     }
     if (cantidad == 4 && !strcmp(palabras[0], "CONFIG")) comando.tipo = COMANDO_CONFIG;
+    if (cantidad == 4 && !strcmp(palabras[0], "ENSAYO")) comando.tipo = COMANDO_ENSAYO;
     if (cantidad == 2 && !strcmp(palabras[0], "MOTOR")) comando.tipo = COMANDO_MOTOR;
     if (cantidad == 2 && !strcmp(palabras[0], "FRENO")) comando.tipo = COMANDO_FRENO;
     if (comando.tipo == COMANDO_INVALIDO) return comando;

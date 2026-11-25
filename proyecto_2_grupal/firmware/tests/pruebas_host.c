@@ -176,7 +176,7 @@ int main(int cantidad_argumentos, char **argumentos)
         estimador_registrar(&estimador, 2500, 0, 10000);
         assert(fabs(estimador_leer(&estimador, 2500, 24, 1, 10000).velocidad_rpm - 1000) < 1e-10);
     } else if (!strcmp(escenario, "promedio")) {
-        /* Marcas desiguales: intervalos 2000/3000 alternados promedian una vuelta exacta. */
+        /* Ranuras desiguales: intervalos 2000/3000 alternados promedian una vuelta exacta. */
         int64_t tiempo = 0;
         estimador_registrar(&estimador, tiempo, 0, 10000);
         for (int indice = 0; indice < 24; ++indice) {

@@ -9,7 +9,7 @@ flowchart LR
       FW --> MOTOR[motor.c] --> L298N --> DC[Motor CD]
       SENSOR[sensor_optico.c + estimador_velocidad.c] --> FW
     end
-    DC --> DISCO((Disco)) --> S[Sensor 20 marcas] --> SENSOR
+    DC --> DISCO((Disco de 20 ranuras)) --> S[Horquilla LM393] --> SENSOR
     MG90S -- goma --> DISCO
     PC --> CSV[(datos/*.csv)] --> MATLAB[visualizar_ensayo.m]
 ```
@@ -20,7 +20,7 @@ flowchart LR
 |---|---|
 | `aplicacion.c` | Bucle principal: comandos, ensayo automático, calibración, registro periódico y cierre |
 | `comandos.c` | Interpreta las líneas recibidas (`FRENO 150`, `CAL +`, ...) |
-| `sensor_optico.c` / `estimador_velocidad.c` | Interrupción por flanco; RPM con el tiempo de la última vuelta |
+| `sensor_optico.c` / `estimador_velocidad.c` | Interrupción por flanco de la salida DO del LM393 (uno por ranura); RPM con el tiempo de la última vuelta |
 | `servo_freno.c` / `conversion_freno.c` | Grados ↔ pulsos dentro del recorrido calibrado |
 | `motor.c` | PWM del L298N y corte por límite de impulso |
 | `reloj_registro.c` | Una muestra por periodo; cuenta las perdidas sin inventarlas |
@@ -39,12 +39,12 @@ flowchart LR
 ## Datos
 
 `tiempo_ms,freno_deg,velocidad_rpm`: tiempo del ESP32 desde el corte del motor, ángulo ordenado
-(no medido) y velocidad. `nan` mientras no hay dos pulsos; `0` tras 100 ms sin pulsos. El `.json`
+(no medido) y velocidad. `nan` mientras no hay dos pulsos; `0` tras 100 ms sin pulsos (menos de 30 RPM). El `.json`
 guarda la configuración efectiva, los eventos con su tiempo y el cierre (filas producidas,
 enviadas y perdidas; `completo` indica que no faltó ninguna).
 
 RPM = 60·10⁶ · N / (20 · suma de los últimos N intervalos en µs), con N = 20: medir una vuelta
-completa cancela el espaciado desigual de las marcas.
+completa cancela el espaciado desigual de las ranuras.
 
 ## Seguridad
 

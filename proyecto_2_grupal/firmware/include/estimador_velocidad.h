@@ -37,7 +37,7 @@ void estimador_registrar(estimador_velocidad_t *estimador, int64_t tiempo_us,
     uint32_t intervalo_minimo_us, int64_t timeout_us);
 
 /* Calcula RPM promediando hasta `ventana` intervalos; con ventana = pulsos por vuelta se
- * mide el tiempo de una vuelta completa y se cancela el espaciado desigual de las marcas.
+ * mide el tiempo de una vuelta completa y se cancela el espaciado desigual de las ranuras.
  * Cero por timeout es una inferencia. */
 lectura_velocidad_t estimador_leer(const estimador_velocidad_t *estimador,
     int64_t tiempo_us, uint32_t pulsos_por_vuelta, uint32_t ventana, int64_t timeout_us);

@@ -51,7 +51,7 @@ MOTIVOS = {
     "conexiones_no_verificadas": "Firmware sin configurar: revisar firmware/sdkconfig.defaults y volver a flashear",
     "falta_CONFIG": "Falta CONFIG: escribe config 20 10000 100",
     "ordenar_freno_liberado": "Primero: liberar",
-    "velocidad_no_disponible": "El sensor no mide velocidad: ¿gira el disco? ¿sensor alineado con las marcas?",
+    "velocidad_no_disponible": "El sensor no mide velocidad: ¿gira el disco? ¿pasan las ranuras por el centro de la horquilla LM393?",
     "ensayo_activo": "Hay un ensayo en curso: parar",
     "cierre_pendiente": "Cerrando la captura anterior; espera un momento",
     "motor_requiere_reposo_CONFIG_y_liberacion": "Motor bloqueado: libera el freno y espera a que termine la captura",
@@ -362,7 +362,7 @@ class Banco:
     def mostrar_configuracion(self):
         sensor, servo, motor = (self.config.get(g, {}) for g in ("sensor", "servo", "motor"))
         self.pantalla.mensaje(
-            f"sensor {sensor.get('pulsos_por_vuelta')} marcas (promedio de {sensor.get('ventana_pulsos')}) · "
+            f"sensor LM393, {sensor.get('pulsos_por_vuelta')} ranuras (promedio de {sensor.get('ventana_pulsos')}) · "
             f"freno {servo.get('minimo_deg')}..{servo.get('maximo_deg')}°, liberado {servo.get('liberado_deg')}° · "
             f"motor max {motor.get('maximo_porcentaje')} % / {motor.get('maximo_impulso_ms', 0) / 1000:g} s", GRIS)
         if self.liberar_al_conectar and self.listo and servo.get("liberado_deg") is not None:

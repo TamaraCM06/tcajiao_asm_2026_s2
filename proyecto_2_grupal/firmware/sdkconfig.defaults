@@ -5,7 +5,7 @@ CONFIG_ESP_CONSOLE_UART_BAUDRATE=115200
 CONFIG_LOG_DEFAULT_LEVEL_NONE=y
 CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
 
-# Banco vigente (sensor de 20 marcas y servo recalibrado, 25 nov 2026). Cableado: docs/02_conexiones.md.
+# Banco vigente (sensor LM393 de horquilla, disco de 20 ranuras y servo recalibrado, 25 nov 2026). Cableado: docs/02_conexiones.md.
 # Servo en escala nominal 0..180 grados = 500..2500 us; tope mecanico 1000..2200 us (45..153 grados).
 # Para recalibrar: comandos CAL de la consola y copiar aqui los valores que reporta.
 CONFIG_ASM_CONEXIONES_VERIFICADAS=y

@@ -20,7 +20,7 @@ static void registrar_flanco(void *argumento)
     portEXIT_CRITICAL_ISR(&proteccion_sensor);
 }
 
-/* Instala la interrupcion de un solo flanco para evitar contar dos veces cada marca. */
+/* Instala la interrupcion de un solo flanco para no contar dos veces cada ranura. */
 esp_err_t sensor_optico_iniciar(const configuracion_hardware_t *parametros)
 {
     pulsos_por_vuelta = parametros->pulsos_por_vuelta;

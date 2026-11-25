@@ -1,7 +1,7 @@
 # Proyecto Grupal 2: banco de frenado
 
 CE 1110, II semestre 2026. Disco movido por un motor CD, frenado por un servo MG90S con goma y
-medido con un sensor óptico de 20 marcas; un ESP32 registra y (próximamente) controla con PID la
+medido con un sensor de horquilla LM393 sobre un disco de 20 ranuras; un ESP32 registra y (próximamente) controla con PID la
 velocidad durante el frenado. Entrega y defensa: **2 de diciembre de 2026**, 23:50.
 [Enunciado](ENUNCIADO.md).
 
@@ -25,7 +25,8 @@ salidas/        todo lo generado (ignorado por git)
 
 Hecho: banco construido, registro a lazo abierto con ensayo automático, calibración del servo
 desde la consola, velocidad promediada por vuelta, caracterización por escalón (Tarea 2) y PID
-discreto probado en simulación.
+discreto probado en simulación. `datos/escalon_02` es del banco anterior (TCRT5000, 10 marcas):
+sirve como referencia de la Tarea 2, no para identificar el banco actual.
 
 Pendiente para la entrega:
 

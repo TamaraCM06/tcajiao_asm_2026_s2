@@ -13,6 +13,10 @@ menu "ASM2: banco de frenado"
         int "Pulsos efectivos por vuelta; comprobar con el disco real"
         range 1 10000
         default 10
+    config ASM_VENTANA_PULSOS
+        int "Intervalos promediados por lectura (= pulsos por vuelta: una vuelta completa)"
+        range 1 64
+        default 20
     config ASM_INTERVALO_MINIMO_PULSO_US
         int "Rechazar intervalos menores a estos microsegundos (0: desactivado)"
         range 0 1000000

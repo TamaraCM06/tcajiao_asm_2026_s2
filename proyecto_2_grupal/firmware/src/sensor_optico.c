@@ -6,6 +6,7 @@
 static portMUX_TYPE proteccion_sensor = portMUX_INITIALIZER_UNLOCKED;
 static estimador_velocidad_t estimador;
 static uint32_t pulsos_por_vuelta;
+static uint32_t ventana_pulsos;
 static uint32_t intervalo_minimo_us;
 static int64_t tiempo_sin_pulsos_us;
 
@@ -23,6 +24,7 @@ static void registrar_flanco(void *argumento)
 esp_err_t sensor_optico_iniciar(const configuracion_hardware_t *parametros)
 {
     pulsos_por_vuelta = parametros->pulsos_por_vuelta;
+    ventana_pulsos = parametros->ventana_pulsos;
     intervalo_minimo_us = parametros->intervalo_minimo_pulso_us;
     estimador_reiniciar(&estimador);
     gpio_config_t entrada = {.pin_bit_mask = 1ULL << parametros->sensor_gpio,
@@ -53,5 +55,5 @@ lectura_velocidad_t sensor_optico_leer(void)
     estimador_velocidad_t copia_estimador = estimador;
     int64_t copia_timeout_us = tiempo_sin_pulsos_us;
     portEXIT_CRITICAL(&proteccion_sensor);
-    return estimador_leer(&copia_estimador, tiempo_us, pulsos_por_vuelta, copia_timeout_us);
+    return estimador_leer(&copia_estimador, tiempo_us, pulsos_por_vuelta, ventana_pulsos, copia_timeout_us);
 }

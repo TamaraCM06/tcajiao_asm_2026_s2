@@ -1,4 +1,5 @@
 #include "hardware.h"
+#include "estimador_velocidad.h"
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 #include <stddef.h>
@@ -19,6 +20,7 @@ configuracion_hardware_t hardware_cargar(void)
         .sensor_gpio = CONFIG_ASM_SENSOR_GPIO,
         .pulsos_por_vuelta = CONFIG_ASM_PULSOS_POR_VUELTA,
         .intervalo_minimo_pulso_us = CONFIG_ASM_INTERVALO_MINIMO_PULSO_US,
+        .ventana_pulsos = CONFIG_ASM_VENTANA_PULSOS,
         .servo_gpio = CONFIG_ASM_SERVO_GPIO,
         .servo_frecuencia_hz = CONFIG_ASM_SERVO_FRECUENCIA_HZ,
         .servo_minimo_deg = CONFIG_ASM_SERVO_MINIMO_DEG,
@@ -57,6 +59,8 @@ const char *hardware_validar(const configuracion_hardware_t *parametros)
             if (pines[indice_anterior] == numero_gpio) return "gpio_repetido";
         }
     }
+    if (parametros->pulsos_por_vuelta == 0 || parametros->ventana_pulsos == 0 ||
+        parametros->ventana_pulsos > ESTIMADOR_VENTANA_MAXIMA) return "ventana_sensor_invalida";
     if (parametros->servo_frecuencia_hz <= 0 || parametros->servo_minimo_deg < 0 ||
         parametros->servo_maximo_deg <= parametros->servo_minimo_deg ||
         parametros->servo_liberado_deg < parametros->servo_minimo_deg ||

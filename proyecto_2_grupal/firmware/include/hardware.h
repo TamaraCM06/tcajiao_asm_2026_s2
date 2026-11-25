@@ -10,6 +10,7 @@ typedef struct {
     bool flanco_bajada;
     uint32_t pulsos_por_vuelta;
     uint32_t intervalo_minimo_pulso_us;
+    uint32_t ventana_pulsos;
     int servo_gpio;
     int servo_frecuencia_hz;
     int servo_minimo_deg;

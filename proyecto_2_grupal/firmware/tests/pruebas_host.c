@@ -104,7 +104,7 @@ double motor_porcentaje(void) { return motor_virtual; }
 static void preparar_escenario(void)
 {
     montaje = (configuracion_hardware_t){.conexiones_verificadas = true, .sensor_gpio = 27,
-        .pulsos_por_vuelta = 24, .servo_gpio = 18, .servo_frecuencia_hz = 50,
+        .pulsos_por_vuelta = 24, .ventana_pulsos = 24, .servo_gpio = 18, .servo_frecuencia_hz = 50,
         .servo_minimo_deg = 10, .servo_maximo_deg = 90, .servo_liberado_deg = 10,
         .servo_pulso_minimo_us = 1000, .servo_pulso_maximo_us = 1800,
         .motor_enable_gpio = 19, .motor_entrada1_gpio = 21, .motor_entrada2_gpio = 22,
@@ -150,11 +150,29 @@ int main(int cantidad_argumentos, char **argumentos)
     estimador_velocidad_t estimador;
     estimador_reiniciar(&estimador);
     if (!strcmp(escenario, "velocidad")) {
-        assert(isnan(estimador_leer(&estimador, 0, 24, 10000).velocidad_rpm));
+        assert(isnan(estimador_leer(&estimador, 0, 24, 1, 10000).velocidad_rpm));
         estimador_registrar(&estimador, 0, 0, 10000);
-        assert(estimador_leer(&estimador, 0, 24, 10000).estado == VELOCIDAD_ESPERANDO);
+        assert(estimador_leer(&estimador, 0, 24, 1, 10000).estado == VELOCIDAD_ESPERANDO);
         estimador_registrar(&estimador, 2500, 0, 10000);
-        assert(fabs(estimador_leer(&estimador, 2500, 24, 10000).velocidad_rpm - 1000) < 1e-10);
+        assert(fabs(estimador_leer(&estimador, 2500, 24, 1, 10000).velocidad_rpm - 1000) < 1e-10);
+    } else if (!strcmp(escenario, "promedio")) {
+        /* Marcas desiguales: intervalos 2000/3000 alternados promedian una vuelta exacta. */
+        int64_t tiempo = 0;
+        estimador_registrar(&estimador, tiempo, 0, 10000);
+        for (int indice = 0; indice < 24; ++indice) {
+            tiempo += indice % 2 ? 3000 : 2000;
+            estimador_registrar(&estimador, tiempo, 0, 10000);
+        }
+        assert(fabs(estimador_leer(&estimador, tiempo, 24, 24, 10000).velocidad_rpm - 1000) < 1e-9);
+        assert(fabs(estimador_leer(&estimador, tiempo, 24, 1, 10000).velocidad_rpm - 60000000.0 / 24 / 3000) < 1e-9);
+        assert(fabs(estimador_leer(&estimador, tiempo, 24, 64, 10000).velocidad_rpm - 1000) < 1e-9);
+        estimador_registrar(&estimador, tiempo + 2500, 0, 10000);  /* un intervalo mas */
+        estimador_registrar(&estimador, tiempo + 20000, 0, 10000); /* pausa: reinicia la ventana */
+        assert(estimador_leer(&estimador, tiempo + 20000, 24, 24, 10000).estado == VELOCIDAD_ESPERANDO);
+        estimador_registrar(&estimador, tiempo + 25000, 0, 10000);
+        assert(estimador_leer(&estimador, tiempo + 25000, 24, 24, 10000).velocidad_rpm == 500);
+        montaje.ventana_pulsos = 0; assert(hardware_validar(&montaje));
+        montaje.ventana_pulsos = ESTIMADOR_VENTANA_MAXIMA + 1; assert(hardware_validar(&montaje));
     } else if (!strcmp(escenario, "rechazo_pulsos")) {
         estimador_registrar(&estimador, 10000, 100, 10000);
         estimador_registrar(&estimador, 10000, 100, 10000);
@@ -166,16 +184,16 @@ int main(int cantidad_argumentos, char **argumentos)
     } else if (!strcmp(escenario, "timeout")) {
         estimador_registrar(&estimador, 0, 0, 10000);
         estimador_registrar(&estimador, 2500, 0, 10000);
-        assert(estimador_leer(&estimador, 12499, 24, 10000).estado == VELOCIDAD_VALIDA);
-        assert(estimador_leer(&estimador, 12500, 24, 10000).velocidad_rpm == 0);
+        assert(estimador_leer(&estimador, 12499, 24, 1, 10000).estado == VELOCIDAD_VALIDA);
+        assert(estimador_leer(&estimador, 12500, 24, 1, 10000).velocidad_rpm == 0);
         estimador_registrar(&estimador, 20000, 0, 10000);
-        assert(estimador_leer(&estimador, 20000, 24, 10000).estado == VELOCIDAD_ESPERANDO);
+        assert(estimador_leer(&estimador, 20000, 24, 1, 10000).estado == VELOCIDAD_ESPERANDO);
         estimador_registrar(&estimador, 25000, 0, 10000);
-        assert(estimador_leer(&estimador, 25000, 24, 10000).velocidad_rpm == 500);
+        assert(estimador_leer(&estimador, 25000, 24, 1, 10000).velocidad_rpm == 500);
     } else if (!strcmp(escenario, "reloj_64bits")) {
         estimador_registrar(&estimador, 5000000000LL, 0, 10000);
         estimador_registrar(&estimador, 5000002500LL, 0, 10000);
-        assert(estimador_leer(&estimador, 5000002500LL, 24, 10000).velocidad_rpm == 1000);
+        assert(estimador_leer(&estimador, 5000002500LL, 24, 1, 10000).velocidad_rpm == 1000);
         estimador_reiniciar(&estimador);
         assert(!estimador.tiene_intervalo && estimador.pulsos_aceptados == 0);
     } else if (!strcmp(escenario, "conversion")) {

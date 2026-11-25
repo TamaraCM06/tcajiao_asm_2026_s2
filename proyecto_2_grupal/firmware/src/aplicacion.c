@@ -65,9 +65,9 @@ static bool informar_configuracion(void)
         "\"periodo_ms\":%" PRIu32 ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 "}",
         ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms);
     correcto &= protocolo_emitir("# {\"tipo\":\"configuracion\",\"grupo\":\"sensor\","
-        "\"gpio\":%d,\"flanco_bajada\":%s,\"pulsos_por_vuelta\":%" PRIu32 ",\"minimo_pulso_us\":%" PRIu32 "}",
-        montaje.sensor_gpio, montaje.flanco_bajada ? "true" : "false",
-        montaje.pulsos_por_vuelta, montaje.intervalo_minimo_pulso_us);
+        "\"gpio\":%d,\"flanco_bajada\":%s,\"pulsos_por_vuelta\":%" PRIu32 ",\"ventana_pulsos\":%" PRIu32 ","
+        "\"minimo_pulso_us\":%" PRIu32 "}", montaje.sensor_gpio, montaje.flanco_bajada ? "true" : "false",
+        montaje.pulsos_por_vuelta, montaje.ventana_pulsos, montaje.intervalo_minimo_pulso_us);
     correcto &= protocolo_emitir("# {\"tipo\":\"configuracion\",\"grupo\":\"servo\","
         "\"gpio\":%d,\"frecuencia_hz\":%d,\"minimo_deg\":%d,\"maximo_deg\":%d,\"liberado_deg\":%d,"
         "\"pulso_minimo_us\":%d,\"pulso_maximo_us\":%d}", montaje.servo_gpio,

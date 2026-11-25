@@ -8,7 +8,7 @@ void estimador_reiniciar(estimador_velocidad_t *estimador)
     memset(estimador, 0, sizeof(*estimador));
 }
 
-/* Acepta flancos monotonicamente crecientes y reinicia tras una pausa larga. */
+/* Acepta flancos monotonicamente crecientes y reinicia la ventana tras una pausa larga. */
 void estimador_registrar(estimador_velocidad_t *estimador, int64_t tiempo_us,
     uint32_t intervalo_minimo_us, int64_t timeout_us)
 {
@@ -21,15 +21,22 @@ void estimador_registrar(estimador_velocidad_t *estimador, int64_t tiempo_us,
         }
         estimador->tiene_intervalo = timeout_us > 0 && intervalo_us < timeout_us;
         estimador->intervalo_us = intervalo_us;
+        if (estimador->tiene_intervalo) {
+            estimador->intervalos_us[estimador->siguiente_intervalo] = intervalo_us;
+            estimador->siguiente_intervalo = (estimador->siguiente_intervalo + 1) % ESTIMADOR_VENTANA_MAXIMA;
+            if (estimador->cantidad_intervalos < ESTIMADOR_VENTANA_MAXIMA) ++estimador->cantidad_intervalos;
+        } else {
+            estimador->cantidad_intervalos = 0;
+        }
     }
     estimador->tiene_pulso = true;
     estimador->ultimo_pulso_us = tiempo_us;
     ++estimador->pulsos_aceptados;
 }
 
-/* Devuelve NaN mientras falta informacion; conserva el ultimo intervalo hasta timeout. */
+/* Devuelve NaN mientras falta informacion; conserva la ultima ventana hasta timeout. */
 lectura_velocidad_t estimador_leer(const estimador_velocidad_t *estimador,
-    int64_t tiempo_us, uint32_t pulsos_por_vuelta, int64_t timeout_us)
+    int64_t tiempo_us, uint32_t pulsos_por_vuelta, uint32_t ventana, int64_t timeout_us)
 {
     lectura_velocidad_t lectura = {.estado = VELOCIDAD_ESPERANDO,
         .tiempo_lectura_us = tiempo_us,
@@ -42,9 +49,17 @@ lectura_velocidad_t estimador_leer(const estimador_velocidad_t *estimador,
     if (lectura.edad_pulso_us >= timeout_us) {
         lectura.estado = VELOCIDAD_SIN_PULSOS;
         lectura.velocidad_rpm = 0.0;
-    } else if (estimador->tiene_intervalo && estimador->intervalo_us > 0) {
-        lectura.estado = VELOCIDAD_VALIDA;
-        lectura.velocidad_rpm = 60000000.0 / pulsos_por_vuelta / estimador->intervalo_us;
+        return lectura;
     }
+    uint32_t cantidad = estimador->tiene_intervalo ? estimador->cantidad_intervalos : 0;
+    if (ventana > ESTIMADOR_VENTANA_MAXIMA) ventana = ESTIMADOR_VENTANA_MAXIMA;
+    if (cantidad > ventana) cantidad = ventana;
+    if (cantidad == 0) return lectura;
+    int64_t suma_us = 0;
+    for (uint32_t indice = 1; indice <= cantidad; ++indice)
+        suma_us += estimador->intervalos_us[(estimador->siguiente_intervalo + ESTIMADOR_VENTANA_MAXIMA - indice)
+            % ESTIMADOR_VENTANA_MAXIMA];
+    lectura.estado = VELOCIDAD_VALIDA;
+    lectura.velocidad_rpm = 60000000.0 * cantidad / pulsos_por_vuelta / (double)suma_us;
     return lectura;
 }

@@ -31,7 +31,7 @@ def ejecutor(tmp_path_factory):
 
 
 # Cada escenario ejecuta comportamientos observables y estados invalidos distintos.
-@pytest.mark.parametrize("escenario", ["velocidad", "rechazo_pulsos", "timeout", "reloj_64bits", "conversion",
+@pytest.mark.parametrize("escenario", ["velocidad", "promedio", "rechazo_pulsos", "timeout", "reloj_64bits", "conversion",
     "comandos", "configuracion", "temporizacion", "hardware", "inicio_bloqueado", "recorrido", "bloqueos",
     "ensayo_automatico",
     "cola_llena", "fallo_corte"])

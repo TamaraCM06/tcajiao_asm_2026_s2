@@ -143,6 +143,8 @@ static void preparar_escenario(void)
 /* Recorre impulso, corte, cambio de freno y cierre usando el coordinador original. */
 static void recorrido_completo(void)
 {
+    ejecutar_comando("STATUS");
+    ejecutar_comando("CAL");
     ejecutar_comando("FRENO 10");
     ejecutar_comando("MOTOR 20");
     assert(motor_virtual == 20);

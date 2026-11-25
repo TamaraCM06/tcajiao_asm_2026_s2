@@ -49,6 +49,10 @@ def test_trama_produccion(ejecutor):
     assert len(filas[1:]) == 3
     assert [float(fila[0]) for fila in filas[1:]] == [0, 20, 40]
     assert [float(fila[1]) for fila in filas[1:]] == [10, 40, 40]
+    estado = next(mensaje for mensaje in mensajes if mensaje["tipo"] == "estado")
+    assert estado["velocidad_rpm"] == 1000 and estado["acelerando"] is False
+    calibracion = next(mensaje for mensaje in mensajes if mensaje["tipo"] == "calibracion")
+    assert calibracion["grados"] is None and calibracion["minimo_us"] == 1000
     cierre = next(mensaje for mensaje in mensajes if mensaje["tipo"] == "fin")
     assert cierre["completo"] and cierre["enviadas"] == cierre["producidas"] == 3
     assert {mensaje["grupo"] for mensaje in mensajes if mensaje["tipo"] == "configuracion"} == {"ensayo", "sensor", "servo", "motor"}

@@ -343,12 +343,16 @@ static void vigilar_calibracion(int64_t tiempo_us)
 /* Consulta estado sin enviar NaN como un numero JSON invalido. */
 static void informar_estado(void)
 {
-    char angulo[32] = "null";
+    char angulo[32] = "null", velocidad[32] = "null";
     if (isfinite(servo_freno_angulo())) snprintf(angulo, sizeof(angulo), "%.3f", servo_freno_angulo());
+    lectura_velocidad_t lectura = sensor_optico_leer();
+    if (hardware_listo && isfinite(lectura.velocidad_rpm))
+        snprintf(velocidad, sizeof(velocidad), "%.1f", lectura.velocidad_rpm);
     protocolo_emitir("# {\"tipo\":\"estado\",\"hardware_listo\":%s,\"motivo\":\"%s\","
-        "\"registrando\":%s,\"cerrando\":%s,\"motor_porcentaje\":%.3f,\"freno_deg\":%s,\"fallo_uart\":%s}",
-        hardware_listo ? "true" : "false", motivo_hardware, registrando ? "true" : "false",
-        cerrando ? "true" : "false", motor_porcentaje(), angulo, protocolo_fallo() ? "true" : "false");
+        "\"registrando\":%s,\"cerrando\":%s,\"acelerando\":%s,\"motor_porcentaje\":%.3f,\"freno_deg\":%s,"
+        "\"velocidad_rpm\":%s,\"fallo_uart\":%s}", hardware_listo ? "true" : "false", motivo_hardware,
+        registrando ? "true" : "false", cerrando ? "true" : "false", acelerando ? "true" : "false",
+        motor_porcentaje(), angulo, velocidad, protocolo_fallo() ? "true" : "false");
 }
 
 /* Procesa ordenes completas; CONFIG y reactivacion de motor quedan bloqueados en captura. */

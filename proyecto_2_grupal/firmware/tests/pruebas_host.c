@@ -8,6 +8,7 @@
 
 static int64_t tiempo_virtual_us;
 static double angulo_virtual;
+static uint32_t pulso_virtual;
 static double motor_virtual;
 static bool falla_motor;
 static unsigned ordenes_motor;
@@ -76,8 +77,22 @@ esp_err_t servo_freno_ordenar(double angulo_deg)
     uint32_t pulso;
     if (!freno_convertir_pulso(&montaje, angulo_deg, &pulso)) return ESP_ERR_INVALID_ARG;
     angulo_virtual = angulo_deg;
+    pulso_virtual = pulso;
     return ESP_OK;
 }
+/* Usa la ventana real de calibracion; deja el angulo sin definir como el controlador. */
+esp_err_t servo_freno_ordenar_pulso(uint32_t pulso_us)
+{
+    ++ordenes_servo;
+    if (!freno_pulso_admitido(&montaje, pulso_us)) return ESP_ERR_INVALID_ARG;
+    pulso_virtual = pulso_us;
+    angulo_virtual = NAN;
+    return ESP_OK;
+}
+/* Expone el pulso simulado. */
+uint32_t servo_freno_pulso(void) { return pulso_virtual; }
+/* Simula el corte de PWM por inactividad. */
+esp_err_t servo_freno_apagar(void) { pulso_virtual = 0; angulo_virtual = NAN; return ESP_OK; }
 /* Expone la orden simulada del servo. */
 double servo_freno_angulo(void) { return angulo_virtual; }
 /* Comprueba la liberacion comandada en el montaje simulado. */
@@ -114,6 +129,9 @@ static void preparar_escenario(void)
     motivo_hardware = "simulacion";
     registrando = cerrando = false;
     angulo_virtual = NAN;
+    pulso_virtual = 0;
+    calibrando = false;
+    paso_calibracion_us = liberado_calibracion_us = contacto_calibracion_us = 0;
     motor_virtual = 0;
     falla_motor = false;
     ordenes_motor = ordenes_servo = cantidad_mensajes = 0;
@@ -212,6 +230,13 @@ int main(int cantidad_argumentos, char **argumentos)
         comando_t automatico = comando_interpretar("ENSAYO 60 80 0");
         assert(automatico.tipo == COMANDO_ENSAYO && automatico.valores[1] == 80);
         assert(comando_interpretar("ENSAYO 60 80").tipo == COMANDO_INVALIDO);
+        assert(comando_interpretar("CAL").tipo == COMANDO_CAL_CONSULTA);
+        assert(comando_interpretar("CAL +").tipo == COMANDO_CAL_MAS);
+        assert(comando_interpretar("CAL PULSO 1500").valores[0] == 1500);
+        assert(comando_interpretar("CAL PASO 0.5").tipo == COMANDO_CAL_PASO);
+        const char *cal_invalidos[] = {"CAL PULSO", "CAL PASO x", "CAL + 2", "CAL ARRIBA", "CAL PULSO 1e999"};
+        for (unsigned indice = 0; indice < sizeof(cal_invalidos) / sizeof(cal_invalidos[0]); ++indice)
+            assert(comando_interpretar(cal_invalidos[indice]).tipo == COMANDO_INVALIDO);
     } else if (!strcmp(escenario, "configuracion")) {
         configuracion_ensayo_t resultado;
         comando_t comando = comando_interpretar("CONFIG 20 1000 300");
@@ -278,6 +303,26 @@ int main(int cantidad_argumentos, char **argumentos)
         ejecutar_comando("ENSAYO 20 80 0"); assert(acelerando);
         motor_virtual = 0; vigilar_ensayo_automatico(tiempo_virtual_us);  /* corte externo */
         assert(!acelerando && !registrando);
+    } else if (!strcmp(escenario, "calibracion")) {
+        /* Montaje simulado: 10..90 grados = 1000..1800 us, 10 us por grado. */
+        ejecutar_comando("CAL +"); assert(pulso_virtual == 0);              /* sin posicion */
+        ejecutar_comando("CAL PULSO 900"); assert(pulso_virtual == 0);      /* fuera de recorrido */
+        ejecutar_comando("CAL PULSO 1400.5"); assert(pulso_virtual == 0);
+        ejecutar_comando("CAL PULSO 1400"); assert(pulso_virtual == 1400 && isnan(angulo_virtual) && calibrando);
+        ejecutar_comando("CAL +"); assert(pulso_virtual == 1420);           /* paso inicial 2 grados */
+        ejecutar_comando("CAL PASO 5"); ejecutar_comando("CAL -"); assert(pulso_virtual == 1370);
+        ejecutar_comando("CAL CONTACTO"); assert(contacto_calibracion_us == 0);
+        ejecutar_comando("CAL LIBERADO"); assert(liberado_calibracion_us == 1370);
+        assert(strstr(mensajes[cantidad_mensajes - 1], "\"liberado_deg\":47.0"));
+        ejecutar_comando("CAL PULSO 1790"); ejecutar_comando("CAL +"); assert(pulso_virtual == 1790);
+        ejecutar_comando("CAL CONTACTO"); assert(contacto_calibracion_us == 1790 && pulso_virtual == 1370);
+        assert(strstr(mensajes[cantidad_mensajes - 1], "\"contacto_deg\":89.0"));
+        ejecutar_comando("MOTOR 20"); assert(motor_virtual == 0);          /* exige FRENO liberado */
+        tiempo_virtual_us += 14999999; vigilar_calibracion(tiempo_virtual_us); assert(pulso_virtual == 1370);
+        tiempo_virtual_us += 1; vigilar_calibracion(tiempo_virtual_us);
+        assert(pulso_virtual == 0 && !calibrando && strstr(mensajes[cantidad_mensajes - 1], "servo_apagado"));
+        ejecutar_comando("FRENO 10"); ejecutar_comando("MOTOR 20"); assert(motor_virtual == 20);
+        ejecutar_comando("CAL PULSO 1400"); assert(pulso_virtual == 1000); /* motor en marcha */
     } else if (!strcmp(escenario, "bloqueos")) {
         angulo_virtual = 10; iniciar_registro();
         unsigned anteriores = ordenes_motor;

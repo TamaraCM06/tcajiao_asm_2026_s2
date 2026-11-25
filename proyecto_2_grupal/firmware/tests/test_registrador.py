@@ -33,7 +33,7 @@ def ejecutor(tmp_path_factory):
 # Cada escenario ejecuta comportamientos observables y estados invalidos distintos.
 @pytest.mark.parametrize("escenario", ["velocidad", "promedio", "rechazo_pulsos", "timeout", "reloj_64bits", "conversion",
     "comandos", "configuracion", "temporizacion", "hardware", "inicio_bloqueado", "recorrido", "bloqueos",
-    "ensayo_automatico",
+    "ensayo_automatico", "calibracion",
     "cola_llena", "fallo_corte"])
 def test_escenario_produccion(ejecutor, escenario):
     subprocess.run([str(ejecutor), escenario], check=True, capture_output=True, text=True)
@@ -52,9 +52,6 @@ def test_trama_produccion(ejecutor):
     cierre = next(mensaje for mensaje in mensajes if mensaje["tipo"] == "fin")
     assert cierre["completo"] and cierre["enviadas"] == cierre["producidas"] == 3
     assert {mensaje["grupo"] for mensaje in mensajes if mensaje["tipo"] == "configuracion"} == {"ensayo", "sensor", "servo", "motor"}
-    destino = FIRMWARE / "build/pruebas"
-    destino.mkdir(parents=True, exist_ok=True)
-    (destino / "trama_produccion.txt").write_text(resultado.stdout, encoding="utf-8")
 
 
 # Enlaza los controladores PWM reales con dobles que solo registran sus ordenes.
@@ -70,6 +67,6 @@ def ejecutor_actuadores(tmp_path_factory):
 
 
 # Comprueba limites y recuperacion sin confundir las ordenes simuladas con PWM medido.
-@pytest.mark.parametrize("escenario", ["arranque", "limite_impulso", "limites", "fallo_pwm"])
+@pytest.mark.parametrize("escenario", ["arranque", "limite_impulso", "limites", "pulso_directo", "fallo_pwm"])
 def test_actuadores_produccion(ejecutor_actuadores, escenario):
     subprocess.run([str(ejecutor_actuadores), escenario], check=True, capture_output=True, text=True)

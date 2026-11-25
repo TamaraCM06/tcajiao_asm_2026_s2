@@ -5,6 +5,8 @@ si se cambia un cable, cambiarlo también ahí.
 
 ## Cableado
 
+![Conexiones del ESP32](conexiones_esp32.svg)
+
 | Desde | Hacia | Nota |
 |---|---|---|
 | LM393 **VCC** / **GND** | ESP32 **3V3** / **GND** | A 3V3, no a 5 V: el pull-up del módulo lleva DO a VCC |
@@ -16,12 +18,6 @@ si se cambia un cable, cambiarlo también ahí.
 | L298N **+12V** / **GND** | Fuente del motor + / − y **GND común** | |
 | L298N **OUT1 / OUT2** | Motor CD | Si gira al revés, intercambiarlos |
 | ESP32 **USB** | PC | Alimentación y serie a 115200 baudios |
-
-[![Diagrama de conexiones](diagramas/svg/conexiones.svg)](diagramas/svg/conexiones.svg)
-
-Fuente: [`diagramas/src/conexiones.yml`](diagramas/src/conexiones.yml) (WireViz); se regenera con
-`python banco.py diagramas`. Los pines van por número de GPIO: en placas DOIT el serigrafiado es
-`D27`, `D18`, etc.
 
 Todos los GND en un mismo punto: ESP32, L298N, fuente del motor, fuente del servo y sensor.
 

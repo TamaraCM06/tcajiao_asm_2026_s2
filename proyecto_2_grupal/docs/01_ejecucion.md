@@ -77,7 +77,6 @@ La consola muestra los grados a copiar en `firmware/sdkconfig.defaults`
 
 ```bash
 python banco.py pruebas                     # firmware compilado con gcc contra dobles del SDK
-python banco.py diagramas                   # docs/diagramas/src -> svg (Node.js; Graphviz para conexiones)
 ```
 
 ## Problemas comunes

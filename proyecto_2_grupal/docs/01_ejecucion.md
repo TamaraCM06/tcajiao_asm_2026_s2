@@ -91,5 +91,5 @@ python banco.py pruebas                     # firmware compilado con gcc contra 
 
 ## Tarea 2 (entregada)
 
-`entregas/tarea_2/compilar.sh` regenera el informe y `empaquetar.sh` el ZIP en `salidas/tarea_2/`
+`tarea_2/compilar.sh` regenera el informe y `empaquetar.sh` el ZIP en `salidas/tarea_2/`
 con los programas del commit entregado (`6431b3b`).

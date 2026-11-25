@@ -3,7 +3,7 @@
 CE 1110, II semestre 2026. Disco movido por un motor CD, frenado por un servo MG90S con goma y
 medido con un sensor óptico de 20 marcas; un ESP32 registra y (próximamente) controla con PID la
 velocidad durante el frenado. Entrega y defensa: **2 de diciembre de 2026**, 23:50.
-[Enunciado](entregas/enunciados/ENUNCIADO_PROYECTO_2.md).
+[Enunciado](ENUNCIADO.md).
 
 | Documento | Para qué |
 |---|---|
@@ -17,7 +17,7 @@ banco.py        entrada única: preparar, compilar, flashear, consola, monitor, 
 firmware/       ESP-IDF 5.5.5 (src, include, tests en PC)
 herramientas/   consola.py y visualizar_ensayo.m
 datos/          capturas crudas (CSV + JSON), no se editan
-entregas/       enunciados y Tarea 2 entregada
+tarea_2/        Tarea 2 entregada (informe, código y su enunciado), independiente del resto
 salidas/        todo lo generado (ignorado por git)
 ```
 

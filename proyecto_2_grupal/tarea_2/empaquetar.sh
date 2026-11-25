@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ENTREGA=6431b3b
-SALIDA=../../salidas/tarea_2
+SALIDA=../salidas/tarea_2
 NOMBRE=Tarea2_ASM_Grupo1
 RAIZ=$SALIDA/$NOMBRE
 MICRO=$RAIZ/programas_microcontrolador
@@ -19,7 +19,6 @@ git -C "$(git rev-parse --show-toplevel)" archive "$ENTREGA" proyecto_2_grupal/f
 mkdir -p "$MICRO/pregunta3_pid" "$MICRO/registrador_banco" "$RAIZ/pregunta7"
 
 [[ -f informe.pdf ]] || { echo "Falta informe.pdf: correr ./compilar.sh"; exit 1; }
-[[ -f ../../firmware/sdkconfig ]] || { echo "Falta firmware/sdkconfig local del ensayo escalon_02"; exit 1; }
 cp informe.pdf "$RAIZ/$NOMBRE.pdf"
 
 # Pregunta 3: programa del lazo PID y los modulos que usa.
@@ -34,8 +33,7 @@ cp -r "$P2/firmware/src" "$P2/firmware/include" "$P2/firmware/CMakeLists.txt" \
       "$P2/firmware/sdkconfig.defaults" "$MICRO/registrador_banco/"
 rm -f "$MICRO"/registrador_banco/{src,include}/README.md \
       "$MICRO"/registrador_banco/src/pid_controller.c "$MICRO"/registrador_banco/include/pid_controller.h  # no los compila el banco
-{ echo "# Configuracion ASM2 usada en el ensayo escalon_02 (extracto de sdkconfig)"
-  grep -E '^(CONFIG_ASM_|# CONFIG_ASM_)' ../../firmware/sdkconfig; } > "$MICRO/registrador_banco/sdkconfig.ensayo"
+cp codigo/sdkconfig.ensayo "$MICRO/registrador_banco/"
 
 # Pregunta 7: datos del ensayo, analisis en MATLAB y consola que genero el CSV.
 cp "$P2/experimentos/datos/escalon_02.csv" "$P2/experimentos/datos/escalon_02.json" \

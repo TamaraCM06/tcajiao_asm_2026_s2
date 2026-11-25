@@ -2,18 +2,23 @@
 # Arma el paquete de entrega de la Tarea 2: el PDF que pide el enunciado, los programas del
 # microcontrolador y los archivos del ensayo de la pregunta 7.
 # Uso: ./compilar.sh && ./empaquetar.sh
+# Los programas y datos se extraen del commit entregado (ENTREGA), no del firmware actual.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-P2=../..
+ENTREGA=6431b3b
+SALIDA=../salidas/tarea_2
 NOMBRE=Tarea2_ASM_Grupo1
-RAIZ=build/$NOMBRE
+RAIZ=$SALIDA/$NOMBRE
 MICRO=$RAIZ/programas_microcontrolador
-rm -rf "$RAIZ" "$NOMBRE.zip"
+P2=$SALIDA/fuentes_entrega/proyecto_2_grupal
+rm -rf "$RAIZ" "$SALIDA/$NOMBRE.zip" "$SALIDA/fuentes_entrega"
+mkdir -p "$SALIDA/fuentes_entrega"
+git -C "$(git rev-parse --show-toplevel)" archive "$ENTREGA" proyecto_2_grupal/firmware proyecto_2_grupal/experimentos proyecto_2_grupal/matlab_modelado \
+    | tar -x -C "$SALIDA/fuentes_entrega"
 mkdir -p "$MICRO/pregunta3_pid" "$MICRO/registrador_banco" "$RAIZ/pregunta7"
 
 [[ -f informe.pdf ]] || { echo "Falta informe.pdf: correr ./compilar.sh"; exit 1; }
-[[ -f $P2/firmware/sdkconfig ]] || { echo "Falta firmware/sdkconfig del ensayo (idf.py menuconfig)"; exit 1; }
 cp informe.pdf "$RAIZ/$NOMBRE.pdf"
 
 # Pregunta 3: programa del lazo PID y los modulos que usa.
@@ -28,8 +33,7 @@ cp -r "$P2/firmware/src" "$P2/firmware/include" "$P2/firmware/CMakeLists.txt" \
       "$P2/firmware/sdkconfig.defaults" "$MICRO/registrador_banco/"
 rm -f "$MICRO"/registrador_banco/{src,include}/README.md \
       "$MICRO"/registrador_banco/src/pid_controller.c "$MICRO"/registrador_banco/include/pid_controller.h  # no los compila el banco
-{ echo "# Configuracion ASM2 usada en el ensayo escalon_02 (extracto de sdkconfig)"
-  grep -E '^(CONFIG_ASM_|# CONFIG_ASM_)' "$P2/firmware/sdkconfig"; } > "$MICRO/registrador_banco/sdkconfig.ensayo"
+cp codigo/sdkconfig.ensayo "$MICRO/registrador_banco/"
 
 # Pregunta 7: datos del ensayo, analisis en MATLAB y consola que genero el CSV.
 cp "$P2/experimentos/datos/escalon_02.csv" "$P2/experimentos/datos/escalon_02.json" \
@@ -61,6 +65,6 @@ PDF referencia en el Anexo A.
 - Análisis: en MATLAB, `visualizar_ensayo` y elegir `escalon_02.csv`.
 EOF
 
-(cd build && zip -qr "../$NOMBRE.zip" "$NOMBRE")
-echo "Listo: $(pwd)/$NOMBRE.zip"
-unzip -l "$NOMBRE.zip" | awk 'NR>3 {print $4}' | grep -v '^$' | grep -v '/$'
+(cd "$SALIDA" && zip -qr "$NOMBRE.zip" "$NOMBRE")
+echo "Listo: $SALIDA/$NOMBRE.zip"
+unzip -l "$SALIDA/$NOMBRE.zip" | awk 'NR>3 {print $4}' | grep -v '^$' | grep -v '/$'

@@ -7,10 +7,10 @@ marca con `\pendiente{...}` (recuadro naranja en el PDF; buscar "Pendiente" ante
 ./compilar.sh            # simulación + PDF  -> informe.pdf
 ./compilar.sh --solo-tex # solo LaTeX
 ./compilar.sh --limpiar
-./empaquetar.sh          # Tarea2_ASM_Grupo1.zip: PDF + código + datos del ensayo
+./empaquetar.sh          # salidas/tarea_2/Tarea2_ASM_Grupo1.zip: PDF + código + datos del commit entregado
 ```
 
-Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `standalone`. Los auxiliares quedan en `build/`.
+Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `standalone`. Los auxiliares y el ZIP quedan en `../salidas/tarea_2/`. Entregada en el commit `6431b3b`: ambos scripts toman de ese commit el código del proyecto que usan, así la tarea no cambia con el firmware actual. Enunciado: [ENUNCIADO.md](ENUNCIADO.md).
 
 | Ruta | Contenido |
 |---|---|
@@ -20,7 +20,8 @@ Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `stan
 | `secciones/anexo_*.tex` | Listados del micro y enlaces de video |
 | `referencias.bib` | Bibliografía IEEE; agregar ahí las fuentes nuevas |
 | `codigo/main_tarea2.c` | Lazo PID sin `delay()` para el ESP32 con ESP-IDF (pregunta 3) |
-| `evidencias/simulacion_pid.c` | Simulación que usa `firmware/src/pid_controller.c`; genera CSV y métricas |
+| `codigo/sdkconfig.ensayo` | Pines y calibración del banco en el ensayo `escalon_02` |
+| `evidencias/simulacion_pid.c` | Simulación con el `pid_controller.c` entregado; genera CSV y métricas |
 | `evidencias/generado/` | Salidas de la simulación (se versionan para compilar sin gcc) |
 | `diagramas/` | Fuentes TikZ de la pregunta 4 (`estilo.tex` imita los diagramas Mermaid del avance 2 del Proyecto 1); `compilar.sh` genera los PNG |
 | `figuras/` | Logo de portada y capturas de MATLAB del ensayo (pregunta 7) |

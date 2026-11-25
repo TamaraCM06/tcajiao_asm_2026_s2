@@ -5,7 +5,8 @@
 #include "estimador_velocidad.h"
 #include "esp_err.h"
 
-/* Inicializa una entrada digital sin resistencias internas y un solo flanco. */
+/* LM393 Motor Speed Measuring Sensor Module: horquilla optica que ve las ranuras del disco. Inicializa la entrada DO
+ * sin resistencias internas (el modulo trae su pull-up a VCC) y un solo flanco por ranura. */
 esp_err_t sensor_optico_iniciar(const configuracion_hardware_t *parametros);
 
 /* Cambia el timeout con la adquisicion detenida e invalida el historial anterior. */

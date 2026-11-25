@@ -8,6 +8,7 @@
 
 static int64_t tiempo_virtual_us;
 static double angulo_virtual;
+static uint32_t pulso_virtual;
 static double motor_virtual;
 static bool falla_motor;
 static unsigned ordenes_motor;
@@ -76,8 +77,22 @@ esp_err_t servo_freno_ordenar(double angulo_deg)
     uint32_t pulso;
     if (!freno_convertir_pulso(&montaje, angulo_deg, &pulso)) return ESP_ERR_INVALID_ARG;
     angulo_virtual = angulo_deg;
+    pulso_virtual = pulso;
     return ESP_OK;
 }
+/* Usa la ventana real de calibracion; deja el angulo sin definir como el controlador. */
+esp_err_t servo_freno_ordenar_pulso(uint32_t pulso_us)
+{
+    ++ordenes_servo;
+    if (!freno_pulso_admitido(&montaje, pulso_us)) return ESP_ERR_INVALID_ARG;
+    pulso_virtual = pulso_us;
+    angulo_virtual = NAN;
+    return ESP_OK;
+}
+/* Expone el pulso simulado. */
+uint32_t servo_freno_pulso(void) { return pulso_virtual; }
+/* Simula el corte de PWM por inactividad. */
+esp_err_t servo_freno_apagar(void) { pulso_virtual = 0; angulo_virtual = NAN; return ESP_OK; }
 /* Expone la orden simulada del servo. */
 double servo_freno_angulo(void) { return angulo_virtual; }
 /* Comprueba la liberacion comandada en el montaje simulado. */
@@ -104,7 +119,7 @@ double motor_porcentaje(void) { return motor_virtual; }
 static void preparar_escenario(void)
 {
     montaje = (configuracion_hardware_t){.conexiones_verificadas = true, .sensor_gpio = 27,
-        .pulsos_por_vuelta = 24, .servo_gpio = 18, .servo_frecuencia_hz = 50,
+        .pulsos_por_vuelta = 24, .ventana_pulsos = 24, .servo_gpio = 18, .servo_frecuencia_hz = 50,
         .servo_minimo_deg = 10, .servo_maximo_deg = 90, .servo_liberado_deg = 10,
         .servo_pulso_minimo_us = 1000, .servo_pulso_maximo_us = 1800,
         .motor_enable_gpio = 19, .motor_entrada1_gpio = 21, .motor_entrada2_gpio = 22,
@@ -114,6 +129,9 @@ static void preparar_escenario(void)
     motivo_hardware = "simulacion";
     registrando = cerrando = false;
     angulo_virtual = NAN;
+    pulso_virtual = 0;
+    calibrando = false;
+    paso_calibracion_us = liberado_calibracion_us = contacto_calibracion_us = 0;
     motor_virtual = 0;
     falla_motor = false;
     ordenes_motor = ordenes_servo = cantidad_mensajes = 0;
@@ -125,6 +143,8 @@ static void preparar_escenario(void)
 /* Recorre impulso, corte, cambio de freno y cierre usando el coordinador original. */
 static void recorrido_completo(void)
 {
+    ejecutar_comando("STATUS");
+    ejecutar_comando("CAL");
     ejecutar_comando("FRENO 10");
     ejecutar_comando("MOTOR 20");
     assert(motor_virtual == 20);
@@ -150,11 +170,29 @@ int main(int cantidad_argumentos, char **argumentos)
     estimador_velocidad_t estimador;
     estimador_reiniciar(&estimador);
     if (!strcmp(escenario, "velocidad")) {
-        assert(isnan(estimador_leer(&estimador, 0, 24, 10000).velocidad_rpm));
+        assert(isnan(estimador_leer(&estimador, 0, 24, 1, 10000).velocidad_rpm));
         estimador_registrar(&estimador, 0, 0, 10000);
-        assert(estimador_leer(&estimador, 0, 24, 10000).estado == VELOCIDAD_ESPERANDO);
+        assert(estimador_leer(&estimador, 0, 24, 1, 10000).estado == VELOCIDAD_ESPERANDO);
         estimador_registrar(&estimador, 2500, 0, 10000);
-        assert(fabs(estimador_leer(&estimador, 2500, 24, 10000).velocidad_rpm - 1000) < 1e-10);
+        assert(fabs(estimador_leer(&estimador, 2500, 24, 1, 10000).velocidad_rpm - 1000) < 1e-10);
+    } else if (!strcmp(escenario, "promedio")) {
+        /* Ranuras desiguales: intervalos 2000/3000 alternados promedian una vuelta exacta. */
+        int64_t tiempo = 0;
+        estimador_registrar(&estimador, tiempo, 0, 10000);
+        for (int indice = 0; indice < 24; ++indice) {
+            tiempo += indice % 2 ? 3000 : 2000;
+            estimador_registrar(&estimador, tiempo, 0, 10000);
+        }
+        assert(fabs(estimador_leer(&estimador, tiempo, 24, 24, 10000).velocidad_rpm - 1000) < 1e-9);
+        assert(fabs(estimador_leer(&estimador, tiempo, 24, 1, 10000).velocidad_rpm - 60000000.0 / 24 / 3000) < 1e-9);
+        assert(fabs(estimador_leer(&estimador, tiempo, 24, 64, 10000).velocidad_rpm - 1000) < 1e-9);
+        estimador_registrar(&estimador, tiempo + 2500, 0, 10000);  /* un intervalo mas */
+        estimador_registrar(&estimador, tiempo + 20000, 0, 10000); /* pausa: reinicia la ventana */
+        assert(estimador_leer(&estimador, tiempo + 20000, 24, 24, 10000).estado == VELOCIDAD_ESPERANDO);
+        estimador_registrar(&estimador, tiempo + 25000, 0, 10000);
+        assert(estimador_leer(&estimador, tiempo + 25000, 24, 24, 10000).velocidad_rpm == 500);
+        montaje.ventana_pulsos = 0; assert(hardware_validar(&montaje));
+        montaje.ventana_pulsos = ESTIMADOR_VENTANA_MAXIMA + 1; assert(hardware_validar(&montaje));
     } else if (!strcmp(escenario, "rechazo_pulsos")) {
         estimador_registrar(&estimador, 10000, 100, 10000);
         estimador_registrar(&estimador, 10000, 100, 10000);
@@ -166,16 +204,16 @@ int main(int cantidad_argumentos, char **argumentos)
     } else if (!strcmp(escenario, "timeout")) {
         estimador_registrar(&estimador, 0, 0, 10000);
         estimador_registrar(&estimador, 2500, 0, 10000);
-        assert(estimador_leer(&estimador, 12499, 24, 10000).estado == VELOCIDAD_VALIDA);
-        assert(estimador_leer(&estimador, 12500, 24, 10000).velocidad_rpm == 0);
+        assert(estimador_leer(&estimador, 12499, 24, 1, 10000).estado == VELOCIDAD_VALIDA);
+        assert(estimador_leer(&estimador, 12500, 24, 1, 10000).velocidad_rpm == 0);
         estimador_registrar(&estimador, 20000, 0, 10000);
-        assert(estimador_leer(&estimador, 20000, 24, 10000).estado == VELOCIDAD_ESPERANDO);
+        assert(estimador_leer(&estimador, 20000, 24, 1, 10000).estado == VELOCIDAD_ESPERANDO);
         estimador_registrar(&estimador, 25000, 0, 10000);
-        assert(estimador_leer(&estimador, 25000, 24, 10000).velocidad_rpm == 500);
+        assert(estimador_leer(&estimador, 25000, 24, 1, 10000).velocidad_rpm == 500);
     } else if (!strcmp(escenario, "reloj_64bits")) {
         estimador_registrar(&estimador, 5000000000LL, 0, 10000);
         estimador_registrar(&estimador, 5000002500LL, 0, 10000);
-        assert(estimador_leer(&estimador, 5000002500LL, 24, 10000).velocidad_rpm == 1000);
+        assert(estimador_leer(&estimador, 5000002500LL, 24, 1, 10000).velocidad_rpm == 1000);
         estimador_reiniciar(&estimador);
         assert(!estimador.tiene_intervalo && estimador.pulsos_aceptados == 0);
     } else if (!strcmp(escenario, "conversion")) {
@@ -194,6 +232,13 @@ int main(int cantidad_argumentos, char **argumentos)
         comando_t automatico = comando_interpretar("ENSAYO 60 80 0");
         assert(automatico.tipo == COMANDO_ENSAYO && automatico.valores[1] == 80);
         assert(comando_interpretar("ENSAYO 60 80").tipo == COMANDO_INVALIDO);
+        assert(comando_interpretar("CAL").tipo == COMANDO_CAL_CONSULTA);
+        assert(comando_interpretar("CAL +").tipo == COMANDO_CAL_MAS);
+        assert(comando_interpretar("CAL PULSO 1500").valores[0] == 1500);
+        assert(comando_interpretar("CAL PASO 0.5").tipo == COMANDO_CAL_PASO);
+        const char *cal_invalidos[] = {"CAL PULSO", "CAL PASO x", "CAL + 2", "CAL ARRIBA", "CAL PULSO 1e999"};
+        for (unsigned indice = 0; indice < sizeof(cal_invalidos) / sizeof(cal_invalidos[0]); ++indice)
+            assert(comando_interpretar(cal_invalidos[indice]).tipo == COMANDO_INVALIDO);
     } else if (!strcmp(escenario, "configuracion")) {
         configuracion_ensayo_t resultado;
         comando_t comando = comando_interpretar("CONFIG 20 1000 300");
@@ -260,6 +305,26 @@ int main(int cantidad_argumentos, char **argumentos)
         ejecutar_comando("ENSAYO 20 80 0"); assert(acelerando);
         motor_virtual = 0; vigilar_ensayo_automatico(tiempo_virtual_us);  /* corte externo */
         assert(!acelerando && !registrando);
+    } else if (!strcmp(escenario, "calibracion")) {
+        /* Montaje simulado: 10..90 grados = 1000..1800 us, 10 us por grado. */
+        ejecutar_comando("CAL +"); assert(pulso_virtual == 0);              /* sin posicion */
+        ejecutar_comando("CAL PULSO 900"); assert(pulso_virtual == 0);      /* fuera de recorrido */
+        ejecutar_comando("CAL PULSO 1400.5"); assert(pulso_virtual == 0);
+        ejecutar_comando("CAL PULSO 1400"); assert(pulso_virtual == 1400 && isnan(angulo_virtual) && calibrando);
+        ejecutar_comando("CAL +"); assert(pulso_virtual == 1420);           /* paso inicial 2 grados */
+        ejecutar_comando("CAL PASO 5"); ejecutar_comando("CAL -"); assert(pulso_virtual == 1370);
+        ejecutar_comando("CAL CONTACTO"); assert(contacto_calibracion_us == 0);
+        ejecutar_comando("CAL LIBERADO"); assert(liberado_calibracion_us == 1370);
+        assert(strstr(mensajes[cantidad_mensajes - 1], "\"liberado_deg\":47.0"));
+        ejecutar_comando("CAL PULSO 1790"); ejecutar_comando("CAL +"); assert(pulso_virtual == 1790);
+        ejecutar_comando("CAL CONTACTO"); assert(contacto_calibracion_us == 1790 && pulso_virtual == 1370);
+        assert(strstr(mensajes[cantidad_mensajes - 1], "\"contacto_deg\":89.0"));
+        ejecutar_comando("MOTOR 20"); assert(motor_virtual == 0);          /* exige FRENO liberado */
+        tiempo_virtual_us += 14999999; vigilar_calibracion(tiempo_virtual_us); assert(pulso_virtual == 1370);
+        tiempo_virtual_us += 1; vigilar_calibracion(tiempo_virtual_us);
+        assert(pulso_virtual == 0 && !calibrando && strstr(mensajes[cantidad_mensajes - 1], "servo_apagado"));
+        ejecutar_comando("FRENO 10"); ejecutar_comando("MOTOR 20"); assert(motor_virtual == 20);
+        ejecutar_comando("CAL PULSO 1400"); assert(pulso_virtual == 1000); /* motor en marcha */
     } else if (!strcmp(escenario, "bloqueos")) {
         angulo_virtual = 10; iniciar_registro();
         unsigned anteriores = ordenes_motor;

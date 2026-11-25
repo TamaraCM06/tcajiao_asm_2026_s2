@@ -1,52 +1,39 @@
-# 1. Proyecto Grupal 2: banco de frenado
+# Proyecto Grupal 2: banco de frenado
 
-CE 1110, II semestre de 2026. Entrega y defensa: 2 de diciembre de 2026;
-archivos hasta las 23:50. Fuente: [enunciado](docs/referencias/ENUNCIADO_PROYECTO_2.md).
+CE 1110, II semestre 2026. Disco movido por un motor CD, frenado por un servo MG90S con goma y
+medido con un *LM393 Motor Speed Measuring Sensor Module* (horquilla óptica) sobre un disco de
+20 ranuras; un ESP32 registra y (próximamente) controla con PID la
+velocidad durante el frenado. Entrega y defensa: **2 de diciembre de 2026**, 23:50.
+[Enunciado](ENUNCIADO.md).
 
-## 1.1. Estado y responsabilidades
-
-| Elemento | Estado |
+| Documento | Para qué |
 |---|---|
-| Responsable de este bloque | Santiago, Persona 3 |
-| Plataforma confirmada | ESP32 clasico, ESP-IDF 5.5.5 |
-| Bloque actual | Registrador de frenado a lazo abierto para MATLAB |
-| Hardware | TCRT5000, MG90S y puente tipo L298N; conexiones y calibraciones pendientes |
-| Implementado | Firmware de captura, receptor MATLAB minimo, `visualizar_ensayo.m` y PID discreto portable (`firmware/src/pid_controller.c`) |
-| Modelo identificado, PID y extra 2 | PID probado en simulación, sin integrar al firmware ESP32; modelo y extra 2 pendientes |
-| Verificacion | Compilacion ESP-IDF y 19 pruebas C host; analizador MATLAB sin observaciones |
-| Pendientes | Ejecucion de pruebas MATLAB por licencia; comprobaciones fisicas |
+| [Ejecución](docs/01_ejecucion.md) | Instalar, programar, consola, ensayos, calibración, análisis y pruebas |
+| [Conexiones](docs/02_conexiones.md) | Cableado y calibración vigente |
+| [Flujo](docs/03_flujo.md) | Cómo funciona: bloques, firmware, ensayo y datos |
+| [Capturas](docs/capturas/) | Fotos y capturas de pantalla |
 
-## 1.2. Organizacion
+```text
+banco.py        entrada única: preparar, compilar, flashear, consola, monitor, pruebas, limpiar
+firmware/       ESP-IDF 5.5.5 (src, include, tests en PC)
+herramientas/   consola.py y visualizar_ensayo.m
+datos/          capturas crudas (CSV + JSON), no se editan
+tarea_2/        Tarea 2 entregada (informe, código y su enunciado), independiente del resto
+salidas/        todo lo generado (ignorado por git)
+```
 
-| Ubicacion | Responsabilidad |
-|---|---|
-| [Firmware](firmware/README.md) | Sensor, actuadores, temporizacion y serial |
-| [Experimentos](experimentos/README.md) | Recepcion y CSV originales |
-| [Modelado MATLAB](matlab_modelado/README.md) | Analisis e identificacion del equipo |
-| [Decisiones](docs/decisiones.md) | Montaje, GPIO y calibraciones |
-| [Requisitos](docs/requisitos.md) | Evidencias necesarias para las entregas |
-| [Manual](docs/manual_operacion.md) | Operacion y comprobaciones pendientes |
-| [Resultados](resultados/README.md) | Modelos, figuras y metricas derivados |
-| [Tarea 2](docs/tarea_2/README.md) | Informe LaTeX, diagramas, codigo PID y evidencias |
+## Estado
 
-## 1.3. Entregas y continuidad
+Hecho: banco construido, registro a lazo abierto con ensayo automático, calibración del servo
+desde la consola, velocidad promediada por vuelta, caracterización por escalón (Tarea 2) y PID
+discreto probado en simulación. `datos/escalon_02` es del banco anterior (TCRT5000, 10 marcas):
+sirve como referencia de la Tarea 2, no para identificar el banco actual.
 
-La [Tarea 2](docs/referencias/ENUNCIADO_TAREA_2.md), del 22 de noviembre,
-incluye teoria, muestreo, codigo PID sin delay, diagrama y modelo teorico.
-Construccion y caracterizacion fisica son extras de esa tarea. El proyecto final
-exige planta real, identificacion validada con otros ensayos, PID y comparacion
-de lazo abierto/cerrado con dos velocidades y tres repeticiones por condicion.
+Pendiente para la entrega:
 
-Este bloque conserva tiempo_ms, freno_deg y velocidad_rpm para el analisis del
-companero. Despues se integraran referencia, error y PID. Permitir configurar el
-registro no demuestra la comparacion experimental del extra 2.
-
-## 1.4. Colaboracion
-
-Trabajo incremental en ramas desde development. Conservar datos crudos y
-configuracion efectiva por ensayo; separar simulacion de medicion. El PDF
-presenta discrepancias development/develop y s1/s2: confirmar con el profesor
-antes de cambiar nombres. Se conserva el historico de proyectos anteriores.
-
-La [auditoria del bloque](docs/verificacion_registrador.md) registra cambios,
-compatibilidad, comprobaciones y limites. No se ha medido el funcionamiento fisico.
+- [ ] Identificación: ensayos a varios ángulos y dos velocidades; validar con ensayos no usados en el ajuste
+- [ ] PID en el firmware: referencia decreciente, anti-windup y registro de referencia, error y mando
+- [ ] Sintonía de Kp, Ki y Kd con gráficas intermedias
+- [ ] Comparación final: lazo abierto vs. PID, 2 velocidades × 3 repeticiones (≥ 12 ensayos), IAE/RMSE
+- [ ] Artículo IEEE en LaTeX (≤ 4 páginas, abstract en inglés)
+- [ ] Integrar a `master` con tag de entrega

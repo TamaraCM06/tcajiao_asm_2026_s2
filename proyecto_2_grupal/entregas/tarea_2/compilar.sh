@@ -9,6 +9,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 AUX=../../salidas/tarea_2
+TAREA=$(pwd)
 GEN=evidencias/generado
 FIRMWARE=../../firmware
 
@@ -40,7 +41,8 @@ echo "==> LaTeX"
 latex() { pdflatex -interaction=nonstopmode -halt-on-error -output-directory="$AUX" informe.tex >"$AUX/pdflatex.log" \
     || { tail -n 40 "$AUX/pdflatex.log"; exit 1; }; }
 latex
-bibtex "$AUX/informe" >"$AUX/bibtex.log" || { cat "$AUX/bibtex.log"; exit 1; }
+# bibtex no escribe en rutas con ../ (openout_any = p): se ejecuta dentro de AUX.
+(cd "$AUX" && BIBINPUTS="$TAREA:" bibtex informe >bibtex.log) || { cat "$AUX/bibtex.log"; exit 1; }
 latex
 latex
 

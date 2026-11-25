@@ -1,6 +1,6 @@
 % 1. Seleccionar una captura con tiempo_ms, freno_deg y velocidad_rpm.
 carpeta = fileparts(mfilename('fullpath'));
-carpeta_datos = fullfile(carpeta, '..', 'experimentos', 'datos');
+carpeta_datos = fullfile(carpeta, '..', 'datos');
 [nombre_csv, ruta_csv] = uigetfile(fullfile(carpeta_datos, '*.csv'), 'Seleccionar ensayo de frenado');
 if isequal(nombre_csv, 0)
     return

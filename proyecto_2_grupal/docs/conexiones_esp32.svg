@@ -1,114 +1,175 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 600" width="940" height="600" font-family="Helvetica, Arial, sans-serif">
-<style>.t{font-size:15px;font-weight:bold;fill:#212121}.s{font-size:12px;fill:#616161}.p{font-size:13px;font-weight:bold}.e{font-size:11px;text-anchor:middle;fill:#424242}.n{font-size:12px;fill:#424242}</style>
-<rect width="940" height="600" fill="#ffffff"/>
-<rect x="370" y="70" width="200" height="400" rx="8" fill="#263238" stroke="#424242" stroke-width="1.5"/>
-<text x="470" y="96" class="t" text-anchor="middle" style="fill:#ffffff">ESP32 DevKit</text>
-<rect x="425" y="415" width="90" height="40" rx="4" fill="#90a4ae" stroke="#cfd8dc"/>
-<text x="470" y="440" class="s" text-anchor="middle" style="fill:#263238">WROOM-32</text>
-<rect x="440" y="470" width="60" height="22" rx="3" fill="#b0bec5" stroke="#424242"/>
-<text x="470" y="512" class="s" text-anchor="middle">USB a la PC: alimentación y serie a 115200</text>
-<rect x="365" y="215" width="10" height="10" fill="#ffd54f"/>
-<text x="384" y="224" class="p" text-anchor="start" fill="#ffffff">GPIO25</text>
-<rect x="365" y="265" width="10" height="10" fill="#ffd54f"/>
-<text x="384" y="274" class="p" text-anchor="start" fill="#ffffff">GPIO26</text>
-<rect x="365" y="315" width="10" height="10" fill="#ffd54f"/>
-<text x="384" y="324" class="p" text-anchor="start" fill="#ffffff">GPIO33</text>
-<rect x="365" y="395" width="10" height="10" fill="#ffd54f"/>
-<text x="384" y="404" class="p" text-anchor="start" fill="#ffffff">GND</text>
-<rect x="565" y="125" width="10" height="10" fill="#ffd54f"/>
-<text x="556" y="134" class="p" text-anchor="end" fill="#ffffff">3V3</text>
-<rect x="565" y="170" width="10" height="10" fill="#ffd54f"/>
-<text x="556" y="179" class="p" text-anchor="end" fill="#ffffff">GND</text>
-<rect x="565" y="215" width="10" height="10" fill="#ffd54f"/>
-<text x="556" y="224" class="p" text-anchor="end" fill="#ffffff">GPIO27</text>
-<rect x="565" y="315" width="10" height="10" fill="#ffd54f"/>
-<text x="556" y="324" class="p" text-anchor="end" fill="#ffffff">GPIO18</text>
-<rect x="565" y="375" width="10" height="10" fill="#ffd54f"/>
-<text x="556" y="384" class="p" text-anchor="end" fill="#ffffff">GND</text>
-<rect x="150" y="190" width="140" height="240" rx="8" fill="#f5f5f5" stroke="#424242" stroke-width="1.5"/>
-<text x="160" y="212" class="t" text-anchor="start">L298N</text>
-<text x="160" y="230" class="s" text-anchor="start">puente H</text>
-<rect x="285" y="215" width="10" height="10" fill="#424242"/>
-<text x="276" y="224" class="p" text-anchor="end" fill="#212121">ENA</text>
-<rect x="285" y="265" width="10" height="10" fill="#424242"/>
-<text x="276" y="274" class="p" text-anchor="end" fill="#212121">IN1</text>
-<rect x="285" y="315" width="10" height="10" fill="#424242"/>
-<text x="276" y="324" class="p" text-anchor="end" fill="#212121">IN2</text>
-<rect x="285" y="395" width="10" height="10" fill="#424242"/>
-<text x="276" y="404" class="p" text-anchor="end" fill="#212121">GND</text>
-<rect x="145" y="245" width="10" height="10" fill="#424242"/>
-<text x="164" y="254" class="p" text-anchor="start" fill="#212121">+12V</text>
-<rect x="145" y="285" width="10" height="10" fill="#424242"/>
-<text x="164" y="294" class="p" text-anchor="start" fill="#212121">GND</text>
-<rect x="145" y="370" width="10" height="10" fill="#424242"/>
-<text x="164" y="379" class="p" text-anchor="start" fill="#212121">OUT1</text>
-<rect x="145" y="400" width="10" height="10" fill="#424242"/>
-<text x="164" y="409" class="p" text-anchor="start" fill="#212121">OUT2</text>
-<polyline points="290,220 370,220" fill="none" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round"/>
-<rect x="296.3" y="211" width="67.4" height="15" rx="3" fill="#fff"/>
-<text x="330" y="222" class="e">PWM 1 kHz</text>
-<polyline points="290,270 370,270" fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round"/>
-<polyline points="290,320 370,320" fill="none" stroke="#6a1b9a" stroke-width="3" stroke-linejoin="round"/>
-<polyline points="290,400 370,400" fill="none" stroke="#212121" stroke-width="3" stroke-linejoin="round"/>
-<rect x="10" y="225" width="100" height="85" rx="8" fill="#f5f5f5" stroke="#424242" stroke-width="1.5"/>
-<text x="20" y="247" class="t" text-anchor="start">Fuente</text>
-<text x="20" y="265" class="s" text-anchor="start">del motor</text>
-<rect x="105" y="245" width="10" height="10" fill="#424242"/>
-<text x="96" y="254" class="p" text-anchor="end" fill="#212121">+</text>
-<rect x="105" y="285" width="10" height="10" fill="#424242"/>
-<text x="96" y="294" class="p" text-anchor="end" fill="#212121">-</text>
-<polyline points="110,250 150,250" fill="none" stroke="#d32f2f" stroke-width="3" stroke-linejoin="round"/>
-<polyline points="110,290 150,290" fill="none" stroke="#212121" stroke-width="3" stroke-linejoin="round"/>
-<rect x="10" y="330" width="100" height="95" rx="8" fill="#f5f5f5" stroke="#424242" stroke-width="1.5"/>
-<text x="20" y="352" class="t" text-anchor="start">Motor CD</text>
-<rect x="105" y="370" width="10" height="10" fill="#424242"/>
-<text x="96" y="379" class="p" text-anchor="end" fill="#212121">A</text>
-<rect x="105" y="400" width="10" height="10" fill="#424242"/>
-<text x="96" y="409" class="p" text-anchor="end" fill="#212121">B</text>
-<polyline points="110,375 150,375" fill="none" stroke="#e0a800" stroke-width="3" stroke-linejoin="round"/>
-<polyline points="110,405 150,405" fill="none" stroke="#e0a800" stroke-width="3" stroke-linejoin="round"/>
-<rect x="690" y="55" width="230" height="205" rx="8" fill="#f5f5f5" stroke="#424242" stroke-width="1.5"/>
-<text x="910" y="77" class="t" text-anchor="end">LM393</text>
-<text x="910" y="95" class="s" text-anchor="end">sensor de velocidad (horquilla)</text>
-<rect x="685" y="125" width="10" height="10" fill="#424242"/>
-<text x="704" y="134" class="p" text-anchor="start" fill="#212121">VCC</text>
-<rect x="685" y="170" width="10" height="10" fill="#424242"/>
-<text x="704" y="179" class="p" text-anchor="start" fill="#212121">GND</text>
-<rect x="685" y="215" width="10" height="10" fill="#424242"/>
-<text x="704" y="224" class="p" text-anchor="start" fill="#212121">DO</text>
-<rect x="685" y="240" width="10" height="10" fill="#9e9e9e"/>
-<text x="704" y="249" class="p" text-anchor="start" fill="#9e9e9e">AO (sin conectar)</text>
-<polyline points="570,130 690,130" fill="none" stroke="#d32f2f" stroke-width="3" stroke-linejoin="round"/>
-<rect x="609.5" y="121" width="41.0" height="15" rx="3" fill="#fff"/>
-<text x="630" y="132" class="e">3,3 V</text>
-<polyline points="570,175 690,175" fill="none" stroke="#212121" stroke-width="3" stroke-linejoin="round"/>
-<polyline points="570,220 690,220" fill="none" stroke="#e0a800" stroke-width="3" stroke-linejoin="round"/>
-<rect x="606.2" y="211" width="47.599999999999994" height="15" rx="3" fill="#fff"/>
-<text x="630" y="222" class="e">pulsos</text>
-<rect x="690" y="275" width="230" height="130" rx="8" fill="#f5f5f5" stroke="#424242" stroke-width="1.5"/>
-<text x="910" y="297" class="t" text-anchor="end">MG90S</text>
-<text x="910" y="315" class="s" text-anchor="end">servo del freno</text>
-<rect x="685" y="315" width="10" height="10" fill="#424242"/>
-<text x="704" y="324" class="p" text-anchor="start" fill="#212121">señal (naranja)</text>
-<rect x="685" y="345" width="10" height="10" fill="#424242"/>
-<text x="704" y="354" class="p" text-anchor="start" fill="#212121">+5V (rojo)</text>
-<rect x="685" y="375" width="10" height="10" fill="#424242"/>
-<text x="704" y="384" class="p" text-anchor="start" fill="#212121">GND (café)</text>
-<polyline points="570,320 690,320" fill="none" stroke="#ef6c00" stroke-width="3" stroke-linejoin="round"/>
-<rect x="596.3" y="311" width="67.4" height="15" rx="3" fill="#fff"/>
-<text x="630" y="322" class="e">PWM 50 Hz</text>
-<polyline points="570,380 690,380" fill="none" stroke="#212121" stroke-width="3" stroke-linejoin="round"/>
-<rect x="690" y="430" width="230" height="75" rx="8" fill="#f5f5f5" stroke="#424242" stroke-width="1.5"/>
-<text x="910" y="452" class="t" text-anchor="end">Fuente 5 V</text>
-<text x="910" y="470" class="s" text-anchor="end">del servo, 1 A o más</text>
-<rect x="685" y="455" width="10" height="10" fill="#424242"/>
-<text x="704" y="464" class="p" text-anchor="start" fill="#212121">+5V</text>
-<rect x="685" y="480" width="10" height="10" fill="#424242"/>
-<text x="704" y="489" class="p" text-anchor="start" fill="#212121">GND</text>
-<polyline points="690,460 655,460 655,350 690,350" fill="none" stroke="#d32f2f" stroke-width="3" stroke-linejoin="round"/>
-<polyline points="690,485 640,485 640,380" fill="none" stroke="#212121" stroke-width="3" stroke-linejoin="round"/>
-<circle cx="640" cy="380" r="5" fill="#212121"/>
-<text x="20" y="545" class="n">Todos los GND unidos (ESP32, L298N, fuentes y sensor). ENA del L298N sin jumper.</text>
-<text x="20" y="563" class="n">LM393 a 3V3, nunca a 5 V. El servo nunca al 3V3 ni al 5 V del USB: usa su propia fuente.</text>
-<text x="20" y="581" class="n">Pines agrupados por función, no en su posición física; en placas DOIT el serigrafiado es D25, D27, ...</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 680" width="960" height="680">
+<style>text{font-family:"DejaVu Sans Mono",Menlo,Consolas,monospace}.pin{font-size:12px;fill:#222}.mod{font-size:14px;font-weight:bold;fill:#222}.det{font-size:11px;fill:#555}.sk{font-size:11px;fill:#e8eaed}.sk0{font-size:11px;fill:#7d858c}.tit{font-size:13px;fill:#222}</style>
+<rect width="960" height="680" fill="#fff"/>
+<text x="520" y="40" class="tit" text-anchor="middle">ESP32 DevKitC, 38 pines, vista superior</text>
+<rect x="420" y="60" width="200" height="560" rx="6" fill="#1d2327"/>
+<rect x="472" y="68" width="96" height="262" rx="2" fill="#b9bec4" stroke="#8a9096"/>
+<path d="M480,80 h12 v14 h12 v-14 h12 v14 h12 v-14 h12 v14 h12 v-14" stroke="#6d747b" stroke-width="2" fill="none"/>
+<rect x="480" y="110" width="80" height="210" fill="#cfd3d7" stroke="#9aa0a6"/>
+<text x="520" y="210" class="det" text-anchor="middle" fill="#333">ESP32-</text>
+<text x="520" y="224" class="det" text-anchor="middle" fill="#333">WROOM-32</text>
+<rect x="468" y="560" width="20" height="16" fill="#444" stroke="#999"/><text x="478" y="592" class="sk0" text-anchor="middle">EN</text>
+<rect x="552" y="560" width="20" height="16" fill="#444" stroke="#999"/><text x="562" y="592" class="sk0" text-anchor="middle">BOOT</text>
+<rect x="497" y="600" width="46" height="26" rx="5" fill="#9aa0a6" stroke="#555"/>
+<text x="520" y="648" class="det" text-anchor="middle">USB-C a la PC</text>
+<circle cx="430" cy="150" r="5.5" fill="#c62828" stroke="#7a5f10"/>
+<text x="442" y="154" class="sk">3V3</text>
+<circle cx="430" cy="175" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="179" class="sk0">EN</text>
+<circle cx="430" cy="200" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="204" class="sk0">SVP</text>
+<circle cx="430" cy="225" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="229" class="sk0">SVN</text>
+<circle cx="430" cy="250" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="254" class="sk0">IO34</text>
+<circle cx="430" cy="275" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="279" class="sk0">IO35</text>
+<circle cx="430" cy="300" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="304" class="sk0">IO32</text>
+<circle cx="430" cy="325" r="5.5" fill="#6a1b9a" stroke="#7a5f10"/>
+<text x="442" y="329" class="sk">IO33</text>
+<circle cx="430" cy="350" r="5.5" fill="#2e7d32" stroke="#7a5f10"/>
+<text x="442" y="354" class="sk">IO25</text>
+<circle cx="430" cy="375" r="5.5" fill="#1565c0" stroke="#7a5f10"/>
+<text x="442" y="379" class="sk">IO26</text>
+<circle cx="430" cy="400" r="5.5" fill="#d4a000" stroke="#7a5f10"/>
+<text x="442" y="404" class="sk">IO27</text>
+<circle cx="430" cy="425" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="429" class="sk0">IO14</text>
+<circle cx="430" cy="450" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="454" class="sk0">IO12</text>
+<circle cx="430" cy="475" r="5.5" fill="#e0e0e0" stroke="#7a5f10"/>
+<text x="442" y="479" class="sk">GND</text>
+<circle cx="430" cy="500" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="504" class="sk0">IO13</text>
+<circle cx="430" cy="525" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="529" class="sk0">SD2</text>
+<circle cx="430" cy="550" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="554" class="sk0">SD3</text>
+<circle cx="430" cy="575" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="579" class="sk0">CMD</text>
+<circle cx="430" cy="600" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="442" y="604" class="sk0">5V</text>
+<circle cx="610" cy="150" r="5.5" fill="#e0e0e0" stroke="#7a5f10"/>
+<text x="598" y="154" class="sk" text-anchor="end">GND</text>
+<circle cx="610" cy="175" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="179" class="sk0" text-anchor="end">IO23</text>
+<circle cx="610" cy="200" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="204" class="sk0" text-anchor="end">IO22</text>
+<circle cx="610" cy="225" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="229" class="sk0" text-anchor="end">TXD0</text>
+<circle cx="610" cy="250" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="254" class="sk0" text-anchor="end">RXD0</text>
+<circle cx="610" cy="275" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="279" class="sk0" text-anchor="end">IO21</text>
+<circle cx="610" cy="300" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="304" class="sk0" text-anchor="end">GND</text>
+<circle cx="610" cy="325" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="329" class="sk0" text-anchor="end">IO19</text>
+<circle cx="610" cy="350" r="5.5" fill="#e65100" stroke="#7a5f10"/>
+<text x="598" y="354" class="sk" text-anchor="end">IO18</text>
+<circle cx="610" cy="375" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="379" class="sk0" text-anchor="end">IO5</text>
+<circle cx="610" cy="400" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="404" class="sk0" text-anchor="end">IO17</text>
+<circle cx="610" cy="425" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="429" class="sk0" text-anchor="end">IO16</text>
+<circle cx="610" cy="450" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="454" class="sk0" text-anchor="end">IO4</text>
+<circle cx="610" cy="475" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="479" class="sk0" text-anchor="end">IO0</text>
+<circle cx="610" cy="500" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="504" class="sk0" text-anchor="end">IO2</text>
+<circle cx="610" cy="525" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="529" class="sk0" text-anchor="end">IO15</text>
+<circle cx="610" cy="550" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="554" class="sk0" text-anchor="end">SD1</text>
+<circle cx="610" cy="575" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="579" class="sk0" text-anchor="end">SD0</text>
+<circle cx="610" cy="600" r="5.5" fill="#c9a227" stroke="#7a5f10"/>
+<text x="598" y="604" class="sk0" text-anchor="end">CLK</text>
+<polygon points="424,150 416,141 386,141 386,159 416,159" fill="#fff" stroke="#222" stroke-width="1.5"/>
+<text x="402.0" y="154" class="pin" text-anchor="middle">3V3</text>
+<polyline points="430,150 424,150" fill="none" stroke="#c62828" stroke-width="2.5"/>
+<rect x="160" y="240.0" width="140" height="147.5" fill="#fafafa" stroke="#222" stroke-width="1.5"/>
+<text x="170" y="260.0" class="mod" text-anchor="start">L298N</text>
+<circle cx="300" cy="325" r="3.5" fill="#222"/>
+<text x="292" y="329" class="pin" text-anchor="end">IN2</text>
+<circle cx="300" cy="350" r="3.5" fill="#222"/>
+<text x="292" y="354" class="pin" text-anchor="end">ENA</text>
+<circle cx="300" cy="375" r="3.5" fill="#222"/>
+<text x="292" y="379" class="pin" text-anchor="end">IN1</text>
+<circle cx="160" cy="275" r="3.5" fill="#222"/><text x="168" y="279" class="pin">+12V</text>
+<circle cx="160" cy="300" r="3.5" fill="#222"/><text x="168" y="304" class="pin">GND</text>
+<circle cx="160" cy="331.25" r="3.5" fill="#222"/><text x="168" y="335.25" class="pin">OUT1</text>
+<circle cx="160" cy="362.5" r="3.5" fill="#222"/><text x="168" y="366.5" class="pin">OUT2</text>
+<polyline points="300,325 430,325" fill="none" stroke="#6a1b9a" stroke-width="2.5"/>
+<polyline points="300,350 430,350" fill="none" stroke="#2e7d32" stroke-width="2.5"/>
+<polyline points="300,375 430,375" fill="none" stroke="#1565c0" stroke-width="2.5"/>
+<text x="365" y="345" class="det" text-anchor="middle">PWM 1 kHz</text>
+<rect x="110" y="392.5" width="190" height="97.5" fill="#fafafa" stroke="#222" stroke-width="1.5"/>
+<text x="120" y="464.0" class="mod" text-anchor="start">LM393</text>
+<text x="120" y="480.0" class="det" text-anchor="start">sensor de velocidad</text>
+<circle cx="300" cy="400" r="3.5" fill="#222"/>
+<text x="292" y="404" class="pin" text-anchor="end">DO</text>
+<circle cx="300" cy="425" r="3.5" fill="#222"/>
+<text x="292" y="429" class="pin" text-anchor="end">VCC</text>
+<circle cx="300" cy="450" r="3.5" fill="#222"/>
+<text x="292" y="454" class="pin" text-anchor="end">GND</text>
+<circle cx="300" cy="475" r="3.5" fill="#222"/>
+<text x="292" y="479" class="pin" text-anchor="end">AO</text>
+<polyline points="300,400 430,400" fill="none" stroke="#d4a000" stroke-width="2.5"/>
+<polyline points="300,425 318,425" fill="none" stroke="#c62828" stroke-width="2.5"/>
+<polygon points="318,425 326,416 356,416 356,434 326,434" fill="#fff" stroke="#222" stroke-width="1.5"/>
+<text x="340.0" y="429" class="pin" text-anchor="middle">3V3</text>
+<polyline points="300,450 330,450" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M330,450 v10 M321,460 h18 M324,464 h12 M327,468 h6" stroke="#222" stroke-width="1.8" fill="none"/>
+<polyline points="430,475 395,475" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M395,475 v10 M386,485 h18 M389,489 h12 M392,493 h6" stroke="#222" stroke-width="1.8" fill="none"/>
+<rect x="20" y="250" width="90" height="60.0" fill="#fafafa" stroke="#222" stroke-width="1.5"/>
+<text x="30" y="270" class="mod" text-anchor="start">Fuente</text>
+<text x="30" y="286" class="det" text-anchor="start">motor</text>
+<circle cx="110" cy="275" r="3.5" fill="#222"/>
+<text x="102" y="279" class="pin" text-anchor="end">+</text>
+<circle cx="110" cy="300" r="3.5" fill="#222"/>
+<text x="102" y="304" class="pin" text-anchor="end">-</text>
+<polyline points="110,275 160,275" fill="none" stroke="#c62828" stroke-width="2.5"/>
+<polyline points="110,300 122,300" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M122,300 v10 M113,310 h18 M116,314 h12 M119,318 h6" stroke="#222" stroke-width="1.8" fill="none"/>
+<polyline points="160,300 148,300" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M148,300 v10 M139,310 h18 M142,314 h12 M145,318 h6" stroke="#222" stroke-width="1.8" fill="none"/>
+<rect x="20" y="320.0" width="90" height="60.0" fill="#fafafa" stroke="#222" stroke-width="1.5"/>
+<text x="30" y="354.0" class="mod" text-anchor="start">Motor</text>
+<text x="30" y="370.0" class="det" text-anchor="start">CD</text>
+<circle cx="110" cy="331.25" r="3.5" fill="#222"/>
+<text x="102" y="335.25" class="pin" text-anchor="end">A</text>
+<circle cx="110" cy="362.5" r="3.5" fill="#222"/>
+<text x="102" y="366.5" class="pin" text-anchor="end">B</text>
+<polyline points="110,331.25 160,331.25" fill="none" stroke="#d4a000" stroke-width="2.5"/>
+<polyline points="110,362.5 160,362.5" fill="none" stroke="#d4a000" stroke-width="2.5"/>
+<polyline points="610,150 650,150" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M650,150 v10 M641,160 h18 M644,164 h12 M647,168 h6" stroke="#222" stroke-width="1.8" fill="none"/>
+<rect x="740" y="332.5" width="190" height="85.0" fill="#fafafa" stroke="#222" stroke-width="1.5"/>
+<text x="920" y="391.5" class="mod" text-anchor="end">MG90S</text>
+<text x="920" y="407.5" class="det" text-anchor="end">servo del freno</text>
+<circle cx="740" cy="350" r="3.5" fill="#222"/>
+<text x="748" y="354" class="pin" text-anchor="start">señal</text>
+<circle cx="740" cy="375" r="3.5" fill="#222"/>
+<text x="748" y="379" class="pin" text-anchor="start">+5V</text>
+<circle cx="740" cy="400" r="3.5" fill="#222"/>
+<text x="748" y="404" class="pin" text-anchor="start">GND</text>
+<polyline points="610,350 740,350" fill="none" stroke="#e65100" stroke-width="2.5"/>
+<text x="675" y="345" class="det" text-anchor="middle">PWM 50 Hz</text>
+<polyline points="740,400 722,400" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M722,400 v10 M713,410 h18 M716,414 h12 M719,418 h6" stroke="#222" stroke-width="1.8" fill="none"/>
+<rect x="740" y="440.0" width="190" height="45.0" fill="#fafafa" stroke="#222" stroke-width="1.5"/>
+<text x="920" y="459.0" class="mod" text-anchor="end">Fuente 5 V</text>
+<text x="920" y="475.0" class="det" text-anchor="end">solo del servo</text>
+<circle cx="740" cy="450" r="3.5" fill="#222"/>
+<text x="748" y="454" class="pin" text-anchor="start">+5V</text>
+<circle cx="740" cy="475" r="3.5" fill="#222"/>
+<text x="748" y="479" class="pin" text-anchor="start">GND</text>
+<polyline points="740,450 700,450 700,375 740,375" fill="none" stroke="#c62828" stroke-width="2.5"/>
+<polyline points="740,475 722,475" fill="none" stroke="#222" stroke-width="2.5"/>
+<path d="M722,475 v10 M713,485 h18 M716,489 h12 M719,493 h6" stroke="#222" stroke-width="1.8" fill="none"/>
 </svg>

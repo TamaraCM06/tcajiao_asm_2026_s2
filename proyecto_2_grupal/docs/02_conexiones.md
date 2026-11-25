@@ -1,6 +1,6 @@
 # Conexiones
 
-ESP32 clásico (DevKit). Los pines y la calibración vigentes están en `firmware/sdkconfig.defaults`;
+ESP32 DevKitC de 38 pines. Los pines y la calibración vigentes están en `firmware/sdkconfig.defaults`;
 si se cambia un cable, cambiarlo también ahí.
 
 ## Cableado

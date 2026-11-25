@@ -86,6 +86,12 @@ def rutas_firmware():
 
 def idf_py(idf, *argumentos):
     fuente, compilacion = rutas_firmware()
+    # ESP-IDF solo aplica sdkconfig.defaults al crear sdkconfig: si los defaults cambiaron despues,
+    # se regenera para que la calibracion editada llegue al firmware (menuconfig dura hasta entonces).
+    generado, defaults = compilacion / "sdkconfig", fuente / "sdkconfig.defaults"
+    if generado.exists() and generado.stat().st_mtime < defaults.stat().st_mtime:
+        generado.unlink()
+        print("banco: sdkconfig.defaults cambio; se regenera salidas/firmware/sdkconfig")
     orden = [str(idf[2]), str(idf[0] / "tools/idf.py"), "-C", str(fuente), "-B", str(compilacion),
              "-D", f"SDKCONFIG={compilacion / 'sdkconfig'}", *argumentos]
     return subprocess.run(orden, env=entorno_idf(idf)).returncode

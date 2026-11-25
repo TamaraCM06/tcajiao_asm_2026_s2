@@ -7,10 +7,10 @@ marca con `\pendiente{...}` (recuadro naranja en el PDF; buscar "Pendiente" ante
 ./compilar.sh            # simulación + PDF  -> informe.pdf
 ./compilar.sh --solo-tex # solo LaTeX
 ./compilar.sh --limpiar
-./empaquetar.sh          # Tarea2_ASM_Grupo1.zip: PDF + código + datos del ensayo
+./empaquetar.sh          # salidas/tarea_2/Tarea2_ASM_Grupo1.zip: PDF + código + datos del commit entregado
 ```
 
-Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `standalone`. Los auxiliares quedan en `build/`.
+Requiere `gcc`, `pdftoppm`, `pdflatex`, `bibtex`, `pgfplots`, `listings` y `standalone`. Los auxiliares y el ZIP quedan en `../../salidas/tarea_2/`. Entregada en el commit `6431b3b`; `empaquetar.sh` toma de ese commit los programas y datos.
 
 | Ruta | Contenido |
 |---|---|

@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-AUX=build
+AUX=../../salidas/tarea_2
 GEN=evidencias/generado
 FIRMWARE=../../firmware
 

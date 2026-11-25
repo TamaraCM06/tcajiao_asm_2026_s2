@@ -5,7 +5,7 @@
 #include "estimador_velocidad.h"
 #include "esp_err.h"
 
-/* Sensor de horquilla con comparador LM393 frente a un disco ranurado. Inicializa la entrada DO
+/* LM393 Motor Speed Measuring Sensor Module: horquilla optica que ve las ranuras del disco. Inicializa la entrada DO
  * sin resistencias internas (el modulo trae su pull-up a VCC) y un solo flanco por ranura. */
 esp_err_t sensor_optico_iniciar(const configuracion_hardware_t *parametros);
 

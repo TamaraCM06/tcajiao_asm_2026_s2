@@ -1,7 +1,8 @@
 # Proyecto Grupal 2: banco de frenado
 
 CE 1110, II semestre 2026. Disco movido por un motor CD, frenado por un servo MG90S con goma y
-medido con un sensor de horquilla LM393 sobre un disco de 20 ranuras; un ESP32 registra y (próximamente) controla con PID la
+medido con un *LM393 Motor Speed Measuring Sensor Module* (horquilla óptica) sobre un disco de
+20 ranuras; un ESP32 registra y (próximamente) controla con PID la
 velocidad durante el frenado. Entrega y defensa: **2 de diciembre de 2026**, 23:50.
 [Enunciado](ENUNCIADO.md).
 

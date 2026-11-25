@@ -31,9 +31,12 @@ si se cambia un cable, cambiarlo también ahí.
 
 Todos los GND en un mismo punto: ESP32, L298N, fuente del motor, fuente del servo y sensor.
 
-**Sensor:** módulo de horquilla (fotointerruptor) con comparador LM393. El disco de 20 ranuras pasa
-por el centro de la horquilla sin rozarla; el LED del módulo debe cambiar en cada ranura al girar el
-disco a mano. Con el timeout de 100 ms, menos de 30 RPM se registra como 0.
+**Sensor:** *LM393 Motor Speed Measuring Sensor Module*: fotointerruptor de horquilla (emisor IR y
+receptor enfrentados) con comparador LM393; pines VCC, GND, DO y AO. Detecta ranuras que dejan
+pasar la luz, no marcas de color. El disco de 20 ranuras debe pasar por el centro de la horquilla sin
+rozarla (medir la abertura de la horquilla contra el espesor del disco) y ser opaco al infrarrojo
+entre ranuras. Al girarlo a mano, el LED de salida del módulo debe cambiar en cada ranura. Con el
+timeout de 100 ms, menos de 30 RPM se registra como 0.
 
 ## Calibración vigente (25 nov 2026)
 

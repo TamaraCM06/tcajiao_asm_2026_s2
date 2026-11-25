@@ -1,0 +1,89 @@
+# Diagrama de conexiones del banco (WireViz) -> ../svg/conexiones.svg
+# Regenerar: python banco.py diagramas (requiere Graphviz: sudo pacman -S graphviz)
+# Pines por numero de GPIO: en placas DOIT el serigrafiado es D27, D18, ...
+
+connectors:
+  ESP32:
+    type: ESP32 DevKit (ESP-IDF 5.5.5)
+    subtype: solo pines usados
+    pinlabels: [3V3, GND, GPIO27, GPIO18, GPIO25, GPIO26, GPIO33]
+    notes: USB a la PC (alimentacion y serie 115200)
+  LM393:
+    type: LM393 Motor Speed Measuring Sensor Module
+    subtype: horquilla optica, disco de 20 ranuras
+    pinlabels: [VCC, GND, DO, AO]
+    notes: VCC a 3V3, no a 5 V (pull-up a VCC). AO sin conectar
+  MG90S:
+    type: Servo MG90S (freno)
+    pinlabels: [Senal, +5V, GND]
+    pincolors: [OG, RD, BN]
+  L298N:
+    type: Puente H L298N (motor)
+    pinlabels: [ENA, IN1, IN2, +12V, GND, OUT1, OUT2]
+    notes: ENA sin jumper. +5V del modulo sin usar
+  FUENTE_SERVO:
+    type: Fuente 5 V del servo
+    pinlabels: [+5V, GND]
+  FUENTE_MOTOR:
+    type: Fuente del motor
+    pinlabels: [+, '-']
+  MOTOR:
+    type: Motor CD
+    pinlabels: [A, B]
+    notes: si gira al reves, intercambiar OUT1 y OUT2
+  GND_COMUN:
+    style: simple
+    type: GND comun (un solo punto)
+    pinlabels: [GND]
+
+cables:
+  W_sensor:
+    category: bundle
+    colors: [RD, BK, YE]
+  W_servo:
+    category: bundle
+    colors: [OG]
+  W_puente:
+    category: bundle
+    colors: [GN, BU, VT]
+  W_servo_pot:
+    category: bundle
+    colors: [RD, BK]
+  W_motor_pot:
+    category: bundle
+    colors: [RD, BK]
+  W_motor:
+    category: bundle
+    colors: [YE, YE]
+  W_tierras:
+    category: bundle
+    colors: [BK, BK, BK]
+
+connections:
+  - - ESP32: [3V3, GND, GPIO27]
+    - W_sensor: [1-3]
+    - LM393: [VCC, GND, DO]
+  - - ESP32: [GPIO18]
+    - W_servo: [1]
+    - MG90S: [Senal]
+  - - ESP32: [GPIO25, GPIO26, GPIO33]
+    - W_puente: [1-3]
+    - L298N: [ENA, IN1, IN2]
+  - - FUENTE_SERVO: [+5V, GND]
+    - W_servo_pot: [1-2]
+    - MG90S: [+5V, GND]
+  - - FUENTE_MOTOR: [+, '-']
+    - W_motor_pot: [1-2]
+    - L298N: [+12V, GND]
+  - - L298N: [OUT1, OUT2]
+    - W_motor: [1-2]
+    - MOTOR: [A, B]
+  - - ESP32: [GND]
+    - W_tierras: [1]
+    - GND_COMUN: [GND]
+  - - FUENTE_SERVO: [GND]
+    - W_tierras: [2]
+    - GND_COMUN: [GND]
+  - - L298N: [GND]
+    - W_tierras: [3]
+    - GND_COMUN: [GND]

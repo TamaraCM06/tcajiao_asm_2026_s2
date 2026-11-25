@@ -1,3 +1,4 @@
 pyserial>=3.5
 pytest>=8
 pyreadline3; sys_platform == "win32"
+wireviz>=0.4  # solo para python banco.py diagramas (requiere Graphviz)

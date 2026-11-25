@@ -17,17 +17,11 @@ si se cambia un cable, cambiarlo también ahí.
 | L298N **OUT1 / OUT2** | Motor CD | Si gira al revés, intercambiarlos |
 | ESP32 **USB** | PC | Alimentación y serie a 115200 baudios |
 
-```text
-             3V3 ─────────────── VCC  LM393 (horquilla)
-             GND ──┬──────────── GND
-          GPIO27 ◄─┼──────────── DO
-          GPIO18 ──┼──────────── señal MG90S ── +5 V fuente servo
-                   ├──────────── GND MG90S ──── GND fuente servo
-  ESP32   GPIO25 ──┼──────────── ENA (sin jumper)
-          GPIO26 ──┼──────────── IN1        L298N ── OUT1/OUT2 ── motor CD
-          GPIO33 ──┼──────────── IN2              ── +12V ──────── fuente motor +
-             GND ──┴──────────── GND ──────────────────────────── fuente motor −
-```
+[![Diagrama de conexiones](diagramas/svg/conexiones.svg)](diagramas/svg/conexiones.svg)
+
+Fuente: [`diagramas/src/conexiones.yml`](diagramas/src/conexiones.yml) (WireViz); se regenera con
+`python banco.py diagramas`. Los pines van por número de GPIO: en placas DOIT el serigrafiado es
+`D27`, `D18`, etc.
 
 Todos los GND en un mismo punto: ESP32, L298N, fuente del motor, fuente del servo y sensor.
 

@@ -8,12 +8,14 @@
   python banco.py monitor  [-p PUERTO] serie sin filtro (salir con Ctrl+])
   python banco.py menuconfig           cambio temporal; lo vigente va en firmware/sdkconfig.defaults
   python banco.py pruebas              pruebas del firmware en la PC (gcc + pytest)
+  python banco.py diagramas            docs/diagramas/src -> svg (Node.js para Mermaid, Graphviz para WireViz)
   python banco.py limpiar              borra salidas/
 
 Todo lo generado queda en salidas/. El puerto se detecta solo si hay una sola placa.
 """
 import argparse
 import glob
+import json
 import os
 import shutil
 import subprocess
@@ -25,6 +27,8 @@ sys.dont_write_bytecode = True
 RAIZ = Path(__file__).resolve().parent
 FIRMWARE = RAIZ / "firmware"
 SALIDAS = RAIZ / "salidas"
+DIAGRAMAS = RAIZ / "docs" / "diagramas"
+MERMAID_CLI = "@mermaid-js/mermaid-cli@12.0.0"
 WINDOWS = os.name == "nt"
 # Chips USB-serie de las placas ESP32 comunes: CP210x, CH340, FTDI y USB nativo de Espressif.
 FABRICANTES_USB = {0x10C4, 0x1A86, 0x0403, 0x303A}
@@ -110,10 +114,53 @@ def detectar_puerto(pedido):
     fallar("hay varias placas; indica -p con una de: " + ", ".join(p.device for p in placas))
 
 
+def buscar_chromium():
+    """Navegador para mermaid-cli: el de la cache de puppeteer o uno del sistema."""
+    cache = Path.home() / ".cache" / "puppeteer"
+    candidatos = sorted(glob.glob(str(cache / "chrome-headless-shell" / "*" / "*" / "chrome-headless-shell*")))
+    candidatos = [c for c in candidatos if os.access(c, os.X_OK) and not c.endswith(".json")]
+    if candidatos:
+        return candidatos[-1]
+    return next((shutil.which(n) for n in ("chromium", "google-chrome-stable", "google-chrome", "chrome")
+                 if shutil.which(n)), None)
+
+
+def renderizar_diagramas():
+    """Cada src/*.mmd con Mermaid y cada src/*.yml con WireViz a svg/<nombre>.svg."""
+    fuentes, destino = DIAGRAMAS / "src", DIAGRAMAS / "svg"
+    destino.mkdir(exist_ok=True)
+    errores = 0
+    mermaid = sorted(fuentes.glob("*.mmd"))
+    if mermaid:
+        npx = shutil.which("npx")
+        if not npx:
+            fallar("falta Node.js (npx) para los diagramas Mermaid")
+        trabajo = SALIDAS / "diagramas"
+        trabajo.mkdir(parents=True, exist_ok=True)
+        navegador = buscar_chromium()
+        extra = []
+        if navegador:
+            (trabajo / "puppeteer.json").write_text(json.dumps({"executablePath": navegador, "args": ["--no-sandbox"]}))
+            extra = ["-p", str(trabajo / "puppeteer.json")]
+        for fuente in mermaid:
+            print(f"Mermaid  {fuente.name}")
+            errores += subprocess.run([npx, "--yes", MERMAID_CLI, "-q", *extra, "-i", str(fuente),
+                                       "-o", str(destino / f"{fuente.stem}.svg"), "-c", str(DIAGRAMAS / "mermaid.json"),
+                                       "-b", "#0d1117"], env=dict(os.environ, npm_config_loglevel="error",
+                                       npm_config_update_notifier="false")).returncode != 0
+    for fuente in sorted(fuentes.glob("*.yml")):
+        print(f"WireViz  {fuente.name}")
+        if not shutil.which("dot"):
+            fallar("falta Graphviz (dot) para WireViz: sudo pacman -S graphviz")
+        from wireviz import wireviz
+        (destino / f"{fuente.stem}.svg").write_text(wireviz.parse(fuente, return_types="svg"), encoding="utf-8")
+    return 1 if errores else 0
+
+
 def main():
     opciones = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     opciones.add_argument("accion", choices=["preparar", "compilar", "flashear", "consola", "monitor",
-                                             "menuconfig", "pruebas", "limpiar"])
+                                             "menuconfig", "pruebas", "diagramas", "limpiar"])
     opciones.add_argument("-p", "--puerto")
     opciones.add_argument("--nombre", default="ensayo", help="prefijo de las capturas en datos/")
     args = opciones.parse_args()
@@ -123,7 +170,7 @@ def main():
         print("salidas/ borrada")
         return 0
     idf = buscar_idf()
-    if not idf and args.accion != "pruebas":
+    if not idf and args.accion not in ("pruebas", "diagramas"):
         fallar("no se encontro ESP-IDF 5.5 ni su entorno de Python; instalarlo segun docs/01_ejecucion.md")
     usar_python_idf(idf)
     entorno = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
@@ -143,6 +190,8 @@ def main():
     if args.accion == "consola":
         return subprocess.run([sys.executable, str(RAIZ / "herramientas/consola.py"), "--puerto",
                                detectar_puerto(args.puerto), "--nombre", args.nombre], env=entorno).returncode
+    if args.accion == "diagramas":
+        return renderizar_diagramas()
     if args.accion == "pruebas":
         try:
             import pytest  # noqa: F401

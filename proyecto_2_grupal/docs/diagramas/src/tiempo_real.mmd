@@ -1,0 +1,29 @@
+%% Contextos de ejecucion del firmware (03_flujo.md, 2). Nada espera a la UART.
+flowchart LR
+    subgraph isr["ISR de GPIO27, una por ranura"]
+        flanco["<b>estimador_registrar</b><br/>hora del flanco y<br/>anillo de intervalos"]
+    end
+    subgraph tim["esp_timer, cada periodo_ms"]
+        aviso["notifica a<br/>app_main"]
+    end
+    subgraph app["app_main, prioridad 4, bucle de 1 ms"]
+        direction TB
+        vig["vigila motor,<br/>ENSAYO y CAL"]
+        mues["<b>adquirir_muestra</b><br/>una fila por periodo"]
+        cmd["ejecuta comandos<br/>recibidos"]
+    end
+    subgraph tx["asm2_tx, prioridad 3"]
+        uart["<b>uart_write_bytes</b>"]
+    end
+
+    flanco -.->|"copia en<br/>seccion critica"| mues
+    aviso --> mues
+    mues -->|"cola de 64 lineas,<br/>sin esperar"| uart
+    cmd -->|"respuestas"| uart
+
+    classDef bloque fill:#0d1117,stroke:#e6edf3,stroke-width:1.6px,color:#e6edf3
+    class flanco,aviso,vig,mues,cmd,uart bloque
+    style isr fill:#0d1117,stroke:#6e7681,stroke-width:1px,color:#8b949e
+    style tim fill:#0d1117,stroke:#6e7681,stroke-width:1px,color:#8b949e
+    style app fill:#0d1117,stroke:#6e7681,stroke-width:1px,color:#8b949e
+    style tx fill:#0d1117,stroke:#6e7681,stroke-width:1px,color:#8b949e

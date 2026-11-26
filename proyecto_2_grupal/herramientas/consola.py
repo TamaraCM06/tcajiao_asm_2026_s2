@@ -73,12 +73,18 @@ def numero(texto):
 class Captura:
     """Escribe el CSV crudo y el JSON de metadatos de una captura."""
 
-    def __init__(self, nombre):
+    def __init__(self, nombre, numerar=True):
+        """numerar: agrega _NN (consola). Sin numerar usa el nombre exacto y, si ya existe, _intentoN."""
         DATOS.mkdir(parents=True, exist_ok=True)
-        n = 1
-        while (DATOS / f"{nombre}_{n:02d}.csv").exists():
-            n += 1
-        self.base = DATOS / f"{nombre}_{n:02d}"
+        if numerar:
+            n = 1
+            while (DATOS / f"{nombre}_{n:02d}.csv").exists():
+                n += 1
+            self.base = DATOS / f"{nombre}_{n:02d}"
+        else:
+            self.base, n = DATOS / nombre, 2
+            while self.base.with_suffix(".csv").exists():
+                self.base, n = DATOS / f"{nombre}_intento{n}", n + 1
         self.csv = open(self.base.with_suffix(".csv"), "w", encoding="utf-8")
         self.meta = {"protocolo": 1, "fecha_pc": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                      "receptor": "herramientas/consola.py", "configuracion": {}, "eventos": [], "errores": []}

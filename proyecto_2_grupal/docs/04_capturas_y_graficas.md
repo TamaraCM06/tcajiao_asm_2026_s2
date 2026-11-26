@@ -1,6 +1,42 @@
 # 1. Capturas, resumen y gráficas de frenado
 
-## 1.1. Ejecución
+## 1.1. Instalación (una vez por computadora)
+
+Todo se corre desde proyecto_2_grupal con banco.py, igual en Linux y Windows: en Linux
+`python banco.py <acción>` (en Debian/Ubuntu `python3`), en Windows (PowerShell) `py banco.py <acción>`.
+banco.py encuentra ESP-IDF solo y detecta el puerto si hay una sola placa; no hace falta abrir la
+"ESP-IDF PowerShell" ni ejecutar `export`.
+
+**Linux**
+
+~~~bash
+# Arch/CachyOS
+sudo pacman -S --needed gcc git make flex bison gperf python cmake ninja ccache dfu-util libusb
+sudo usermod -aG uucp $USER
+# Debian/Ubuntu
+sudo apt install git wget flex bison gperf python3 python3-pip python3-venv cmake ninja-build \
+    ccache libffi-dev libssl-dev dfu-util libusb-1.0-0 gcc
+sudo usermod -aG dialout $USER
+# ESP-IDF 5.5.5 (cualquier distribución)
+git clone --depth 1 --branch v5.5.5 --recursive --shallow-submodules \
+    https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+~/esp/esp-idf/install.sh esp32
+~~~
+
+Cerrar sesión y volver a entrar para que valga el permiso del puerto; después `python banco.py preparar`.
+
+**Windows**
+
+1. Instalar [Python 3](https://www.python.org/downloads/) (deja el comando `py`).
+2. Instalar ESP-IDF **5.5.5** con el *ESP-IDF Tools Installer* en la ruta que propone (`C:\Espressif`).
+   Si se instala en otra ruta, definir `IDF_PATH` (carpeta de esp-idf) e `IDF_TOOLS_PATH` (herramientas).
+3. Instalar el driver USB de la placa (CP210x o CH340) y, en PowerShell, `py banco.py preparar`.
+4. Para `banco.py pruebas` hace falta gcc: [MSYS2](https://www.msys2.org/), `pacman -S mingw-w64-ucrt-x86_64-gcc`
+   y agregar `C:\msys64\ucrt64\bin` al PATH.
+
+Para `banco.py modelo` hace falta MATLAB (R2019a o posterior) o GNU Octave en esa computadora.
+
+## 1.2. Ejecución
 
 Ejecutar desde proyecto_2_grupal. El banco utiliza Python y el entorno ESP-IDF 5.5.5
 ya configurado para programar la ESP32. La generación de una gráfica desde CSV también
@@ -16,9 +52,11 @@ funciona sin placa y sin ESP-IDF si Python tiene las dependencias instaladas.
 | Guardar figuras sin abrir el visor | python banco.py consola --nombre Demo --sin-abrir-grafica | Conserva CSV, JSON y PNG al finalizar |
 | Regenerar una figura existente | python banco.py graficar --archivo datos/Demo_m40_f152_10.csv | Lee el archivo y abre el PNG generado |
 | Regenerar sin abrir el visor | python banco.py graficar --archivo datos/Demo_m40_f152_10.csv --sin-abrir-grafica | Genera únicamente el PNG |
+| Campaña de identificación | python banco.py pid | Barrido de velocidad, elige alta y baja, y corre los ensayos del plan uno por Enter ([ensayos y modelo](05_ensayos_y_modelo.md)) |
+| Modelo de la planta | python banco.py modelo | MATLAB (u Octave) sobre datos/identificacion; deja modelo.json, tablas y figuras |
 | Ejecutar verificación en PC | python banco.py pruebas | Pruebas del núcleo C y herramientas Python; no mueve el hardware |
 
-## 1.2. Datos y frecuencias
+## 1.3. Datos y frecuencias
 
 | Proceso o parámetro | Valor inicial | Fuente efectiva |
 |---|---|---|
@@ -46,7 +84,7 @@ el número de fila, tiempo_ms, freno_deg y velocidad_rpm con tres decimales; el 
 | Primer cero | Tiempo del primer 0 RPM posterior al cambio; se informa tanto desde el corte como desde el freno |
 | Transporte | Producidas, enviadas, vencimientos perdidos y pulsos rechazados del mensaje de cierre |
 
-## 1.3. Gráfica automática
+## 1.4. Gráfica automática
 
 Al llegar el cierre, la consola cierra CSV y JSON y entrega el análisis a un trabajador
 independiente. La recepción serial queda libre para otra captura. El trabajador lee el CSV
@@ -70,7 +108,7 @@ La exportación usa un backend sin interfaz gráfica y acceso serializado a Matp
 siguiendo sus [indicaciones sobre hilos](https://matplotlib.org/stable/faq/howto_faq.html#work-with-threads).
 El visor abre la imagen ya generada; la recepción no ejecuta una ventana de Matplotlib.
 
-## 1.4. Errores y valores efectivos
+## 1.5. Errores y valores efectivos
 
 Los mensajes de error nuevos incluyen los parámetros efectivos de motor, servo y estabilidad.
 La consola prioriza los valores del propio error sobre la configuración que tuviera almacenada.
@@ -87,7 +125,7 @@ Si no existe un valor informado, lo indica en vez de sustituirlo por un límite 
 | Tiempos fraccionarios o no finitos | Se rechazan sin convertirlos silenciosamente en otro valor |
 | Firmware anterior | Se usa la configuración recibida cuando exista; los datos ausentes se declaran no informados |
 
-## 1.5. Tres capturas conservadas
+## 1.6. Tres capturas conservadas
 
 Por solicitud del usuario, datos contiene las tres capturas más recientes del 25 de noviembre
 de 2026, cada una con CSV, JSON y PNG. Se eligieron por fecha del CSV, no por fecha de regeneración
@@ -103,7 +141,7 @@ Las demos anteriores se archivaron localmente en salidas/archivo_capturas_202611
 un manifiesto SHA-256. El [escalón histórico de la Tarea 2](../tarea_2/evidencias/banco_anterior/escalon_02.csv),
 su JSON y su registro se conservan en las evidencias del banco anterior.
 
-## 1.6. Estado y verificación
+## 1.7. Estado y verificación
 
 | Campo | Estado |
 |---|---|

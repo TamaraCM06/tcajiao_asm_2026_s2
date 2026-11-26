@@ -5,6 +5,9 @@
   python banco.py compilar             compila el firmware en salidas/firmware
   python banco.py flashear [-p PUERTO] compila y programa la placa
   python banco.py consola  [-p PUERTO] [--nombre escalon]   ensayos y capturas en datos/
+  python banco.py pid      [-p PUERTO] [--nombre identificacion]   barrido de velocidad + ensayos del plan
+  python banco.py modelo   [--nombre identificacion]   modelo de la planta en MATLAB (u Octave) con esos datos
+  python banco.py graficar --archivo datos/X.csv [--sin-abrir-grafica]   PNG de una captura
   python banco.py monitor  [-p PUERTO] serie sin filtro (salir con Ctrl+])
   python banco.py menuconfig           cambio temporal; lo vigente va en firmware/sdkconfig.defaults
   python banco.py pruebas              pruebas del firmware en la PC (gcc + pytest)
@@ -110,20 +113,58 @@ def detectar_puerto(pedido):
     fallar("hay varias placas; indica -p con una de: " + ", ".join(p.device for p in placas))
 
 
+def buscar_matlab():
+    """MATLAB en el PATH o en sus rutas de instalacion habituales; si no, GNU Octave."""
+    encontrado = shutil.which("matlab")
+    if encontrado:
+        return encontrado, "matlab"
+    patrones = ["/usr/local/MATLAB/R*/bin/matlab", "/opt/MATLAB/R*/bin/matlab", str(Path.home() / "MATLAB/R*/bin/matlab"),
+                "C:/Program Files/MATLAB/R*/bin/matlab.exe", "/Applications/MATLAB_R*.app/bin/matlab"]
+    for patron in patrones:
+        rutas = sorted(glob.glob(patron))
+        if rutas:
+            return rutas[-1], "matlab"
+    octave = shutil.which("octave-cli") or shutil.which("octave")
+    return (octave, "octave") if octave else (None, None)
+
+
+def construir_modelo(nombre):
+    """Corre herramientas/modelo_planta.m sobre datos/<nombre> sin abrir la interfaz."""
+    carpeta = RAIZ / "datos" / nombre
+    if not (carpeta / "indice.csv").exists():
+        fallar(f"no hay {carpeta / 'indice.csv'}: primero python banco.py pid")
+    programa, tipo = buscar_matlab()
+    if not programa:
+        fallar("no se encontro MATLAB ni Octave; abrir MATLAB y correr modelo_planta en herramientas/")
+    orden = (f"addpath('{(RAIZ / 'herramientas').as_posix()}'); "
+             f"modelo_planta('{carpeta.as_posix()}');")
+    if tipo == "matlab":
+        argumentos = [programa, "-batch", orden]
+    else:
+        argumentos = [programa, "--no-gui", "--eval", orden]
+    print(f"banco: {tipo} → datos/{nombre}/modelo/")
+    return subprocess.run(argumentos).returncode
+
+
 def main():
     opciones = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     opciones.add_argument("accion", choices=["preparar", "compilar", "flashear", "consola", "monitor", "graficar",
-                                             "menuconfig", "pruebas", "limpiar"])
+                                             "pid", "modelo", "menuconfig", "pruebas", "limpiar"])
     opciones.add_argument("-p", "--puerto")
     opciones.add_argument("--nombre", default="ensayo", help="prefijo de las capturas en datos/")
     opciones.add_argument("--archivo", type=Path, help="CSV para la accion graficar")
     opciones.add_argument("--sin-abrir-grafica", action="store_true", help="guarda el PNG sin abrir el visor")
+    opciones.add_argument("--plan", help="pid: CSV del plan (por defecto herramientas/plan_identificacion.csv)")
+    opciones.add_argument("--alto", help="pid: %% de motor de la velocidad alta (omite el barrido)")
+    opciones.add_argument("--bajo", help="pid: %% de motor de la velocidad baja (omite el barrido)")
     args = opciones.parse_args()
 
     if args.accion == "limpiar":
         shutil.rmtree(SALIDAS, ignore_errors=True)
         print("salidas/ borrada")
         return 0
+    if args.accion == "modelo":
+        return construir_modelo(args.nombre if args.nombre != "ensayo" else "identificacion")
     idf = buscar_idf()
     if not idf and args.accion not in ("pruebas", "graficar"):
         fallar("no se encontro ESP-IDF 5.5 ni su entorno de Python; revisar docs/04_capturas_y_graficas.md")
@@ -152,6 +193,16 @@ def main():
         return subprocess.run([sys.executable, str(RAIZ / "herramientas/graficas_captura.py"),
                                str(args.archivo.resolve()), *([] if args.sin_abrir_grafica else ["--abrir"])],
                               env=entorno).returncode
+    if args.accion == "pid":
+        orden = [sys.executable, str(RAIZ / "herramientas/pruebas_pid.py"), "--puerto", detectar_puerto(args.puerto),
+                 "--nombre", args.nombre if args.nombre != "ensayo" else "identificacion"]
+        orden += ["--plan", args.plan] if args.plan else []
+        orden += ["--alto", args.alto, "--bajo", args.bajo] if args.alto and args.bajo else []
+        resultado = subprocess.run(orden, env=entorno).returncode
+        if resultado == 0 and input("\nTodos los ensayos completos. ¿Construir el modelo ahora? [Enter = si, n = no] ")\
+                .strip().lower() != "n":
+            return construir_modelo(orden[orden.index("--nombre") + 1])
+        return resultado
     if args.accion == "pruebas":
         try:
             import pytest  # noqa: F401

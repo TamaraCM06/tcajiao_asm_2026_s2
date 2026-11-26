@@ -73,9 +73,13 @@ flowchart LR
 7. **El lado de la PC**: [consola.py](../herramientas/consola.py), clase Banco: traducir
    (alias → comandos), leer (hilo que recibe), mensaje_json (qué hace con cada mensaje);
    luego Captura (escribe el CSV).
-8. **Lo que viene**: [pid_controller.h](../firmware/include/pid_controller.h) y
+8. **De los ensayos al modelo**: [pruebas_pid.py](../herramientas/pruebas_pid.py) (barrido con el
+   criterio de estabilidad del firmware, elección de velocidades y ensayos del
+   [plan](../herramientas/plan_identificacion.csv)) y [modelo_planta.m](../herramientas/modelo_planta.m)
+   (fricción, freno, zona muerta, validación y G(s) para el PID).
+9. **Lo que viene**: [pid_controller.h](../firmware/include/pid_controller.h) y
    [pid_controller.c](../firmware/src/pid_controller.c).
-9. **Cómo se prueba sin placa**: [test_registrador.py](../firmware/tests/test_registrador.py)
+10. **Cómo se prueba sin placa**: [test_registrador.py](../firmware/tests/test_registrador.py), [test_pruebas_pid.py](../firmware/tests/test_pruebas_pid.py)
    y los escenarios de [pruebas_host.c](../firmware/tests/pruebas_host.c), que describen el
    comportamiento esperado de cada comando.
 

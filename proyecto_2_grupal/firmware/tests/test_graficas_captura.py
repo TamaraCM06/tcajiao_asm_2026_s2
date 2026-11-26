@@ -1,6 +1,12 @@
 """Verifica las muestras dibujadas, la exportacion y el cierre sin bloquear el receptor."""
 import json
 import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+import pytest
 
 
 # La figura conserva todas las muestras, el pico intermedio y el angulo ordenado.
@@ -72,3 +78,62 @@ def test_dependencia_ausente_conserva_csv(consola, monkeypatch, tmp_path):
     banco.procesar_csv(ruta_csv, {})
     banco.procesamiento_capturas.shutdown()
     assert ruta_csv.exists() and "python banco.py preparar" in lineas[-1]
+
+
+# El visor usa otro proceso del mismo Python, conserva las rutas con espacios y no abre URLs.
+def test_visor_nativo_independiente(consola, monkeypatch, tmp_path):
+    import graficas_captura
+    llamadas = []
+    ruta_csv = tmp_path / "captura con espacios.csv"
+    ruta_csv.write_text("tiempo_ms,freno_deg,velocidad_rpm\n0,90,1000\n", encoding="utf-8")
+    monkeypatch.setattr(graficas_captura.subprocess, "Popen",
+                        lambda argumentos, **opciones: llamadas.append((argumentos, opciones)))
+    assert graficas_captura.abrir_grafica(ruta_csv.with_suffix(".png"))
+    argumentos, opciones = llamadas[0]
+    assert argumentos[0] == sys.executable and argumentos[2:] == [str(ruta_csv), "--ventana"]
+    assert opciones["env"]["QT_API"] == "pyside6"
+    assert opciones["stdin"] == subprocess.DEVNULL
+    assert not any(argumento.startswith("file:") for argumento in argumentos)
+
+
+# Un equipo sin Qt recibe un error explicito, manteniendo el PNG generado para su consulta.
+def test_visor_sin_dependencia(consola, monkeypatch, tmp_path):
+    import graficas_captura
+    ruta_csv = tmp_path / "prueba.csv"
+    ruta_csv.write_text("tiempo_ms,freno_deg,velocidad_rpm\n0,90,1000\n", encoding="utf-8")
+    monkeypatch.setattr(graficas_captura.importlib.util, "find_spec", lambda nombre: None)
+    with pytest.raises(ImportError, match="PySide6-Essentials"):
+        graficas_captura.abrir_grafica(ruta_csv.with_suffix(".png"))
+
+
+# Verifica Qt y los mismos ejes del CSV en un proceso separado, sin mostrar ventanas durante las pruebas.
+@pytest.mark.skipif(sys.platform.startswith("linux") and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")),
+                    reason="La seleccion del backend interactivo requiere un entorno de escritorio")
+def test_ventana_matplotlib_qt(consola, tmp_path):
+    ruta_csv = tmp_path / "prueba.csv"
+    ruta_csv.write_text("tiempo_ms,freno_deg,velocidad_rpm\n0,90,1000\n20,152,900\n40,152,0\n", encoding="utf-8")
+    herramientas = Path(consola.__file__).parent
+    programa = """
+import sys
+sys.path.insert(0, sys.argv[1])
+import matplotlib
+matplotlib.use('qtagg')
+from matplotlib import pyplot
+from graficas_captura import mostrar_grafica_csv
+def comprobar():
+    figura = pyplot.gcf()
+    figura.canvas.draw()
+    assert 'QTAgg' in type(figura.canvas).__name__
+    assert len(figura.axes) == 2
+    assert list(figura.axes[0].lines[0].get_ydata()) == [1000, 900, 0]
+    assert list(figura.axes[1].lines[0].get_ydata()) == [90, 152, 152]
+pyplot.show = comprobar
+mostrar_grafica_csv(sys.argv[2])
+assert not pyplot.get_fignums()
+print('Ventana Qt y datos originales verificados')
+"""
+    resultado = subprocess.run([sys.executable, "-c", programa, str(herramientas), str(ruta_csv)],
+                               env=dict(os.environ, QT_API="pyside6", QT_QPA_PLATFORM="offscreen", PYTHONUTF8="1"),
+                               capture_output=True, text=True, timeout=30)
+    assert resultado.returncode == 0, resultado.stderr
+    assert "verificados" in resultado.stdout

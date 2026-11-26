@@ -36,6 +36,10 @@ Cerrar sesión y volver a entrar para que valga el permiso del puerto; después 
 
 Para `banco.py modelo` hace falta MATLAB (R2019a o posterior) o GNU Octave en esa computadora.
 
+La ventana de Matplotlib utiliza Qt mediante PySide6-Essentials. Después de actualizar el
+repositorio, ejecutar otra vez `python banco.py preparar` para instalar esta dependencia en
+el mismo Python que usa banco.py. La exportación del PNG sigue disponible sin abrir ventanas.
+
 ## 1.2. Ejecución
 
 Ejecutar desde proyecto_2_grupal. El banco utiliza Python y el entorno ESP-IDF 5.5.5
@@ -88,7 +92,7 @@ el número de fila, tiempo_ms, freno_deg y velocidad_rpm con tres decimales; el 
 
 Al llegar el cierre, la consola cierra CSV y JSON y entrega el análisis a un trabajador
 independiente. La recepción serial queda libre para otra captura. El trabajador lee el CSV
-cerrado, imprime el resumen, guarda un PNG con el mismo nombre y abre el visor del sistema,
+cerrado, imprime el resumen, guarda un PNG con el mismo nombre y abre una ventana nativa de Matplotlib,
 salvo que se haya indicado la opción para no abrirlo. Al salir se espera el trabajo pendiente.
 
 | Elemento de la figura | Fuente |
@@ -106,7 +110,12 @@ Si falta una dependencia o falla la salida del PNG, se conserva el CSV y se mues
 
 La exportación usa un backend sin interfaz gráfica y acceso serializado a Matplotlib,
 siguiendo sus [indicaciones sobre hilos](https://matplotlib.org/stable/faq/howto_faq.html#work-with-threads).
-El visor abre la imagen ya generada; la recepción no ejecuta una ventana de Matplotlib.
+La ventana utiliza [QtAgg con PySide6](https://matplotlib.org/stable/api/backend_qt_api),
+lee el mismo CSV y conserva los ejes de velocidad y orden del servo, con las herramientas
+de zoom, desplazamiento y guardado de Matplotlib. Se ejecuta en el hilo principal de un
+proceso independiente, de modo que la consola continúa recibiendo datos mientras permanece abierta.
+Los errores del proceso visor quedan en salidas/visores/<captura>.log. La opción
+--sin-abrir-grafica conserva la exportación del PNG sin iniciar la ventana.
 
 ## 1.5. Errores y valores efectivos
 
@@ -146,9 +155,9 @@ su JSON y su registro se conservan en las evidencias del banco anterior.
 | Campo | Estado |
 |---|---|
 | Responsable | Santiago; integración de consola y evidencia del banco |
-| Implementado | Más muestras, resumen completo, PNG automático, errores con parámetros efectivos y tres capturas seleccionadas |
+| Implementado | Más muestras, resumen completo, PNG automático y ventana nativa de Matplotlib, errores con parámetros efectivos y tres capturas seleccionadas |
 | Revisión | Código, documentación, diff, enlaces y figura generada desde la captura 10 |
-| Verificación en PC | 51 pruebas aprobadas con python banco.py pruebas; compilación ESP32 aprobada con ESP-IDF 5.5.5; PNG de capturas 08, 09 y 10 generado |
+| Verificación en PC | 60 pruebas aprobadas con python banco.py pruebas, incluido el renderizado Qt en otro proceso sin mostrar ventanas; PNG de capturas 08, 09 y 10 conservado |
 | Evidencia preservada | CSV y JSON originales; gráficos derivados y estado de integridad explícito |
 | Pendiente físico | Cargar el firmware actualizado y comprobar mensajes y apertura automática del visor durante una sesión real |
 | Continuidad | Comparar los ensayos y avanzar a la identificación de la planta con evidencia repetible |

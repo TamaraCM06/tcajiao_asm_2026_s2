@@ -1,10 +1,13 @@
 """Grafica las muestras originales del CSV y exporta un PNG sin requerir interfaz grafica."""
 import argparse
+import importlib.util
 import json
 import math
+import os
 from pathlib import Path
+import subprocess
+import sys
 from threading import Lock
-import webbrowser
 
 from analisis_captura import analizar_filas, leer_csv, numero_medicion
 
@@ -12,7 +15,7 @@ _bloqueo_matplotlib = Lock()
 
 
 # Dibuja velocidad y orden de servo en ejes separados, conservando todas las muestras y los huecos.
-def crear_figura(filas, metadatos, nombre):
+def crear_figura(filas, metadatos, nombre, figura=None):
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.figure import Figure
 
@@ -20,8 +23,9 @@ def crear_figura(filas, metadatos, nombre):
     tiempos_s = [fila[0] / 1000 for fila in filas]
     velocidades_rpm = [fila[2] if math.isfinite(fila[2]) and fila[2] >= 0 else math.nan for fila in filas]
     angulos_deg = [fila[1] for fila in filas]
-    figura = Figure(figsize=(11, 7), layout="constrained")
-    FigureCanvasAgg(figura)
+    if figura is None:
+        figura = Figure(figsize=(11, 7), layout="constrained")
+        FigureCanvasAgg(figura)
     eje_velocidad, eje_freno = figura.subplots(2, 1, sharex=True, gridspec_kw={"height_ratios": [3, 1]})
     estado = "Captura completa" if metadatos.get("completo") is True else (
         "CAPTURA INCOMPLETA" if metadatos.get("completo") is False else "Integridad sin verificar")
@@ -76,9 +80,41 @@ def generar_grafica_csv(ruta_csv):
     return ruta_png
 
 
-# Delega la imagen ya exportada al visor del sistema, sin abrir una GUI de Matplotlib en el hilo serial.
+# Abre el CSV en una ventana nativa en otro proceso; la consola no espera a que se cierre.
 def abrir_grafica(ruta_png):
-    return webbrowser.open(Path(ruta_png).resolve().as_uri())
+    ruta_csv = Path(ruta_png).resolve().with_suffix(".csv")
+    if not ruta_csv.is_file():
+        raise FileNotFoundError(f"El visor necesita el CSV original: {ruta_csv}")
+    if importlib.util.find_spec("PySide6") is None:
+        raise ImportError("La ventana nativa requiere PySide6-Essentials")
+    carpeta_logs = Path(__file__).resolve().parents[1] / "salidas" / "visores"
+    carpeta_logs.mkdir(parents=True, exist_ok=True)
+    with (carpeta_logs / f"{ruta_csv.stem}.log").open("ab") as registro:
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), str(ruta_csv), "--ventana"],
+                         stdin=subprocess.DEVNULL, stdout=registro, stderr=subprocess.STDOUT,
+                         env=dict(os.environ, PYTHONUTF8="1", QT_API="pyside6"),
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return True
+
+
+# Ejecuta la GUI de Qt en el hilo principal de su propio proceso, con ejes y barra de herramientas.
+def mostrar_grafica_csv(ruta_csv):
+    os.environ["QT_API"] = "pyside6"
+    import matplotlib
+    matplotlib.use("qtagg")
+    from matplotlib import pyplot
+
+    ruta_csv = Path(ruta_csv).resolve()
+    filas = leer_csv(ruta_csv)
+    ruta_json = ruta_csv.with_suffix(".json")
+    metadatos = json.loads(ruta_json.read_text(encoding="utf-8")) if ruta_json.exists() else {}
+    figura = pyplot.figure(figsize=(11, 7), layout="constrained")
+    try:
+        crear_figura(filas, metadatos, ruta_csv.stem, figura=figura)
+        figura.canvas.manager.set_window_title(f"Frenado — {ruta_csv.stem}")
+        pyplot.show()
+    finally:
+        pyplot.close(figura)
 
 
 # Permite regenerar una figura desde banco.py o desde el CSV sin conectar la placa.
@@ -86,14 +122,18 @@ def main():
     argumentos = argparse.ArgumentParser(description=__doc__)
     argumentos.add_argument("archivo", type=Path)
     argumentos.add_argument("--abrir", action="store_true")
+    argumentos.add_argument("--ventana", action="store_true", help="muestra el CSV en una ventana nativa de Matplotlib")
     opciones = argumentos.parse_args()
     try:
+        if opciones.ventana:
+            mostrar_grafica_csv(opciones.archivo)
+            return
         ruta_png = generar_grafica_csv(opciones.archivo)
+        print(f"Grafica guardada: {ruta_png}")
+        if opciones.abrir:
+            abrir_grafica(ruta_png)
     except (OSError, ValueError, ImportError) as error:
         argumentos.exit(1, f"No se pudo generar la grafica: {error}\n")
-    print(f"Grafica guardada: {ruta_png}")
-    if opciones.abrir:
-        abrir_grafica(ruta_png)
 
 
 if __name__ == "__main__":

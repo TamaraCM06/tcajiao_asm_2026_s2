@@ -33,16 +33,23 @@ static uint32_t pulsos_rechazados_finales;
 static int64_t tiempo_fin_us;
 static estado_velocidad_t estado_sensor_anterior;
 
-/* ENSAYO automatico: acelera hasta que la velocidad deja de subir, entonces corta el
- * motor, empieza a registrar y aplica el freno tras la espera pedida. */
-#define MESETA_TOLERANCIA 0.02      /* subida relativa que aun cuenta como aceleracion */
-#define MESETA_VENTANA_US 500000    /* tiempo sin nuevo maximo para declarar velocidad maxima */
+/* ENSAYO automatico: exige una banda estable de RPM, corta el motor,
+ * empieza a registrar y aplica el freno tras la espera pedida. */
+#define ESTABILIDAD_TOLERANCIA_RELATIVA 0.03
+#define ESTABILIDAD_DURACION_US 3000000
 static bool acelerando;
 static bool freno_pendiente;
 static double freno_automatico_deg;
 static uint32_t espera_freno_ms;
-static double rpm_maxima;
-static int64_t inicio_meseta_us;
+static double velocidad_referencia_estabilidad_rpm = NAN;
+static int64_t inicio_estabilidad_us;
+
+/* Exige una referencia nueva tras iniciar un ensayo o perder una lectura valida. */
+static void reiniciar_estabilidad(void)
+{
+    velocidad_referencia_estabilidad_rpm = NAN;
+    inicio_estabilidad_us = 0;
+}
 
 /* Solicita una lectura a la tarea coordinadora, sin transmitir desde el callback. */
 static void solicitar_muestra(void *argumento)
@@ -199,12 +206,11 @@ static void iniciar_ensayo_automatico(const comando_t *comando)
     freno_pendiente = false;
     freno_automatico_deg = angulo;
     espera_freno_ms = (uint32_t)espera;
-    rpm_maxima = 0;
-    inicio_meseta_us = ahora;
+    reiniciar_estabilidad();
     informar_evento("motor", porcentaje, ahora);
 }
 
-/* Avanza el ENSAYO en cada vuelta del bucle: detecta la velocidad maxima y aplica el freno. */
+/* Exige tres segundos dentro de una referencia fija; una salida por cualquier lado reinicia. */
 static void vigilar_ensayo_automatico(int64_t tiempo_us)
 {
     if (acelerando) {
@@ -214,13 +220,19 @@ static void vigilar_ensayo_automatico(int64_t tiempo_us)
             return;
         }
         lectura_velocidad_t lectura = sensor_optico_leer();
-        if (lectura.estado != VELOCIDAD_VALIDA) { inicio_meseta_us = tiempo_us; return; }
-        if (lectura.velocidad_rpm > rpm_maxima * (1.0 + MESETA_TOLERANCIA)) {
-            rpm_maxima = lectura.velocidad_rpm;
-            inicio_meseta_us = tiempo_us;
-        } else if (tiempo_us - inicio_meseta_us >= MESETA_VENTANA_US) {
+        if (lectura.estado != VELOCIDAD_VALIDA || !isfinite(lectura.velocidad_rpm) ||
+            lectura.velocidad_rpm <= 0) {
+            reiniciar_estabilidad();
+            return;
+        }
+        if (!isfinite(velocidad_referencia_estabilidad_rpm) ||
+            fabs(lectura.velocidad_rpm - velocidad_referencia_estabilidad_rpm) >
+                velocidad_referencia_estabilidad_rpm * ESTABILIDAD_TOLERANCIA_RELATIVA) {
+            velocidad_referencia_estabilidad_rpm = lectura.velocidad_rpm;
+            inicio_estabilidad_us = tiempo_us;
+        } else if (tiempo_us - inicio_estabilidad_us >= ESTABILIDAD_DURACION_US) {
             acelerando = false;
-            informar_evento("velocidad_maxima", rpm_maxima, tiempo_us);
+            informar_evento("velocidad_maxima", velocidad_referencia_estabilidad_rpm, tiempo_us);
             iniciar_registro();
             freno_pendiente = registrando;
         }

@@ -108,11 +108,12 @@ static void preparar_escenario(void)
         .servo_minimo_deg = 10, .servo_maximo_deg = 90, .servo_liberado_deg = 10,
         .servo_pulso_minimo_us = 1000, .servo_pulso_maximo_us = 1800,
         .motor_enable_gpio = 19, .motor_entrada1_gpio = 21, .motor_entrada2_gpio = 22,
-        .motor_frecuencia_hz = 1000, .motor_maximo_porcentaje = 30, .motor_maximo_impulso_ms = 2000};
+        .motor_frecuencia_hz = 1000, .motor_maximo_porcentaje = 30, .motor_maximo_impulso_ms = 15000};
     ensayo = (configuracion_ensayo_t){20, 1000, 300};
     hardware_listo = true;
     motivo_hardware = "simulacion";
     registrando = cerrando = false;
+    acelerando = freno_pendiente = false;
     angulo_virtual = NAN;
     motor_virtual = 0;
     falla_motor = false;
@@ -255,18 +256,23 @@ int main(int cantidad_argumentos, char **argumentos)
         assert(!acelerando && motor_virtual == 0);
         ejecutar_comando("ENSAYO 20 80 40");
         assert(acelerando && motor_virtual == 20);
-        for (int rpm = 200; rpm <= 1000; rpm += 200) {  /* acelera: no corta */
-            velocidad_virtual.velocidad_rpm = rpm; tiempo_virtual_us += 100000;
+        for (int velocidad_rpm = 200; velocidad_rpm <= 1000; velocidad_rpm += 200) {
+            velocidad_virtual.velocidad_rpm = velocidad_rpm; tiempo_virtual_us += 100000;
             vigilar_ensayo_automatico(tiempo_virtual_us);
             assert(acelerando && !registrando);
         }
-        for (int paso = 0; paso < 4; ++paso) {    /* meseta < 0,5 s: aun acelera */
+        for (int indice_muestra = 0; indice_muestra < 29; ++indice_muestra) {
             velocidad_virtual.velocidad_rpm = 1005; tiempo_virtual_us += 100000;
             vigilar_ensayo_automatico(tiempo_virtual_us);
+            assert(acelerando && !registrando);
         }
-        assert(acelerando);
-        tiempo_virtual_us += 100000; vigilar_ensayo_automatico(tiempo_virtual_us);
+        tiempo_virtual_us += 99999; vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(acelerando && !registrando);      /* 3 s menos 1 us: no corta */
+        unsigned mensajes_antes_inicio = cantidad_mensajes;
+        tiempo_virtual_us += 1; vigilar_ensayo_automatico(tiempo_virtual_us);
         assert(!acelerando && registrando && motor_virtual == 0 && angulo_virtual == 10);
+        assert(strstr(mensajes[mensajes_antes_inicio], "\"evento\":\"velocidad_maxima\""));
+        assert(strstr(mensajes[mensajes_antes_inicio], "\"valor\":1000.000"));
         tiempo_virtual_us += 20000; vigilar_ensayo_automatico(tiempo_virtual_us);
         assert(angulo_virtual == 10);             /* espera de 40 ms */
         tiempo_virtual_us += 20000; vigilar_ensayo_automatico(tiempo_virtual_us);
@@ -278,6 +284,68 @@ int main(int cantidad_argumentos, char **argumentos)
         ejecutar_comando("ENSAYO 20 80 0"); assert(acelerando);
         motor_virtual = 0; vigilar_ensayo_automatico(tiempo_virtual_us);  /* corte externo */
         assert(!acelerando && !registrando);
+        assert(strstr(mensajes[cantidad_mensajes - 1], "velocidad_maxima_no_alcanzada"));
+    } else if (!strcmp(escenario, "estabilidad_bajada") || !strcmp(escenario, "estabilidad_subida")) {
+        ejecutar_comando("FRENO 10");
+        ejecutar_comando("ENSAYO 20 80 40");
+        velocidad_virtual.velocidad_rpm = 1000;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        tiempo_virtual_us += 2900000;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(acelerando && !registrando);
+        velocidad_virtual.velocidad_rpm = !strcmp(escenario, "estabilidad_bajada") ? 900 : 1100;
+        vigilar_ensayo_automatico(tiempo_virtual_us);  /* cambio > 3 %: nueva referencia */
+        tiempo_virtual_us += 100000;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(acelerando && !registrando && motor_virtual == 20); /* no usa el contador anterior */
+        tiempo_virtual_us += 2899999;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(acelerando && !registrando);
+        tiempo_virtual_us += 1;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(!acelerando && registrando && motor_virtual == 0);
+    } else if (!strcmp(escenario, "estabilidad_limites")) {
+        ejecutar_comando("FRENO 10");
+        ejecutar_comando("ENSAYO 20 80 40");
+        velocidad_virtual.velocidad_rpm = 1000;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        for (unsigned indice_muestra = 0; indice_muestra < 12; ++indice_muestra) {
+            velocidad_virtual.velocidad_rpm = indice_muestra % 2 ? 1030 : 970;
+            tiempo_virtual_us += 250000;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+            if (indice_muestra < 11) assert(acelerando && !registrando);
+        }
+        assert(!acelerando && registrando && motor_virtual == 0);
+    } else if (!strcmp(escenario, "estabilidad_lecturas_invalidas")) {
+        const lectura_velocidad_t invalidas[] = {
+            {.estado = VELOCIDAD_ESPERANDO, .velocidad_rpm = 1000},
+            {.estado = VELOCIDAD_SIN_PULSOS, .velocidad_rpm = 0},
+            {.estado = VELOCIDAD_VALIDA, .velocidad_rpm = NAN},
+            {.estado = VELOCIDAD_VALIDA, .velocidad_rpm = INFINITY},
+            {.estado = VELOCIDAD_VALIDA, .velocidad_rpm = 0},
+            {.estado = VELOCIDAD_VALIDA, .velocidad_rpm = -10}
+        };
+        for (unsigned indice_lectura = 0; indice_lectura < sizeof(invalidas) / sizeof(invalidas[0]); ++indice_lectura) {
+            preparar_escenario();
+            ejecutar_comando("FRENO 10");
+            ejecutar_comando("ENSAYO 20 80 40");
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+            tiempo_virtual_us += 2900000;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+            velocidad_virtual = invalidas[indice_lectura];
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+            assert(acelerando && !registrando);
+            velocidad_virtual = (lectura_velocidad_t){.estado = VELOCIDAD_VALIDA, .velocidad_rpm = 1000};
+            tiempo_virtual_us += 100000;
+            vigilar_ensayo_automatico(tiempo_virtual_us); /* recuperacion: empieza un contador nuevo */
+            assert(acelerando && !registrando);
+            tiempo_virtual_us += 2999999;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+            assert(acelerando && !registrando);
+            tiempo_virtual_us += 1;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+            assert(!acelerando && registrando && motor_virtual == 0);
+        }
     } else if (!strcmp(escenario, "bloqueos")) {
         angulo_virtual = 10; iniciar_registro();
         unsigned anteriores = ordenes_motor;

@@ -38,6 +38,7 @@ lectura_velocidad_t estimador_leer(const estimador_velocidad_t *estimador,
 {
     lectura_velocidad_t lectura = {.estado = VELOCIDAD_ESPERANDO,
         .tiempo_lectura_us = tiempo_us,
+        .ultimo_pulso_us = estimador->tiene_pulso ? estimador->ultimo_pulso_us : -1,
         .velocidad_rpm = NAN,
         .pulsos_rechazados = estimador->pulsos_rechazados};
     if (!estimador->tiene_pulso || tiempo_us < estimador->ultimo_pulso_us ||

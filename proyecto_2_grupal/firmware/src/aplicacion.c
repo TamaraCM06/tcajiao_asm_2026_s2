@@ -33,16 +33,31 @@ static uint32_t pulsos_rechazados_finales;
 static int64_t tiempo_fin_us;
 static estado_velocidad_t estado_sensor_anterior;
 
-/* ENSAYO automatico: acelera hasta que la velocidad deja de subir, entonces corta el
- * motor, empieza a registrar y aplica el freno tras la espera pedida. */
-#define MESETA_TOLERANCIA 0.02      /* subida relativa que aun cuenta como aceleracion */
-#define MESETA_VENTANA_US 500000    /* tiempo sin nuevo maximo para declarar velocidad maxima */
+/* ENSAYO automatico: exige una banda estable de RPM, corta el motor,
+ * empieza a registrar y aplica el freno tras la espera pedida. */
+#define ESTABILIDAD_TOLERANCIA_RELATIVA 0.07
+#define ESTABILIDAD_LECTURAS_REQUERIDAS 5
+#define ESTABILIDAD_PERIODO_LECTURA_US 500000
+#define ENSAYO_ESPERA_MAXIMA_MS 10000
 static bool acelerando;
 static bool freno_pendiente;
 static double freno_automatico_deg;
 static uint32_t espera_freno_ms;
-static double rpm_maxima;
-static int64_t inicio_meseta_us;
+static double velocidad_referencia_estabilidad_rpm = NAN;
+static uint32_t lecturas_estables;
+static int64_t ultima_lectura_estabilidad_us = -1;
+static int64_t ultimo_pulso_estabilidad_us = -1;
+static int64_t inicio_aceleracion_us;
+static int64_t ultimo_diagnostico_estabilidad_us = -1;
+
+/* Exige una referencia nueva tras iniciar un ensayo o perder una lectura valida. */
+static void reiniciar_estabilidad(void)
+{
+    velocidad_referencia_estabilidad_rpm = NAN;
+    lecturas_estables = 0;
+    ultima_lectura_estabilidad_us = -1;
+    ultimo_pulso_estabilidad_us = -1;
+}
 
 /* Solicita una lectura a la tarea coordinadora, sin transmitir desde el callback. */
 static void solicitar_muestra(void *argumento)
@@ -54,7 +69,15 @@ static void solicitar_muestra(void *argumento)
 /* Devuelve errores estructurados que el receptor separa del CSV. */
 static void informar_error(const char *motivo)
 {
-    if (!protocolo_emitir("# {\"tipo\":\"error\",\"motivo\":\"%s\"}", motivo) && registrando)
+    if (!protocolo_emitir("# {\"tipo\":\"error\",\"motivo\":\"%s\",\"parametros\":{"
+        "\"motor_maximo_porcentaje\":%d,\"motor_maximo_impulso_ms\":%d,"
+        "\"servo_minimo_deg\":%d,\"servo_maximo_deg\":%d,\"servo_liberado_deg\":%d,"
+        "\"estabilidad_tolerancia_porcentaje\":%.1f,\"estabilidad_lecturas\":%d,"
+        "\"estabilidad_periodo_ms\":%d,\"espera_maxima_ms\":%d}}", motivo,
+        montaje.motor_maximo_porcentaje, montaje.motor_maximo_impulso_ms,
+        montaje.servo_minimo_deg, montaje.servo_maximo_deg, montaje.servo_liberado_deg,
+        ESTABILIDAD_TOLERANCIA_RELATIVA * 100, ESTABILIDAD_LECTURAS_REQUERIDAS,
+        ESTABILIDAD_PERIODO_LECTURA_US / 1000, ENSAYO_ESPERA_MAXIMA_MS) && registrando)
         cierre_correcto = false;
 }
 
@@ -62,8 +85,11 @@ static void informar_error(const char *motivo)
 static bool informar_configuracion(void)
 {
     bool correcto = protocolo_emitir("# {\"tipo\":\"configuracion\",\"grupo\":\"ensayo\","
-        "\"periodo_ms\":%" PRIu32 ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 "}",
-        ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms);
+        "\"periodo_ms\":%" PRIu32 ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 ","
+        "\"estabilidad_tolerancia_porcentaje\":%.1f,\"estabilidad_lecturas\":%d,"
+        "\"estabilidad_periodo_ms\":%d}", ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms,
+        ESTABILIDAD_TOLERANCIA_RELATIVA * 100, ESTABILIDAD_LECTURAS_REQUERIDAS,
+        ESTABILIDAD_PERIODO_LECTURA_US / 1000);
     correcto &= protocolo_emitir("# {\"tipo\":\"configuracion\",\"grupo\":\"sensor\","
         "\"gpio\":%d,\"flanco_bajada\":%s,\"pulsos_por_vuelta\":%" PRIu32 ",\"ventana_pulsos\":%" PRIu32 ","
         "\"minimo_pulso_us\":%" PRIu32 "}", montaje.sensor_gpio, montaje.flanco_bajada ? "true" : "false",
@@ -87,6 +113,29 @@ static bool informar_evento(const char *evento, double valor, int64_t tiempo_us)
     double tiempo_ms = registrando || cerrando ? (tiempo_us - reloj.inicio_us) / 1000.0 : -1.0;
     return protocolo_emitir("# {\"tipo\":\"evento\",\"evento\":\"%s\",\"tiempo_ms\":%.3f,\"valor\":%.3f}",
         evento, tiempo_ms, valor);
+}
+
+/* Expone la lectura y banda usadas en la decision, incluida la nueva referencia tras reiniciar. */
+static void informar_estabilidad(const lectura_velocidad_t *lectura, double referencia_evaluada_rpm,
+    const char *decision, int64_t tiempo_us)
+{
+    char velocidad[32] = "null", referencia[32] = "null", minimo[32] = "null", maximo[32] = "null";
+    char referencia_siguiente[32] = "null";
+    if (isfinite(lectura->velocidad_rpm))
+        snprintf(velocidad, sizeof(velocidad), "%.3f", lectura->velocidad_rpm);
+    if (isfinite(referencia_evaluada_rpm)) {
+        snprintf(referencia, sizeof(referencia), "%.3f", referencia_evaluada_rpm);
+        snprintf(minimo, sizeof(minimo), "%.3f", referencia_evaluada_rpm * (1 - ESTABILIDAD_TOLERANCIA_RELATIVA));
+        snprintf(maximo, sizeof(maximo), "%.3f", referencia_evaluada_rpm * (1 + ESTABILIDAD_TOLERANCIA_RELATIVA));
+    }
+    if (isfinite(velocidad_referencia_estabilidad_rpm))
+        snprintf(referencia_siguiente, sizeof(referencia_siguiente), "%.3f", velocidad_referencia_estabilidad_rpm);
+    protocolo_emitir("# {\"tipo\":\"estabilidad\",\"tiempo_ms\":%.3f,\"velocidad_rpm\":%s,"
+        "\"referencia_rpm\":%s,\"minimo_rpm\":%s,\"maximo_rpm\":%s,"
+        "\"referencia_siguiente_rpm\":%s,\"lecturas\":%" PRIu32 ",\"requeridas\":%d,\"decision\":\"%s\"}",
+        (tiempo_us - inicio_aceleracion_us) / 1000.0, velocidad, referencia, minimo, maximo,
+        referencia_siguiente, lecturas_estables, ESTABILIDAD_LECTURAS_REQUERIDAS, decision);
+    ultimo_diagnostico_estabilidad_us = tiempo_us;
 }
 
 /* Finaliza adquisicion antes de liberar; el cierre FIFO se reintenta si la cola estaba llena. */
@@ -189,7 +238,7 @@ static void iniciar_ensayo_automatico(const comando_t *comando)
     if (registrando || acelerando) { informar_error("ensayo_activo"); return; }
     if (!ensayo.periodo_ms) { informar_error("falta_CONFIG"); return; }
     if (!servo_freno_liberado()) { informar_error("ordenar_freno_liberado"); return; }
-    if (espera < 0 || espera > 10000 || floor(espera) != espera ||
+    if (espera < 0 || espera > ENSAYO_ESPERA_MAXIMA_MS || floor(espera) != espera ||
         !freno_convertir_pulso(&montaje, angulo, &pulso_us)) {
         informar_error("parametros_ENSAYO_invalidos"); return;
     }
@@ -199,12 +248,13 @@ static void iniciar_ensayo_automatico(const comando_t *comando)
     freno_pendiente = false;
     freno_automatico_deg = angulo;
     espera_freno_ms = (uint32_t)espera;
-    rpm_maxima = 0;
-    inicio_meseta_us = ahora;
+    reiniciar_estabilidad();
+    inicio_aceleracion_us = ahora;
+    ultimo_diagnostico_estabilidad_us = -1;
     informar_evento("motor", porcentaje, ahora);
 }
 
-/* Avanza el ENSAYO en cada vuelta del bucle: detecta la velocidad maxima y aplica el freno. */
+/* Cuenta cinco lecturas nuevas, separadas 500 ms, dentro de una banda fija de +/-7 %. */
 static void vigilar_ensayo_automatico(int64_t tiempo_us)
 {
     if (acelerando) {
@@ -214,13 +264,40 @@ static void vigilar_ensayo_automatico(int64_t tiempo_us)
             return;
         }
         lectura_velocidad_t lectura = sensor_optico_leer();
-        if (lectura.estado != VELOCIDAD_VALIDA) { inicio_meseta_us = tiempo_us; return; }
-        if (lectura.velocidad_rpm > rpm_maxima * (1.0 + MESETA_TOLERANCIA)) {
-            rpm_maxima = lectura.velocidad_rpm;
-            inicio_meseta_us = tiempo_us;
-        } else if (tiempo_us - inicio_meseta_us >= MESETA_VENTANA_US) {
+        if (lectura.estado != VELOCIDAD_VALIDA || !isfinite(lectura.velocidad_rpm) ||
+            lectura.velocidad_rpm <= 0) {
+            double referencia_anterior_rpm = velocidad_referencia_estabilidad_rpm;
+            bool reinicia_conteo = lecturas_estables > 0;
+            velocidad_referencia_estabilidad_rpm = NAN;
+            lecturas_estables = 0;
+            /* Conserva la cadencia aun si alternan lecturas validas e invalidas. */
+            if (reinicia_conteo || ultimo_diagnostico_estabilidad_us < 0 ||
+                tiempo_us - ultimo_diagnostico_estabilidad_us >= ESTABILIDAD_PERIODO_LECTURA_US)
+                informar_estabilidad(&lectura, referencia_anterior_rpm, "invalida", tiempo_us);
+            return;
+        }
+        if (lectura.ultimo_pulso_us <= ultimo_pulso_estabilidad_us ||
+            (ultima_lectura_estabilidad_us >= 0 &&
+             tiempo_us - ultima_lectura_estabilidad_us < ESTABILIDAD_PERIODO_LECTURA_US)) return;
+        ultima_lectura_estabilidad_us = tiempo_us;
+        ultimo_pulso_estabilidad_us = lectura.ultimo_pulso_us;
+        double referencia_evaluada_rpm = velocidad_referencia_estabilidad_rpm;
+        const char *decision;
+        if (!isfinite(velocidad_referencia_estabilidad_rpm) ||
+            fabs(lectura.velocidad_rpm - velocidad_referencia_estabilidad_rpm) >
+                velocidad_referencia_estabilidad_rpm * ESTABILIDAD_TOLERANCIA_RELATIVA) {
+            decision = isfinite(velocidad_referencia_estabilidad_rpm) ? "fuera" : "referencia";
+            if (!isfinite(referencia_evaluada_rpm)) referencia_evaluada_rpm = lectura.velocidad_rpm;
+            velocidad_referencia_estabilidad_rpm = lectura.velocidad_rpm;
+            lecturas_estables = 1;
+        } else {
+            ++lecturas_estables;
+            decision = lecturas_estables >= ESTABILIDAD_LECTURAS_REQUERIDAS ? "aceptada" : "dentro";
+        }
+        informar_estabilidad(&lectura, referencia_evaluada_rpm, decision, tiempo_us);
+        if (lecturas_estables >= ESTABILIDAD_LECTURAS_REQUERIDAS) {
             acelerando = false;
-            informar_evento("velocidad_maxima", rpm_maxima, tiempo_us);
+            informar_evento("velocidad_maxima", velocidad_referencia_estabilidad_rpm, tiempo_us);
             iniciar_registro();
             freno_pendiente = registrando;
         }
@@ -286,7 +363,9 @@ static void ejecutar_comando(const char *linea)
         }
         ensayo = nueva_configuracion;
         sensor_optico_configurar_timeout((int64_t)ensayo.timeout_ms * 1000);
-        protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"CONFIG\"}");
+        protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"CONFIG\",\"periodo_ms\":%" PRIu32
+            ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 "}",
+            ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms);
         return;
     }
     if (comando.tipo == COMANDO_ENSAYO) { iniciar_ensayo_automatico(&comando); return; }

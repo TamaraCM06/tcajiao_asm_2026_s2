@@ -21,6 +21,7 @@ typedef enum { VELOCIDAD_ESPERANDO, VELOCIDAD_VALIDA, VELOCIDAD_SIN_PULSOS } est
 typedef struct {
     estado_velocidad_t estado;
     int64_t tiempo_lectura_us;
+    int64_t ultimo_pulso_us; /* Distingue una ventana nueva de una lectura repetida. */
     double velocidad_rpm;
     uint32_t pulsos_rechazados;
 } lectura_velocidad_t;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entrada unica del banco de frenado (ESP32). Pasos completos: docs/01_ejecucion.md
+"""Entrada unica del banco de frenado (ESP32). Pasos completos: docs/04_capturas_y_graficas.md
 
   python banco.py preparar             instala pyserial y pytest en el Python de ESP-IDF (una vez)
   python banco.py compilar             compila el firmware en salidas/firmware
@@ -7,6 +7,7 @@
   python banco.py consola  [-p PUERTO] [--nombre escalon]   ensayos y capturas en datos/
   python banco.py pid      [-p PUERTO] [--nombre identificacion]   barrido de velocidad + ensayos del plan
   python banco.py modelo   [--nombre identificacion]   modelo de la planta en MATLAB (u Octave) con esos datos
+  python banco.py graficar --archivo datos/X.csv [--sin-abrir-grafica]   PNG de una captura
   python banco.py monitor  [-p PUERTO] serie sin filtro (salir con Ctrl+])
   python banco.py menuconfig           cambio temporal; lo vigente va en firmware/sdkconfig.defaults
   python banco.py pruebas              pruebas del firmware en la PC (gcc + pytest)
@@ -147,10 +148,12 @@ def construir_modelo(nombre):
 
 def main():
     opciones = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    opciones.add_argument("accion", choices=["preparar", "compilar", "flashear", "consola", "monitor",
+    opciones.add_argument("accion", choices=["preparar", "compilar", "flashear", "consola", "monitor", "graficar",
                                              "pid", "modelo", "menuconfig", "pruebas", "limpiar"])
     opciones.add_argument("-p", "--puerto")
     opciones.add_argument("--nombre", default="ensayo", help="prefijo de las capturas en datos/")
+    opciones.add_argument("--archivo", type=Path, help="CSV para la accion graficar")
+    opciones.add_argument("--sin-abrir-grafica", action="store_true", help="guarda el PNG sin abrir el visor")
     opciones.add_argument("--plan", help="pid: CSV del plan (por defecto herramientas/plan_identificacion.csv)")
     opciones.add_argument("--alto", help="pid: %% de motor de la velocidad alta (omite el barrido)")
     opciones.add_argument("--bajo", help="pid: %% de motor de la velocidad baja (omite el barrido)")
@@ -163,10 +166,10 @@ def main():
     if args.accion == "modelo":
         return construir_modelo(args.nombre if args.nombre != "ensayo" else "identificacion")
     idf = buscar_idf()
-    if not idf and args.accion != "pruebas":
-        fallar("no se encontro ESP-IDF 5.5 ni su entorno de Python; instalarlo segun docs/01_ejecucion.md")
+    if not idf and args.accion not in ("pruebas", "graficar"):
+        fallar("no se encontro ESP-IDF 5.5 ni su entorno de Python; revisar docs/04_capturas_y_graficas.md")
     usar_python_idf(idf)
-    entorno = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    entorno = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1")
 
     if args.accion == "preparar":
         return subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(RAIZ / "requirements.txt")]).returncode
@@ -182,7 +185,14 @@ def main():
                                "--eol", "LF", str(compilacion / "asm2_registrador.elf")], env=entorno).returncode
     if args.accion == "consola":
         return subprocess.run([sys.executable, str(RAIZ / "herramientas/consola.py"), "--puerto",
-                               detectar_puerto(args.puerto), "--nombre", args.nombre], env=entorno).returncode
+                               detectar_puerto(args.puerto), "--nombre", args.nombre,
+                               *(["--sin-abrir-grafica"] if args.sin_abrir_grafica else [])], env=entorno).returncode
+    if args.accion == "graficar":
+        if args.archivo is None:
+            opciones.error("graficar requiere --archivo RUTA.csv")
+        return subprocess.run([sys.executable, str(RAIZ / "herramientas/graficas_captura.py"),
+                               str(args.archivo.resolve()), *([] if args.sin_abrir_grafica else ["--abrir"])],
+                              env=entorno).returncode
     if args.accion == "pid":
         orden = [sys.executable, str(RAIZ / "herramientas/pruebas_pid.py"), "--puerto", detectar_puerto(args.puerto),
                  "--nombre", args.nombre if args.nombre != "ensayo" else "identificacion"]

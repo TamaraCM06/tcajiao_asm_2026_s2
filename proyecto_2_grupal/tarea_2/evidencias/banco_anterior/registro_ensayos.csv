@@ -1,0 +1,2 @@
+ensayo_id,caso_id,fecha_hora_iso8601,operadores,fase,condicion,velocidad_inicial_medida_rad_s,repeticion,archivo_datos,git_commit_firmware,calibracion_id,configuracion_efectiva_json,muestras_perdidas,valido,motivo_exclusion,observaciones
+escalon_02,escalon_freno,2026-11-22T03:57:55-06:00,grupo,caracterizacion_tarea2,lazo_abierto_escalon_120_180,31.9,1,escalon_02.csv,2e820e2,sdkconfig_local_2026-11-22,escalon_02.json,0,si,,ENSAYO 60 180 300 desde consola_banco.py; caso presentado en la Tarea 2 (pregunta 7)

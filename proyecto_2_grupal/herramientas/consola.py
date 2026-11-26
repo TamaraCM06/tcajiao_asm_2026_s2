@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Consola del banco de frenado. Se abre con: python banco.py consola [--nombre prefijo]
 
-Al conectar fija el registro (CONFIG 20 10000 100: fila cada 20 ms, 10 s maximo, 0 RPM tras 100 ms
-sin ranuras) y libera el freno. Cada ensayo se guarda en datos/<prefijo>_m<motor>_f<freno>_NN.csv
+Al conectar configura el periodo, la duracion y el timeout del registro y libera el freno.
+Cada ensayo se guarda en datos/<prefijo>_m<motor>_f<freno>_NN.csv
 (tiempo_ms,freno_deg,velocidad_rpm) con su .json de configuracion y eventos. Los comandos del firmware en mayusculas pasan tal cual (FRENO 120, MOTOR 30).
 """
 import argparse
@@ -19,13 +19,16 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.patch_stdout import patch_stdout
 
+from analisis_captura import resumir
+
 DATOS = Path(__file__).resolve().parents[1] / "datos"
 CABECERA = "tiempo_ms,freno_deg,velocidad_rpm"
-DURACION_MS, TIMEOUT_MS = 10000, 100   # captura de 10 s como maximo; 0 RPM tras 100 ms sin ranuras
+DURACION_MS, TIMEOUT_MS = 30000, 100   # captura de 30 s como maximo; 0 RPM tras 100 ms sin ranuras
 # Parametros de los ensayos; los del lazo cerrado (kp, ki, kd, rampa) se agregan aqui.
 # freno None = el maximo calibrado de la placa.
 AJUSTES_INICIALES = {"motor": 60, "freno": None, "espera": 300, "periodo": 20}
 UNIDADES = {"motor": "%", "freno": "°", "espera": "ms", "periodo": "ms"}
+PERIODO_MUESTRAS_PANTALLA_S = 0.1  # muestras de captura a 10 Hz en pantalla
 PERIODO_PANTALLA_S = 0.5     # una linea de progreso cada medio segundo
 CIERRE_DETENIDO_MS = 1000    # con 0 RPM durante 1 s la captura se cierra sola
 PROMPT = "banco> "
@@ -80,46 +83,6 @@ def numero(texto):
     except ValueError:
         return None
     return valor if valor == valor else None
-
-
-def recta(t, y):
-    """Pendiente por minimos cuadrados (y por segundo)."""
-    n = len(t)
-    if n < 2:
-        return float("nan")
-    mt, my = sum(t) / n, sum(y) / n
-    den = sum((a - mt) ** 2 for a in t)
-    return sum((a - mt) * (b - my) for a, b in zip(t, y)) / den if den else float("nan")
-
-
-def resumir(filas):
-    """Resumen rapido del ensayo, con los mismos tramos de 300 ms que visualizar_ensayo.m."""
-    if len(filas) < 3:
-        return ["muy pocas filas para evaluar"]
-    t = [f[0] / 1000 for f in filas]
-    freno = [f[1] for f in filas]
-    rpm = [f[2] for f in filas]
-    validas = [r for r in rpm if r == r]
-    lineas = [f"{len(filas)} filas · {t[-1]:.2f} s · RPM max {max(validas, default=float('nan')):.1f}"]
-    cambios = [i for i in range(1, len(freno)) if freno[i] != freno[i - 1]]
-    if len(cambios) != 1:
-        lineas.append(f"{len(cambios)} cambios de freno (visualizar_ensayo.m necesita exactamente 1)")
-        return lineas
-    k = cambios[0]
-    t0 = t[k]
-    antes = [(a, b) for a, b in zip(t, rpm) if t0 - 0.3 <= a < t0 and b == b and b > 0]
-    despues = [(a, b) for a, b in zip(t, rpm) if t0 <= a <= t0 + 0.3 and b == b and b > 0]
-    pa = recta([a for a, _ in antes], [b for _, b in antes])
-    pd = recta([a for a, _ in despues], [b for _, b in despues])
-    parada = next((a for a, b in zip(t, rpm) if a >= t0 and b == 0), None)
-
-    def pendiente(valor):
-        return f"{valor:.1f} RPM/s" if valor == valor else "—"
-    lineas.append(f"freno {freno[k - 1]:g}° → {freno[k]:g}° en t = {t0:.3f} s con {rpm[k]:.1f} RPM")
-    lineas.append(f"desaceleracion antes {pendiente(pa)} · despues {pendiente(pd)}")
-    lineas.append(f"se detuvo {parada - t0:.2f} s despues del freno" if parada is not None
-                  else "el disco no llego a 0 RPM dentro de la captura")
-    return lineas
 
 
 class Captura:
@@ -299,10 +262,10 @@ class Banco:
         self.enviar(self.config_inicial())
         self.enviar("CONFIG")
 
-    def progreso(self, texto):
+    def progreso(self, texto, periodo_s=PERIODO_PANTALLA_S):
         """Linea de avance limitada a una cada PERIODO_PANTALLA_S."""
         ahora = time.monotonic()
-        if ahora - self.ultima_linea >= PERIODO_PANTALLA_S:
+        if ahora - self.ultima_linea >= periodo_s:
             self.ultima_linea = ahora
             mostrar(texto, CIAN)
 
@@ -394,7 +357,7 @@ class Banco:
             completa = self.captura.meta["completo"]
             mostrar(f"■ captura {'completa' if completa else 'INCOMPLETA (revisar el .json)'} → datos/{ruta.name}",
                     VERDE if completa else ROJO)
-            for linea in resumir(self.captura.filas):
+            for linea in resumir(self.captura.filas, self.captura.meta):
                 mostrar("  " + linea, CIAN)
             self.captura = None
 

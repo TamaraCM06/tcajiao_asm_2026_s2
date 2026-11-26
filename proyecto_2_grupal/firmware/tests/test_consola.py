@@ -1,18 +1,5 @@
 """Comprueba que la consola conserva las decisiones de estabilidad recibidas, sin placa."""
-import importlib.util
-from pathlib import Path
-
 import pytest
-
-
-# Carga la consola real sin abrir el puerto ni ejecutar su punto de entrada.
-@pytest.fixture(scope="module")
-def consola():
-    ruta = Path(__file__).resolve().parents[2] / "herramientas/consola.py"
-    especificacion = importlib.util.spec_from_file_location("consola_banco", ruta)
-    modulo = importlib.util.module_from_spec(especificacion)
-    especificacion.loader.exec_module(modulo)
-    return modulo
 
 
 # Las decisiones no se recortan por el reloj de pantalla ni se mezclan con el sondeo STATUS.

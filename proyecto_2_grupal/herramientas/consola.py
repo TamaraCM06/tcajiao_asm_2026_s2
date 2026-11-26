@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Consola del banco de frenado. Se abre con: python banco.py consola
+"""Consola del banco de frenado. Se abre con: python banco.py consola [--nombre prefijo]
 
-Al conectar configura el registro (CONFIG 20 10000 100) y libera el freno. Comandos cortos en
-minusculas (escribe `ayuda`); los del firmware en mayusculas pasan tal cual. Cada captura se guarda
-en datos/<nombre>_NN.csv (tiempo_ms,freno_deg,velocidad_rpm) con su .json de configuracion y eventos.
+Al conectar fija el registro (CONFIG 20 10000 100: fila cada 20 ms, 10 s maximo, 0 RPM tras 100 ms
+sin ranuras) y libera el freno. Cada ensayo se guarda en datos/<prefijo>_m<motor>_f<freno>_NN.csv
+(tiempo_ms,freno_deg,velocidad_rpm) con su .json de configuracion y eventos. Los comandos del firmware en mayusculas pasan tal cual (CAL +, FRENO 120).
 """
 import argparse
 import json
@@ -15,76 +15,73 @@ from datetime import datetime
 from pathlib import Path
 
 import serial
-
-try:
-    import readline
-except ImportError:  # Windows sin pyreadline3: sin historial ni Tab, pero funciona
-    readline = None
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.patch_stdout import patch_stdout
 
 DATOS = Path(__file__).resolve().parents[1] / "datos"
 CABECERA = "tiempo_ms,freno_deg,velocidad_rpm"
-CONFIG_INICIAL = "CONFIG 20 10000 100"   # fila cada 20 ms, 10 s maximo, cero tras 100 ms sin pulsos
+DURACION_MS, TIMEOUT_MS = 10000, 100   # captura de 10 s como maximo; 0 RPM tras 100 ms sin ranuras
+# Parametros de los ensayos; los del lazo cerrado (kp, ki, kd, rampa) se agregan aqui.
+# freno None = el maximo calibrado de la placa.
+AJUSTES_INICIALES = {"motor": 60, "freno": None, "espera": 300, "periodo": 20}
+UNIDADES = {"motor": "%", "freno": "°", "espera": "ms", "periodo": "ms"}
+PERIODO_PANTALLA_S = 0.5     # una linea de progreso cada medio segundo
+CIERRE_DETENIDO_MS = 1000    # con 0 RPM durante 1 s la captura se cierra sola
 PROMPT = "banco> "
-GRIS, ROJO, AMARILLO, VERDE, CIAN, NEGRITA, FIN = (
-    "\033[90m", "\033[91m", "\033[93m", "\033[92m", "\033[96m", "\033[1m", "\033[0m")
+GRIS, ROJO, AMARILLO, VERDE, CIAN, FIN = "\033[90m", "\033[91m", "\033[93m", "\033[92m", "\033[96m", "\033[0m"
 
 AYUDA = """\
-  liberar                 freno a la posicion liberada
-  frenar [grados]         aplica el freno (por defecto el maximo calibrado)
-  motor <porcentaje>      impulsa el disco; motor 0 lo corta
-  ensayo [% grados ms]    acelera, corta el motor al llegar a la velocidad maxima, graba y frena
-                          tras la espera (por defecto: 60 % · freno maximo · 300 ms)
-  grabar                  graba ya (corta el motor); parar termina la captura
-  parar                   corta motor, libera el freno y cierra la captura
-  estado                  estado de la placa y velocidad actual
-  config [p d t]          sin numeros muestra la configuracion; con numeros: periodo, duracion y timeout en ms
-  cal                     calibracion del servo:
-      cal pulso <us>          mueve el servo a ese pulso (dentro del recorrido calibrado)
-      cal + | cal -           un paso (cal paso <grados> lo cambia, 2 por defecto)
-      cal liberado            marca la posicion sin contacto
-      cal contacto            marca donde la goma toca el disco (vuelve a liberado)
-  crudo                   alterna ver todo lo que manda la placa (depuracion)
-  salir                   Ctrl+D tambien"""
+  ensayo [motor%] [freno°]   acelera, corta el motor al estabilizarse, graba y frena tras la espera;
+                             sin numeros usa los ajustes
+  ajustes                    muestra motor, freno, espera y periodo
+  ajustar <nombre> <valor>   cambia un ajuste, p. ej. ajustar freno 130 (periodo: fila cada N ms)
+  motor <%>                  gira el disco mostrando las RPM; motor 0 lo detiene
+  parar                      corta el motor, libera el freno y cierra la captura
+  estado                     placa, motor, freno y RPM
+  salir                      tambien Ctrl+D"""
+COMANDOS = ["ensayo", "ajustes", "ajustar", "motor", "parar", "estado", "ayuda", "salir", *AJUSTES_INICIALES]
 
-# Motivos del firmware traducidos a una accion clara.
+# Motivos del firmware traducidos a una accion.
 MOTIVOS = {
-    "conexiones_no_verificadas": "Firmware sin configurar: revisar firmware/sdkconfig.defaults y volver a flashear",
-    "falta_CONFIG": "Falta CONFIG: escribe config 20 10000 100",
-    "ordenar_freno_liberado": "Primero: liberar",
-    "velocidad_no_disponible": "El sensor no mide velocidad: ¿gira el disco? ¿pasan las ranuras por el centro de la horquilla LM393?",
+    "conexiones_no_verificadas": "Firmware sin configurar: revisar firmware/sdkconfig.defaults y flashear",
+    "falta_CONFIG": "La placa no recibio CONFIG: salir y volver a abrir la consola",
+    "ordenar_freno_liberado": "El freno no esta liberado: parar",
+    "velocidad_no_disponible": "El sensor no mide: ¿gira el disco? ¿pasan las ranuras por la horquilla?",
     "ensayo_activo": "Hay un ensayo en curso: parar",
     "cierre_pendiente": "Cerrando la captura anterior; espera un momento",
-    "motor_requiere_reposo_CONFIG_y_liberacion": "Motor bloqueado: libera el freno y espera a que termine la captura",
-    "cortar_motor_antes_de_frenar": "Corta el motor antes de frenar: motor 0",
+    "motor_requiere_reposo_CONFIG_y_liberacion": "El motor no arranca durante una captura: parar",
+    "cortar_motor_antes_de_frenar": "Primero motor 0",
     "mando_rechazado": "Valor fuera de los limites calibrados",
-    "parametros_ENSAYO_invalidos": "ensayo: freno dentro del recorrido calibrado y espera de 0 a 10000 ms",
-    "velocidad_maxima_no_alcanzada": "El motor se corto (limite de 15 s o parar) antes de estabilizar la velocidad",
-    "CONFIG_requiere_reposo": "CONFIG solo con el motor detenido y sin captura",
-    "tiempos_CONFIG_invalidos": "config: periodo 10-60000 ms, duracion >= periodo, timeout 1-60000 ms",
+    "parametros_ENSAYO_invalidos": "Freno fuera del recorrido calibrado",
+    "velocidad_maxima_no_alcanzada": "El motor se corto antes de estabilizar la velocidad (limite de 15 s)",
+    "CONFIG_requiere_reposo": "El periodo solo cambia con el motor detenido y sin captura",
     "comando_invalido": "Comando no reconocido: ayuda",
     "linea_descartada": "Linea demasiado larga o con caracteres invalidos",
     "transmision_ocupada": "Serie ocupada; reintenta",
-    "CAL_requiere_reposo": "cal solo con el motor detenido y sin captura",
-    "CAL_PULSO_primero": "Primero: cal pulso <us>",
-    "CAL_PULSO_entero": "cal pulso: microsegundos enteros",
-    "CAL_PASO_0.5_a_10": "cal paso: de 0.5 a 10 grados",
-    "CAL_limite": "Limite del recorrido calibrado",
-    "CAL_fuera_de_limites": "Fuera del recorrido calibrado",
-    "CAL_LIBERADO_primero": "Marca primero cal liberado en otra posicion",
     "fallo_uart_reiniciar": "Fallo serie en la placa: reiniciarla",
     "fallo_actuador": "Fallo al mover un actuador: revisar alimentacion",
 }
 EVENTOS = {
+    "motor": lambda v: f"motor {v:g} %" if v else "motor cortado",
     "freno": lambda v: f"freno → {v:g}°",
-    "motor": lambda v: f"motor {v:g} %",
-    "velocidad_maxima": lambda v: f"velocidad maxima {v:.0f} RPM: motor cortado, grabando",
-    "limite_impulso_motor": lambda v: "motor cortado por el limite de impulso continuo",
-    "servo_apagado": lambda v: "servo sin fuerza (15 s sin ordenes cal)",
-    "estado_sensor": lambda v: {0: "sensor esperando pulsos", 1: "sensor midiendo", 2: "sin pulsos: disco detenido"}[int(v)],
+    "velocidad_maxima": lambda v: f"velocidad estable en {v:.0f} RPM: corta el motor y graba",
+    "limite_impulso_motor": lambda v: "motor cortado por el limite de 15 s",
+    "servo_apagado": lambda v: "servo sin fuerza (15 s sin ordenes CAL)",
 }
-COMANDOS = ["liberar", "frenar", "motor", "ensayo", "grabar", "parar", "estado", "config", "cal",
-            "crudo", "ayuda", "salir"]
-SUBCOMANDOS_CAL = ["pulso", "paso", "+", "-", "liberado", "contacto"]
+
+
+def mostrar(texto, color=""):
+    """Imprime una linea; patch_stdout la pone encima del prompt sin tocar lo que se esta tecleando."""
+    print(f"{color}{texto}{FIN if color else ''}", flush=True)
+
+
+def numero(texto):
+    try:
+        valor = float(texto)
+    except ValueError:
+        return None
+    return valor if valor == valor else None
 
 
 def recta(t, y):
@@ -100,7 +97,7 @@ def recta(t, y):
 def resumir(filas):
     """Resumen rapido del ensayo, con los mismos tramos de 300 ms que visualizar_ensayo.m."""
     if len(filas) < 3:
-        return ["Muy pocas filas para evaluar."]
+        return ["muy pocas filas para evaluar"]
     t = [f[0] / 1000 for f in filas]
     freno = [f[1] for f in filas]
     rpm = [f[2] for f in filas]
@@ -117,12 +114,11 @@ def resumir(filas):
     pa = recta([a for a, _ in antes], [b for _, b in antes])
     pd = recta([a for a, _ in despues], [b for _, b in despues])
     parada = next((a for a, b in zip(t, rpm) if a >= t0 and b == 0), None)
-    lineas.append(f"freno {freno[k - 1]:g}° → {freno[k]:g}° en t = {t0:.3f} s con {rpm[k]:.1f} RPM")
+
     def pendiente(valor):
         return f"{valor:.1f} RPM/s" if valor == valor else "—"
+    lineas.append(f"freno {freno[k - 1]:g}° → {freno[k]:g}° en t = {t0:.3f} s con {rpm[k]:.1f} RPM")
     lineas.append(f"desaceleracion antes {pendiente(pa)} · despues {pendiente(pd)}")
-    if len(antes) < 2:
-        lineas.append("faltan muestras de giro libre antes del freno: usa una espera >= 100 ms")
     lineas.append(f"se detuvo {parada - t0:.2f} s despues del freno" if parada is not None
                   else "el disco no llego a 0 RPM dentro de la captura")
     return lineas
@@ -172,262 +168,254 @@ class Captura:
         return self.base.with_suffix(".csv")
 
 
-class Pantalla:
-    """Mensajes encima del prompt y una linea viva (velocidad) que se reescribe en su lugar."""
-
-    def __init__(self):
-        self.bloqueo = threading.Lock()
-        self.viva = None
-        self.ultima_viva = 0.0
-
-    def _pintar(self, mensaje=None, subir=True):
-        escrito = readline.get_line_buffer() if readline else ""
-        salida = "\r\033[K"
-        if self.viva is not None and subir:
-            salida += "\033[1A\r\033[K"
-        if mensaje is not None:
-            salida += mensaje + "\n"
-        if self.viva is not None:
-            salida += self.viva + "\n"
-        sys.stdout.write(salida + PROMPT + escrito)
-        sys.stdout.flush()
-
-    def mensaje(self, texto, color=""):
-        with self.bloqueo:
-            self._pintar(f"{color}{texto}{FIN if color else ''}")
-
-    def vivo(self, texto, forzar=False):
-        """Actualiza la linea viva como maximo 10 veces por segundo."""
-        ahora = time.monotonic()
-        if not forzar and self.viva is not None and ahora - self.ultima_viva < 0.1:
-            return
-        with self.bloqueo:
-            nueva = self.viva is None
-            self.viva = f"{CIAN}{texto}{FIN}"
-            self.ultima_viva = ahora
-            self._pintar(subir=not nueva)
-
-    def fin_vivo(self):
-        """Borra la linea viva; los mensajes siguientes vuelven a ser normales."""
-        with self.bloqueo:
-            if self.viva is not None:
-                sys.stdout.write("\r\033[K\033[1A\r\033[K" + PROMPT + (readline.get_line_buffer() if readline else ""))
-                sys.stdout.flush()
-            self.viva = None
-
-
 class Banco:
-    """Conexion con la placa: traduce comandos cortos, interpreta el protocolo y guarda capturas."""
+    """Conexion con el ESP32: traduce los comandos, interpreta lo que llega y guarda las capturas."""
 
-    def __init__(self, puerto, nombre):
-        self.puerto, self.nombre = puerto, nombre
-        self.pantalla = Pantalla()
+    def __init__(self, puerto, prefijo):
+        self.puerto, self.prefijo = puerto, prefijo
         self.escritura = threading.Lock()
         self.activo = threading.Event()
         self.activo.set()
-        self.captura = None
         self.config = {}
+        self.ajustes = dict(AJUSTES_INICIALES)
         self.listo = False
-        self.crudo = False
         self.liberar_al_conectar = True
-        self.acelerando_desde = None
-        self.sondeos_pendientes = 0
+        self.captura = None
+        self.ensayo_pedido = None     # (motor, freno) del ultimo ENSAYO, para nombrar el archivo
+        self.acelerando_desde = None  # ensayo: el motor acelera antes de grabar
+        self.girando = False          # motor manual
+        self.sondeos = 0              # STATUS pedidos por sondear(), que no se imprimen enteros
+        self.ultima_linea = 0.0
+        self.cero_desde = None
+        self.cierre_pedido = False
 
-    # --- envio -----------------------------------------------------------------------------
-    def enviar(self, linea, mostrar=False):
+    def enviar(self, linea):
         with self.escritura:
             self.puerto.write((linea + "\n").encode("ascii", "replace"))
-        if mostrar or self.crudo:
-            self.pantalla.mensaje(f"→ {linea}", GRIS)
 
-    def servo(self, campo, defecto=None):
-        return self.config.get("servo", {}).get(campo, defecto)
+    def limite(self, grupo, campo):
+        return self.config.get(grupo, {}).get(campo)
+
+    def config_inicial(self):
+        return f"CONFIG {self.ajustes['periodo']} {DURACION_MS} {TIMEOUT_MS}"
+
+    def rangos(self):
+        """Limites de cada ajuste; los del motor y el freno vienen de la placa."""
+        return {"motor": (1, self.limite("motor", "maximo_porcentaje")),
+                "freno": (self.limite("servo", "minimo_deg"), self.limite("servo", "maximo_deg")),
+                "espera": (0, 10000), "periodo": (10, 100)}
+
+    def valor(self, clave):
+        if clave == "freno" and self.ajustes["freno"] is None:
+            return self.limite("servo", "maximo_deg")
+        return self.ajustes[clave]
+
+    def mostrar_ajustes(self):
+        mostrar("  " + "  ".join(f"{c} {self.valor(c):g}{'' if UNIDADES[c] == '°' else ' '}{UNIDADES[c]}"
+                                 for c in self.ajustes if self.valor(c) is not None), CIAN)
+
+    def ajustar(self, clave, texto):
+        """Valida y guarda un ajuste; el periodo se aplica a la placa con CONFIG."""
+        if clave not in self.ajustes or numero(texto) is None:
+            mostrar("ajustar <" + "|".join(self.ajustes) + "> <valor>", ROJO)
+            return None
+        minimo, maximo = self.rangos()[clave]
+        if minimo is None or maximo is None:
+            mostrar("Aun no llega la configuracion de la placa: estado", ROJO)
+            return None
+        if clave == "periodo" and (self.captura or self.girando or self.acelerando_desde is not None):
+            mostrar(MOTIVOS["CONFIG_requiere_reposo"], ROJO)
+            return None
+        valor = numero(texto)
+        if clave in ("espera", "periodo"):
+            valor = int(valor)
+        if not minimo <= valor <= maximo:
+            mostrar(f"{clave}: de {minimo:g} a {maximo:g} {UNIDADES[clave]}", ROJO)
+            return None
+        self.ajustes[clave] = valor
+        self.mostrar_ajustes()
+        return self.config_inicial() if clave == "periodo" else None
+
+    def nombre_captura(self, motor, freno):
+        """El archivo lleva motor y freno, y la espera o el periodo cuando no son los iniciales."""
+        nombre = f"{self.prefijo}_m{motor:g}_f{freno:g}"
+        if self.ajustes["espera"] != AJUSTES_INICIALES["espera"]:
+            nombre += f"_e{self.ajustes['espera']}"
+        if self.ajustes["periodo"] != AJUSTES_INICIALES["periodo"]:
+            nombre += f"_p{self.ajustes['periodo']}"
+        return nombre
 
     def traducir(self, linea):
-        """Convierte un comando corto en la orden del firmware; None si no hay nada que enviar."""
+        """Convierte un comando de la consola en la orden del firmware; None si no hay que enviar nada."""
         palabras = linea.split()
         orden, args = palabras[0].lower(), palabras[1:]
-        if palabras[0].isupper() and orden != "cal":
+        if palabras[0].isupper():
             if orden == "ensayo":
                 self.acelerando_desde = time.monotonic()
-            return linea                                    # comando del firmware tal cual
+            return linea
         if orden == "ayuda":
-            self.pantalla.mensaje(AYUDA)
+            mostrar(AYUDA)
             return None
-        if orden == "crudo":
-            self.crudo = not self.crudo
-            self.pantalla.mensaje(f"vista cruda {'activada' if self.crudo else 'desactivada'}", GRIS)
-            return None
-        if orden in ("liberar", "frenar", "ensayo") and self.servo("liberado_deg") is None:
-            self.pantalla.mensaje("Aun no llega la configuracion de la placa: config", ROJO)
-            return None
-        if orden == "liberar":
-            return f"FRENO {self.servo('liberado_deg')}"
-        if orden == "frenar":
-            return f"FRENO {args[0] if args else self.servo('maximo_deg')}"
-        if orden == "motor" and len(args) == 1:
-            return f"MOTOR {args[0]}"
-        if orden == "ensayo":
-            valores = args + [None] * (3 - len(args))
-            motor = valores[0] or "60"
-            freno = valores[1] or str(self.servo("maximo_deg"))
-            espera = valores[2] or "300"
-            self.acelerando_desde = time.monotonic()
-            return f"ENSAYO {motor} {freno} {espera}"
-        if orden == "grabar":
-            return "START"
-        if orden == "parar":
-            return "STOP"
         if orden == "estado":
             return "STATUS"
-        if orden == "config":
-            return "CONFIG " + " ".join(args) if args else "CONFIG"
-        if orden == "cal":
-            return " ".join(["CAL", *(a.upper() for a in args)])
-        self.pantalla.mensaje(f"'{linea}' no es un comando: ayuda", ROJO)
+        if orden == "ajustes":
+            self.mostrar_ajustes()
+            return None
+        if orden == "ajustar" and len(args) == 2:
+            return self.ajustar(args[0].lower(), args[1])
+        if orden == "parar":
+            self.girando, self.acelerando_desde = False, None
+            return "STOP"
+        if orden == "motor" and len(args) == 1 and numero(args[0]) is not None:
+            potencia, maximo = numero(args[0]), self.limite("motor", "maximo_porcentaje")
+            if maximo is not None and not 0 <= potencia <= maximo:
+                mostrar(f"motor: de 0 a {maximo} %", ROJO)
+                return None
+            self.girando = potencia > 0
+            return f"MOTOR {args[0]}"
+        if orden == "ensayo" and len(args) <= 2:
+            if not self.config.get("servo"):
+                mostrar("Aun no llega la configuracion de la placa: estado", ROJO)
+                return None
+            valores = [numero(a) for a in args]
+            if None in valores:
+                mostrar("ensayo [motor%] [freno°], por ejemplo: ensayo 60 140", ROJO)
+                return None
+            motor = valores[0] if valores else self.valor("motor")
+            freno = valores[1] if len(valores) > 1 else self.valor("freno")
+            rangos = self.rangos()
+            if not rangos["motor"][0] <= motor <= rangos["motor"][1] or \
+                    not rangos["freno"][0] <= freno <= rangos["freno"][1]:
+                mostrar("ensayo: motor de {:g} a {:g} %, freno de {:g} a {:g}°".format(
+                    *rangos["motor"], *rangos["freno"]), ROJO)
+                return None
+            self.ensayo_pedido = self.nombre_captura(motor, freno)
+            self.acelerando_desde = time.monotonic()
+            return f"ENSAYO {motor:g} {freno:g} {self.ajustes['espera']}"
+        mostrar(f"'{linea}' no es un comando: ayuda", ROJO)
         return None
 
-    # --- recepcion -------------------------------------------------------------------------
     def al_conectar(self):
         self.enviar("STATUS")
-        self.enviar(CONFIG_INICIAL)
+        self.enviar(self.config_inicial())
         self.enviar("CONFIG")
+
+    def progreso(self, texto):
+        """Linea de avance limitada a una cada PERIODO_PANTALLA_S."""
+        ahora = time.monotonic()
+        if ahora - self.ultima_linea >= PERIODO_PANTALLA_S:
+            self.ultima_linea = ahora
+            mostrar(texto, CIAN)
 
     def mensaje_json(self, m):
         tipo = m.get("tipo")
         if tipo == "listo":
-            self.pantalla.mensaje(f"Placa reiniciada (firmware {m.get('firmware')})", VERDE)
+            mostrar(f"La placa se reinicio (firmware {m.get('firmware')})", AMARILLO)
             self.liberar_al_conectar = True
             self.al_conectar()
         elif tipo == "estado":
             self.listo = m.get("hardware_listo", False)
-            sondeo = self.sondeos_pendientes > 0
-            self.sondeos_pendientes = max(0, self.sondeos_pendientes - 1)
-            if sondeo:  # respuesta al sondeo de la aceleracion: solo actualiza la linea viva
-                rpm = m.get("velocidad_rpm")
+            rpm = m.get("velocidad_rpm")
+            rpm_texto = f"{rpm:6.1f} RPM" if rpm is not None else "  sin medida"
+            if self.sondeos:
+                self.sondeos -= 1
                 if self.acelerando_desde is not None and m.get("acelerando"):
-                    self.pantalla.vivo(f"acelerando {time.monotonic() - self.acelerando_desde:4.1f} s | "
-                                       f"{rpm if rpm is not None else '—':>6} RPM")
+                    self.progreso(f"  acelerando {time.monotonic() - self.acelerando_desde:4.1f} s  {rpm_texto}")
+                elif self.girando and m.get("motor_porcentaje", 0) > 0:
+                    self.progreso(f"  girando  {rpm_texto}")
+                elif self.girando:
+                    self.girando = False
                 return
             if not self.listo:
-                self.pantalla.mensaje(MOTIVOS.get(m.get("motivo"), f"Placa no lista: {m.get('motivo')}"), ROJO)
+                mostrar(MOTIVOS.get(m.get("motivo"), f"Placa no lista: {m.get('motivo')}"), ROJO)
                 return
-            rpm, freno = m.get("velocidad_rpm"), m.get("freno_deg")
-            self.pantalla.mensaje(
-                f"placa lista · motor {m.get('motor_porcentaje', 0):g} % · freno "
-                f"{f'{freno:g}°' if freno is not None else 'sin orden'} · "
-                f"{f'{rpm:.1f} RPM' if rpm is not None else 'sin velocidad'}"
-                f"{' · grabando' if m.get('registrando') else ''}")
+            freno = m.get("freno_deg")
+            mostrar(f"placa lista · motor {m.get('motor_porcentaje', 0):g} % · freno "
+                    f"{f'{freno:g}°' if freno is not None else 'sin orden'} · {rpm_texto.strip()}"
+                    f"{' · grabando' if m.get('registrando') else ''}")
         elif tipo == "configuracion":
             self.config[m.get("grupo")] = m
             if self.captura:
                 self.captura.meta["configuracion"][m.get("grupo")] = m
-            elif m.get("grupo") == "motor":
-                self.mostrar_configuracion()
-        elif tipo == "calibracion":
-            self.mostrar_calibracion(m)
-        elif tipo == "ok":
-            if m.get("comando") != "CONFIG" or self.crudo:
-                self.pantalla.mensaje(f"✓ {m.get('comando')}", GRIS)
+            elif m.get("grupo") == "motor" and self.liberar_al_conectar and self.listo:
+                self.liberar_al_conectar = False
+                self.enviar(f"FRENO {self.limite('servo', 'liberado_deg')}")
+                mostrar("lista: freno liberado; escribe ayuda", VERDE)
+        elif tipo == "ok" and m.get("comando") == "CONFIG" and self.config:
+            mostrar(f"  periodo aplicado: una fila cada {self.ajustes['periodo']} ms", CIAN)
+        elif tipo == "ok" and m.get("comando") == "STOP":
+            mostrar("motor cortado, freno liberado", VERDE)
         elif tipo == "error":
-            self.acelerando_desde = None
-            self.pantalla.fin_vivo()
+            self.acelerando_desde, self.girando = None, False
             if self.captura:
                 self.captura.meta["errores"].append(m)
-            self.pantalla.mensaje("✗ " + MOTIVOS.get(m.get("motivo"), m.get("motivo", "error")), ROJO)
+            mostrar("✗ " + MOTIVOS.get(m.get("motivo"), m.get("motivo", "error")), ROJO)
         elif tipo == "evento":
             if self.captura:
                 self.captura.meta["eventos"].append(m)
-            texto = EVENTOS.get(m.get("evento"), lambda v: f"{m.get('evento')} {v}")(m.get("valor", 0))
-            momento = f"{m['tiempo_ms'] / 1000:6.2f} s  " if m.get("tiempo_ms", -1) >= 0 else ""
-            if m.get("evento") == "estado_sensor" and not self.captura:
-                return
-            self.pantalla.mensaje(f"{momento}{texto}", AMARILLO)
+            texto = EVENTOS.get(m.get("evento"))
+            if texto:
+                momento = f"{m['tiempo_ms'] / 1000:5.2f} s  " if m.get("tiempo_ms", -1) >= 0 else ""
+                mostrar(f"  {momento}{texto(m.get('valor', 0))}", AMARILLO)
+        elif tipo == "calibracion":
+            mostrar("  " + " · ".join(f"{k} {v}" for k, v in m.items() if k != "tipo"), CIAN)
         elif tipo == "inicio":
-            self.acelerando_desde = None
-            self.pantalla.fin_vivo()
-            self.captura = Captura(self.nombre)
+            self.acelerando_desde, self.girando = None, False
+            self.cero_desde, self.cierre_pedido = None, False
+            self.captura = Captura(self.ensayo_pedido or self.prefijo)
+            self.ensayo_pedido = None
             self.captura.meta["inicio"] = m
-            self.pantalla.mensaje(f"▶ grabando → datos/{self.captura.base.name}.csv", VERDE)
+            mostrar(f"▶ grabando → datos/{self.captura.base.name}.csv", VERDE)
         elif tipo == "fin" and self.captura:
-            self.pantalla.fin_vivo()
             ruta = self.captura.cerrar(m)
-            estado = "completa" if self.captura.meta["completo"] else "INCOMPLETA (revisar el .json)"
-            self.pantalla.mensaje(f"■ captura {estado}, fin por {m.get('motivo')} → datos/{ruta.name}",
-                                  VERDE if self.captura.meta["completo"] else ROJO)
+            completa = self.captura.meta["completo"]
+            mostrar(f"■ captura {'completa' if completa else 'INCOMPLETA (revisar el .json)'} → datos/{ruta.name}",
+                    VERDE if completa else ROJO)
             for linea in resumir(self.captura.filas):
-                self.pantalla.mensaje("  " + linea, CIAN)
+                mostrar("  " + linea, CIAN)
             self.captura = None
 
-    def mostrar_configuracion(self):
-        sensor, servo, motor = (self.config.get(g, {}) for g in ("sensor", "servo", "motor"))
-        self.pantalla.mensaje(
-            f"sensor LM393, {sensor.get('pulsos_por_vuelta')} ranuras (promedio de {sensor.get('ventana_pulsos')}) · "
-            f"freno {servo.get('minimo_deg')}..{servo.get('maximo_deg')}°, liberado {servo.get('liberado_deg')}° · "
-            f"motor max {motor.get('maximo_porcentaje')} % / {motor.get('maximo_impulso_ms', 0) / 1000:g} s", GRIS)
-        if self.liberar_al_conectar and self.listo and servo.get("liberado_deg") is not None:
-            self.liberar_al_conectar = False
-            self.enviar(f"FRENO {servo['liberado_deg']}")
-
-    def mostrar_calibracion(self, m):
-        def posicion(us, grados):
-            return f"{us} us ({grados:g}°)" if us else "—"
-        self.pantalla.mensaje(
-            f"servo {posicion(m['pulso_us'], m['grados'])} · paso {m['paso_us']} us · "
-            f"liberado {posicion(m['liberado_us'], m['liberado_deg'])} · "
-            f"contacto {posicion(m['contacto_us'], m['contacto_deg'])} · "
-            f"recorrido {m['minimo_us']}..{m['maximo_us']} us", CIAN)
-        if m["liberado_us"] and m["contacto_us"]:
-            self.pantalla.mensaje(
-                f"  para fijarlo: CONFIG_ASM_SERVO_LIBERADO_DEG={round(m['liberado_deg'])} en firmware/sdkconfig.defaults; "
-                f"la goma toca a {m['contacto_deg']:g}°: frenar por encima de ese angulo", GRIS)
+    def fila(self, t, freno, rpm):
+        """Muestra el avance y cierra la captura cuando el disco ya se detuvo."""
+        self.progreso(f"  {t / 1000:5.2f} s  {rpm:6.1f} RPM  freno {freno:g}°")
+        if rpm != 0:
+            self.cero_desde = None
+        elif self.cero_desde is None:
+            self.cero_desde = t
+        elif t - self.cero_desde >= CIERRE_DETENIDO_MS and not self.cierre_pedido:
+            self.cierre_pedido = True
+            self.enviar("STOP")
 
     def leer(self):
         while self.activo.is_set():
             try:
                 crudo = self.puerto.readline()
             except serial.SerialException as error:
-                self.pantalla.mensaje(f"Puerto perdido: {error}", ROJO)
+                mostrar(f"Puerto perdido: {error}", ROJO)
                 self.activo.clear()
                 return
             texto = crudo.decode("utf-8", "replace").strip()
             if not texto:
                 continue
-            if self.crudo:
-                self.pantalla.mensaje(texto, GRIS)
             if texto.startswith("# "):
                 try:
-                    mensaje = json.loads(texto[2:])
+                    self.mensaje_json(json.loads(texto[2:]))
                 except json.JSONDecodeError:
-                    if not self.crudo:
-                        self.pantalla.mensaje(texto, GRIS)
-                    continue
-                self.mensaje_json(mensaje)
+                    mostrar(texto, GRIS)
             elif self.captura:
                 fila = self.captura.linea_datos(texto)
                 if fila:
-                    t, f, r = fila
-                    self.pantalla.vivo(f"● {t / 1000:6.2f} s | {r:7.1f} RPM | freno {f:g}°")
-            elif not self.crudo:
-                self.pantalla.mensaje(texto, GRIS)
+                    self.fila(*fila)
+            else:
+                mostrar(texto, GRIS)
 
     def sondear(self):
-        """Durante la aceleracion de ensayo pide STATUS para mostrar la velocidad en vivo."""
+        """Mientras el motor gira sin grabar, pide STATUS para mostrar las RPM."""
         while self.activo.is_set():
-            time.sleep(0.3)
-            if self.acelerando_desde is not None and not self.captura:
-                self.sondeos_pendientes += 1
+            time.sleep(PERIODO_PANTALLA_S)
+            if (self.acelerando_desde is not None or self.girando) and not self.captura:
+                self.sondeos += 1
                 self.enviar("STATUS")
-
-
-def completar(texto, estado):
-    """Tab: comandos y subcomandos de cal."""
-    if not readline:
-        return None
-    linea = readline.get_line_buffer().lstrip()
-    opciones = SUBCOMANDOS_CAL if linea.lower().startswith("cal ") else COMANDOS
-    coincidencias = [o + " " for o in opciones if o.startswith(texto.lower())]
-    return coincidencias[estado] if estado < len(coincidencias) else None
 
 
 def main():
@@ -450,31 +438,29 @@ def main():
         puerto.rts = True
         time.sleep(0.1)
         puerto.rts = False
-    if readline:
-        readline.set_completer(completar)
-        readline.set_completer_delims(" ")
-        readline.parse_and_bind("tab: complete")
-
     banco = Banco(puerto, opciones.nombre)
-    print(f"{NEGRITA}Banco de frenado{FIN} en {opciones.puerto} · capturas en datos/{opciones.nombre}_NN.csv · "
-          f"escribe {NEGRITA}ayuda{FIN}")
-    threading.Thread(target=banco.leer, daemon=True).start()
-    threading.Thread(target=banco.sondear, daemon=True).start()
-    banco.al_conectar()
-    try:
-        while banco.activo.is_set():
-            linea = input(PROMPT).strip()
-            if not linea:
-                continue
-            if linea.lower() in ("salir", "exit", "quit"):
-                break
-            orden = banco.traducir(linea)
-            if orden:
-                banco.enviar(orden)
-    except (EOFError, KeyboardInterrupt):
-        pass
+    sesion = PromptSession(completer=WordCompleter(COMANDOS, ignore_case=True))
+    with patch_stdout(raw=True):  # lo que imprimen los hilos sale encima del prompt
+        mostrar(f"Banco de frenado en {opciones.puerto} · capturas en "
+                f"datos/{opciones.nombre}_m<motor>_f<freno>_NN.csv")
+        mostrar(AYUDA)
+        threading.Thread(target=banco.leer, daemon=True).start()
+        threading.Thread(target=banco.sondear, daemon=True).start()
+        banco.al_conectar()
+        try:
+            while banco.activo.is_set():
+                linea = sesion.prompt(PROMPT).strip()
+                if not linea:
+                    continue
+                if linea.lower() in ("salir", "exit", "quit"):
+                    break
+                orden = banco.traducir(linea)
+                if orden:
+                    banco.enviar(orden)
+        except (EOFError, KeyboardInterrupt):
+            pass
     banco.activo.clear()
-    if banco.captura:
+    if banco.captura or banco.girando:
         banco.enviar("STOP")
         time.sleep(0.3)
     puerto.close()

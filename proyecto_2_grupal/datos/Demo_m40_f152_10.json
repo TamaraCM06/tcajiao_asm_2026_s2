@@ -1,0 +1,86 @@
+{
+  "protocolo": 1,
+  "fecha_pc": "2026-11-25 20:16:06",
+  "receptor": "herramientas/consola.py",
+  "configuracion": {
+    "ensayo": {
+      "tipo": "configuracion",
+      "grupo": "ensayo",
+      "periodo_ms": 20,
+      "duracion_ms": 30000,
+      "timeout_ms": 100,
+      "estabilidad_tolerancia_porcentaje": 7.0,
+      "estabilidad_lecturas": 5,
+      "estabilidad_periodo_ms": 500
+    },
+    "sensor": {
+      "tipo": "configuracion",
+      "grupo": "sensor",
+      "gpio": 27,
+      "flanco_bajada": true,
+      "pulsos_por_vuelta": 20,
+      "ventana_pulsos": 20,
+      "minimo_pulso_us": 200
+    },
+    "servo": {
+      "tipo": "configuracion",
+      "grupo": "servo",
+      "gpio": 18,
+      "frecuencia_hz": 50,
+      "minimo_deg": 45,
+      "maximo_deg": 153,
+      "liberado_deg": 90,
+      "pulso_minimo_us": 1000,
+      "pulso_maximo_us": 2200
+    },
+    "motor": {
+      "tipo": "configuracion",
+      "grupo": "motor",
+      "enable_gpio": 25,
+      "entrada1_gpio": 26,
+      "entrada2_gpio": 33,
+      "frecuencia_hz": 1000,
+      "maximo_porcentaje": 60,
+      "maximo_impulso_ms": 30000
+    }
+  },
+  "eventos": [
+    {
+      "tipo": "evento",
+      "evento": "freno",
+      "tiempo_ms": 300.253,
+      "valor": 152.0
+    },
+    {
+      "tipo": "evento",
+      "evento": "estado_sensor",
+      "tiempo_ms": 1481.27,
+      "valor": 2.0
+    }
+  ],
+  "errores": [],
+  "inicio": {
+    "tipo": "inicio",
+    "protocolo": 1,
+    "ensayo": 6,
+    "firmware": "1",
+    "corte_motor_us": 239250972
+  },
+  "fin": {
+    "tipo": "fin",
+    "ensayo": 6,
+    "motivo": "STOP",
+    "completo": true,
+    "producidas": 125,
+    "enviadas": 125,
+    "vencimientos_perdidos": 0,
+    "pulsos_rechazados": 4,
+    "dt_min_us": 19995,
+    "dt_max_us": 20717,
+    "tiempo_fin_ms": 2486.39,
+    "liberado_deg": 90
+  },
+  "muestras_recibidas": 125,
+  "filas_invalidas": 0,
+  "completo": true
+}

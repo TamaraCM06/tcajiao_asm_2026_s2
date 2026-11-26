@@ -11,6 +11,7 @@ import os
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -19,7 +20,8 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.patch_stdout import patch_stdout
 
-from analisis_captura import resumir
+from analisis_captura import leer_csv, resumir
+from graficas_captura import abrir_grafica, generar_grafica_csv
 
 DATOS = Path(__file__).resolve().parents[1] / "datos"
 CABECERA = "tiempo_ms,freno_deg,velocidad_rpm"
@@ -132,7 +134,7 @@ class Captura:
 class Banco:
     """Conexion con el ESP32: traduce los comandos, interpreta lo que llega y guarda las capturas."""
 
-    def __init__(self, puerto, prefijo):
+    def __init__(self, puerto, prefijo, abrir_graficas=True):
         self.puerto, self.prefijo = puerto, prefijo
         self.escritura = threading.Lock()
         self.activo = threading.Event()
@@ -150,6 +152,8 @@ class Banco:
         self.ultima_linea = 0.0
         self.cero_desde = None
         self.cierre_pedido = False
+        self.abrir_graficas = abrir_graficas
+        self.procesamiento_capturas = ThreadPoolExecutor(max_workers=1, thread_name_prefix="asm_capturas")
 
     def enviar(self, linea):
         with self.escritura:
@@ -353,13 +357,31 @@ class Banco:
             self.captura.meta["inicio"] = m
             mostrar(f"▶ grabando → datos/{self.captura.base.name}.csv", VERDE)
         elif tipo == "fin" and self.captura:
-            ruta = self.captura.cerrar(m)
-            completa = self.captura.meta["completo"]
-            mostrar(f"■ captura {'completa' if completa else 'INCOMPLETA (revisar el .json)'} → datos/{ruta.name}",
-                    VERDE if completa else ROJO)
-            for linea in resumir(self.captura.filas, self.captura.meta):
+            self.finalizar_captura(m)
+
+    # Cierra los archivos antes de analizar y declara incompleta la captura si no llego fin.
+    def finalizar_captura(self, fin):
+        ruta = self.captura.cerrar(fin)
+        metadatos = self.captura.meta
+        completa = metadatos["completo"]
+        self.captura = None
+        mostrar(f"■ captura {'completa' if completa else 'INCOMPLETA (revisar el .json)'} → datos/{ruta.name}",
+                VERDE if completa else ROJO)
+        self.procesamiento_capturas.submit(self.procesar_csv, ruta, metadatos)
+
+    # Analiza el archivo ya cerrado y genera la figura en un trabajador independiente del receptor.
+    def procesar_csv(self, ruta_csv, metadatos):
+        try:
+            for linea in resumir(leer_csv(ruta_csv), metadatos):
                 mostrar("  " + linea, CIAN)
-            self.captura = None
+            ruta_png = generar_grafica_csv(ruta_csv)
+            mostrar(f"Grafica del frenado → {ruta_png}", VERDE)
+            if self.abrir_graficas and not abrir_grafica(ruta_png):
+                mostrar(f"Abre la grafica guardada en {ruta_png}", AMARILLO)
+        except ImportError as error:
+            mostrar(f"CSV conservado; falta una dependencia para graficar: {error}. Ejecuta python banco.py preparar", ROJO)
+        except (OSError, ValueError) as error:
+            mostrar(f"CSV conservado; no se pudo completar su analisis o grafica: {error}", ROJO)
 
     def fila(self, t, freno, rpm):
         """Muestra el avance y cierra la captura cuando el disco ya se detuvo."""
@@ -399,6 +421,8 @@ class Banco:
         """Mientras el motor gira sin grabar, pide STATUS para mostrar las RPM."""
         while self.activo.is_set():
             time.sleep(PERIODO_PANTALLA_S)
+            if not self.activo.is_set():
+                break
             if (self.acelerando_desde is not None or self.girando) and not self.captura:
                 self.sondeos += 1
                 self.enviar("STATUS")
@@ -409,6 +433,7 @@ def main():
     argumentos.add_argument("--puerto", required=True)
     argumentos.add_argument("--nombre", default="ensayo", help="prefijo de las capturas en datos/")
     argumentos.add_argument("--reiniciar", action="store_true", help="reinicia la placa al conectar")
+    argumentos.add_argument("--sin-abrir-grafica", action="store_true", help="guarda el PNG sin abrir el visor")
     opciones = argumentos.parse_args()
     if os.name == "nt":
         os.system("")  # activa los colores ANSI en la consola de Windows
@@ -424,13 +449,14 @@ def main():
         puerto.rts = True
         time.sleep(0.1)
         puerto.rts = False
-    banco = Banco(puerto, opciones.nombre)
+    banco = Banco(puerto, opciones.nombre, abrir_graficas=not opciones.sin_abrir_grafica)
     sesion = PromptSession(completer=WordCompleter(COMANDOS, ignore_case=True))
     with patch_stdout(raw=True):  # lo que imprimen los hilos sale encima del prompt
         mostrar(f"Banco de frenado en {opciones.puerto} · capturas en "
                 f"datos/{opciones.nombre}_m<motor>_f<freno>_NN.csv")
         mostrar(AYUDA)
-        threading.Thread(target=banco.leer, daemon=True).start()
+        hilo_recepcion = threading.Thread(target=banco.leer, daemon=True)
+        hilo_recepcion.start()
         threading.Thread(target=banco.sondear, daemon=True).start()
         banco.al_conectar()
         try:
@@ -445,11 +471,15 @@ def main():
                     banco.enviar(orden)
         except (EOFError, KeyboardInterrupt):
             pass
-    banco.activo.clear()
-    if banco.captura or banco.girando:
+    if banco.captura or banco.girando or banco.acelerando_desde is not None:
         banco.enviar("STOP")
         time.sleep(0.3)
+    banco.activo.clear()
     puerto.close()
+    hilo_recepcion.join(timeout=1)
+    if banco.captura:
+        banco.finalizar_captura(None)
+    banco.procesamiento_capturas.shutdown(wait=True)
     print()
 
 

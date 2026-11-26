@@ -58,3 +58,55 @@ def test_estado_de_firmware_anterior(consola, monkeypatch):
     banco.sondeos = 1
     banco.mensaje_json({"tipo": "estado", "hardware_listo": True, "acelerando": True, "velocidad_rpm": 1234.5})
     assert len(lineas) == 1 and "acelerando" in lineas[0] and "1234.5 RPM" in lineas[0]
+
+
+# Los limites incluidos en el error prevalecen sobre una configuracion antigua almacenada en PC.
+def test_error_usa_limites_del_mensaje(consola, monkeypatch):
+    lineas = []
+    monkeypatch.setattr(consola, "mostrar", lambda texto, color="": lineas.append(texto))
+    banco = consola.Banco(None, "prueba")
+    banco.config = {"motor": {"maximo_porcentaje": 60}, "servo": {"minimo_deg": 45, "maximo_deg": 153}}
+    banco.mensaje_json({"tipo": "error", "motivo": "parametros_ENSAYO_invalidos",
+                       "parametros": {"motor_maximo_porcentaje": 35, "servo_minimo_deg": 50,
+                                      "servo_maximo_deg": 140, "espera_maxima_ms": 10000}})
+    assert "0 a 35 %" in lineas[0] and "50 a 140 grados" in lineas[0] and "10000 ms" in lineas[0]
+    assert "153" not in lineas[0] and "60 %" not in lineas[0]
+
+
+# Una respuesta CONFIG confirma lo aplicado en la placa, aunque difiera del ajuste previo de PC.
+def test_config_confirmado_por_placa(consola, monkeypatch):
+    lineas = []
+    monkeypatch.setattr(consola, "mostrar", lambda texto, color="": lineas.append(texto))
+    banco = consola.Banco(None, "prueba")
+    banco.mensaje_json({"tipo": "ok", "comando": "CONFIG", "periodo_ms": 40,
+                       "duracion_ms": 12000, "timeout_ms": 250})
+    assert banco.ajustes["periodo"] == 40 and banco.config["ensayo"]["duracion_ms"] == 12000
+    assert all(texto in lineas[0] for texto in ("40 ms", "12000 ms", "250 ms"))
+
+
+# No convierte tiempos fraccionarios en otro valor ni acepta valores no finitos del operador.
+def test_ajustes_no_se_redondean_silenciosamente(consola, monkeypatch):
+    lineas = []
+    monkeypatch.setattr(consola, "mostrar", lambda texto, color="": lineas.append(texto))
+    banco = consola.Banco(None, "prueba")
+    assert banco.ajustar("periodo", "20.7") is None and banco.ajustes["periodo"] == 20
+    assert "entero" in lineas[0]
+    assert consola.numero("inf") is None and consola.numero("nan") is None
+
+
+# Un error sin parametros conserva el motivo y muestra explicitamente lo no informado.
+def test_error_sin_limites_no_inventa_valores(consola):
+    texto = consola.describir_error({"motivo": "mando_rechazado"}, {})
+    assert "no informado" in texto and "153" not in texto and "60 %" not in texto
+
+
+# La captura muestra mas de una fila en medio segundo, conservando los tres decimales recibidos.
+def test_captura_refresca_cada_cien_ms(consola, monkeypatch):
+    lineas = []
+    tiempos = iter([1.0, 1.11, 1.22, 1.33])
+    monkeypatch.setattr(consola, "mostrar", lambda texto, color="": lineas.append(texto))
+    monkeypatch.setattr(consola.time, "monotonic", lambda: next(tiempos))
+    banco = consola.Banco(None, "prueba")
+    for tiempo_ms in (0.549, 110.549, 220.549, 330.549):
+        banco.fila(tiempo_ms, 90, 1821.107)
+    assert len(lineas) == 4 and all("1821.107 RPM" in linea for linea in lineas)

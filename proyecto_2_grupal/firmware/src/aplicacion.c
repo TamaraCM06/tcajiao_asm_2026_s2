@@ -38,6 +38,7 @@ static estado_velocidad_t estado_sensor_anterior;
 #define ESTABILIDAD_TOLERANCIA_RELATIVA 0.07
 #define ESTABILIDAD_LECTURAS_REQUERIDAS 5
 #define ESTABILIDAD_PERIODO_LECTURA_US 500000
+#define ENSAYO_ESPERA_MAXIMA_MS 10000
 static bool acelerando;
 static bool freno_pendiente;
 static double freno_automatico_deg;
@@ -68,7 +69,15 @@ static void solicitar_muestra(void *argumento)
 /* Devuelve errores estructurados que el receptor separa del CSV. */
 static void informar_error(const char *motivo)
 {
-    if (!protocolo_emitir("# {\"tipo\":\"error\",\"motivo\":\"%s\"}", motivo) && registrando)
+    if (!protocolo_emitir("# {\"tipo\":\"error\",\"motivo\":\"%s\",\"parametros\":{"
+        "\"motor_maximo_porcentaje\":%d,\"motor_maximo_impulso_ms\":%d,"
+        "\"servo_minimo_deg\":%d,\"servo_maximo_deg\":%d,\"servo_liberado_deg\":%d,"
+        "\"estabilidad_tolerancia_porcentaje\":%.1f,\"estabilidad_lecturas\":%d,"
+        "\"estabilidad_periodo_ms\":%d,\"espera_maxima_ms\":%d}}", motivo,
+        montaje.motor_maximo_porcentaje, montaje.motor_maximo_impulso_ms,
+        montaje.servo_minimo_deg, montaje.servo_maximo_deg, montaje.servo_liberado_deg,
+        ESTABILIDAD_TOLERANCIA_RELATIVA * 100, ESTABILIDAD_LECTURAS_REQUERIDAS,
+        ESTABILIDAD_PERIODO_LECTURA_US / 1000, ENSAYO_ESPERA_MAXIMA_MS) && registrando)
         cierre_correcto = false;
 }
 
@@ -229,7 +238,7 @@ static void iniciar_ensayo_automatico(const comando_t *comando)
     if (registrando || acelerando) { informar_error("ensayo_activo"); return; }
     if (!ensayo.periodo_ms) { informar_error("falta_CONFIG"); return; }
     if (!servo_freno_liberado()) { informar_error("ordenar_freno_liberado"); return; }
-    if (espera < 0 || espera > 10000 || floor(espera) != espera ||
+    if (espera < 0 || espera > ENSAYO_ESPERA_MAXIMA_MS || floor(espera) != espera ||
         !freno_convertir_pulso(&montaje, angulo, &pulso_us)) {
         informar_error("parametros_ENSAYO_invalidos"); return;
     }
@@ -354,7 +363,9 @@ static void ejecutar_comando(const char *linea)
         }
         ensayo = nueva_configuracion;
         sensor_optico_configurar_timeout((int64_t)ensayo.timeout_ms * 1000);
-        protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"CONFIG\"}");
+        protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"CONFIG\",\"periodo_ms\":%" PRIu32
+            ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 "}",
+            ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms);
         return;
     }
     if (comando.tipo == COMANDO_ENSAYO) { iniciar_ensayo_automatico(&comando); return; }

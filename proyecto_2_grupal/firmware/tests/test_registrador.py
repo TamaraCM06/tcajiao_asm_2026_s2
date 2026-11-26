@@ -70,6 +70,21 @@ def test_diagnostico_estabilidad_produccion(ejecutor):
     assert parametros["estabilidad_lecturas"] == 5 and parametros["estabilidad_periodo_ms"] == 500
 
 
+# Comprueba que el error y la confirmacion contienen los parametros efectivos del coordinador C.
+def test_error_y_config_informan_parametros_efectivos(ejecutor):
+    resultado = subprocess.run([str(ejecutor), "errores_parametros"], check=True, capture_output=True, text=True)
+    mensajes = [json.loads(linea[2:]) for linea in resultado.stdout.splitlines() if linea.startswith("# ")]
+    error = next(mensaje for mensaje in mensajes if mensaje["tipo"] == "error")
+    assert error["motivo"] == "parametros_ENSAYO_invalidos"
+    assert error["parametros"]["motor_maximo_porcentaje"] == 30
+    assert error["parametros"]["motor_maximo_impulso_ms"] == 15000
+    assert error["parametros"]["servo_minimo_deg"] == 10 and error["parametros"]["servo_maximo_deg"] == 90
+    assert error["parametros"]["estabilidad_tolerancia_porcentaje"] == 7
+    assert error["parametros"]["espera_maxima_ms"] == 10000
+    respuesta = next(mensaje for mensaje in mensajes if mensaje.get("comando") == "CONFIG")
+    assert [respuesta[campo] for campo in ("periodo_ms", "duracion_ms", "timeout_ms")] == [25, 5000, 150]
+
+
 # Verifica que los conteos del cierre corresponden a las filas reales del protocolo.
 def test_trama_produccion(ejecutor):
     resultado = subprocess.run([str(ejecutor), "trama"], check=True, capture_output=True, text=True)

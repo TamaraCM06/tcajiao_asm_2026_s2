@@ -391,6 +391,13 @@ int main(int cantidad_argumentos, char **argumentos)
         tiempo_virtual_us += 500000;
         vigilar_ensayo_automatico(tiempo_virtual_us);
         assert(!acelerando && registrando && motor_virtual == 0);
+    } else if (!strcmp(escenario, "errores_parametros")) {
+        ejecutar_comando("FRENO 10");
+        ejecutar_comando("ENSAYO 20 200 40");
+        ejecutar_comando("CONFIG 25 5000 150");
+        assert(!registrando && ensayo.periodo_ms == 25 && ensayo.duracion_ms == 5000 && ensayo.timeout_ms == 150);
+        for (unsigned indice_mensaje = 0; indice_mensaje < cantidad_mensajes; ++indice_mensaje)
+            puts(mensajes[indice_mensaje]);
     } else if (!strcmp(escenario, "diagnostico_estabilidad")) {
         ejecutar_comando("FRENO 10");
         ejecutar_comando("ENSAYO 20 80 40");

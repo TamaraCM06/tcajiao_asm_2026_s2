@@ -7,6 +7,7 @@ Cada ensayo se guarda en datos/<prefijo>_m<motor>_f<freno>_NN.csv
 """
 import argparse
 import json
+import math
 import os
 import sys
 import threading
@@ -22,6 +23,7 @@ from prompt_toolkit.patch_stdout import patch_stdout
 
 from analisis_captura import leer_csv, resumir
 from graficas_captura import abrir_grafica, generar_grafica_csv
+from mensajes_banco import MOTIVOS, describir_error
 
 DATOS = Path(__file__).resolve().parents[1] / "datos"
 CABECERA = "tiempo_ms,freno_deg,velocidad_rpm"
@@ -47,25 +49,6 @@ AYUDA = """\
   salir                      tambien Ctrl+D"""
 COMANDOS = ["ensayo", "ajustes", "ajustar", "motor", "parar", "estado", "ayuda", "salir", *AJUSTES_INICIALES]
 
-# Motivos del firmware traducidos a una accion.
-MOTIVOS = {
-    "falta_CONFIG": "La placa no recibio CONFIG: salir y volver a abrir la consola",
-    "ordenar_freno_liberado": "El freno no esta liberado: parar",
-    "velocidad_no_disponible": "El sensor no mide: ¿gira el disco? ¿pasan las ranuras por la horquilla?",
-    "ensayo_activo": "Hay un ensayo en curso: parar",
-    "cierre_pendiente": "Cerrando la captura anterior; espera un momento",
-    "motor_requiere_reposo_CONFIG_y_liberacion": "El motor no arranca durante una captura: parar",
-    "cortar_motor_antes_de_frenar": "Primero motor 0",
-    "mando_rechazado": "Valor fuera de los limites calibrados",
-    "parametros_ENSAYO_invalidos": "Freno fuera del recorrido calibrado",
-    "velocidad_maxima_no_alcanzada": "El motor se corto antes de estabilizar la velocidad",
-    "CONFIG_requiere_reposo": "El periodo solo cambia con el motor detenido y sin captura",
-    "comando_invalido": "Comando no reconocido: ayuda",
-    "linea_descartada": "Linea demasiado larga o con caracteres invalidos",
-    "transmision_ocupada": "Serie ocupada; reintenta",
-    "fallo_uart_reiniciar": "Fallo serie en la placa: reiniciarla",
-    "fallo_actuador": "Fallo al mover un actuador: revisar alimentacion",
-}
 EVENTOS = {
     "motor": lambda v: f"motor {v:g} %" if v else "motor cortado",
     "freno": lambda v: f"freno → {v:g}°",
@@ -84,7 +67,7 @@ def numero(texto):
         valor = float(texto)
     except ValueError:
         return None
-    return valor if valor == valor else None
+    return valor if math.isfinite(valor) else None
 
 
 class Captura:
@@ -167,7 +150,7 @@ class Banco:
 
     def rangos(self):
         """Limites de cada ajuste; los del motor y el freno vienen de la placa."""
-        return {"motor": (1, self.limite("motor", "maximo_porcentaje")),
+        return {"motor": (0, self.limite("motor", "maximo_porcentaje")),
                 "freno": (self.limite("servo", "minimo_deg"), self.limite("servo", "maximo_deg")),
                 "espera": (0, 10000), "periodo": (10, 100)}
 
@@ -193,7 +176,13 @@ class Banco:
             mostrar(MOTIVOS["CONFIG_requiere_reposo"], ROJO)
             return None
         valor = numero(texto)
+        if clave == "motor" and valor <= 0:
+            mostrar(f"motor para ensayo: mayor que 0 y hasta {maximo:g} %", ROJO)
+            return None
         if clave in ("espera", "periodo"):
+            if not valor.is_integer():
+                mostrar(f"{clave}: se requiere un numero entero de milisegundos", ROJO)
+                return None
             valor = int(valor)
         if not minimo <= valor <= maximo:
             mostrar(f"{clave}: de {minimo:g} a {maximo:g} {UNIDADES[clave]}", ROJO)
@@ -250,10 +239,10 @@ class Banco:
             motor = valores[0] if valores else self.valor("motor")
             freno = valores[1] if len(valores) > 1 else self.valor("freno")
             rangos = self.rangos()
-            if not rangos["motor"][0] <= motor <= rangos["motor"][1] or \
+            if not 0 < motor <= rangos["motor"][1] or \
                     not rangos["freno"][0] <= freno <= rangos["freno"][1]:
-                mostrar("ensayo: motor de {:g} a {:g} %, freno de {:g} a {:g}°".format(
-                    *rangos["motor"], *rangos["freno"]), ROJO)
+                mostrar("ensayo: motor mayor que 0 y hasta {:g} %, freno de {:g} a {:g}°".format(
+                    rangos["motor"][1], *rangos["freno"]), ROJO)
                 return None
             self.ensayo_pedido = self.nombre_captura(motor, freno)
             self.acelerando_desde = time.monotonic()
@@ -312,7 +301,7 @@ class Banco:
                     self.girando = False
                 return
             if not self.listo:
-                mostrar(MOTIVOS.get(m.get("motivo"), f"Placa no lista: {m.get('motivo')}"), ROJO)
+                mostrar(describir_error(m, self.config), ROJO)
                 return
             freno = m.get("freno_deg")
             mostrar(f"placa lista · motor {m.get('motor_porcentaje', 0):g} % · freno "
@@ -329,15 +318,21 @@ class Banco:
                 self.liberar_al_conectar = False
                 self.enviar(f"FRENO {self.limite('servo', 'liberado_deg')}")
                 mostrar("lista: freno liberado; escribe ayuda", VERDE)
-        elif tipo == "ok" and m.get("comando") == "CONFIG" and self.config:
-            mostrar(f"  periodo aplicado: una fila cada {self.ajustes['periodo']} ms", CIAN)
+        elif tipo == "ok" and m.get("comando") == "CONFIG":
+            if all(campo in m for campo in ("periodo_ms", "duracion_ms", "timeout_ms")):
+                self.config.setdefault("ensayo", {}).update({campo: m[campo] for campo in ("periodo_ms", "duracion_ms", "timeout_ms")})
+                self.ajustes["periodo"] = m["periodo_ms"]
+                mostrar(f"  CONFIG aplicado por la placa: periodo {m['periodo_ms']} ms · "
+                        f"duracion {m['duracion_ms']} ms · timeout {m['timeout_ms']} ms", CIAN)
+            else:
+                mostrar("  CONFIG aceptado; la placa no incluyo sus valores en la respuesta", CIAN)
         elif tipo == "ok" and m.get("comando") == "STOP":
             mostrar("motor cortado, freno liberado", VERDE)
         elif tipo == "error":
             self.acelerando_desde, self.girando = None, False
             if self.captura:
                 self.captura.meta["errores"].append(m)
-            mostrar("✗ " + MOTIVOS.get(m.get("motivo"), m.get("motivo", "error")), ROJO)
+            mostrar("✗ " + describir_error(m, self.config), ROJO)
         elif tipo == "evento":
             if self.captura:
                 self.captura.meta["eventos"].append(m)
@@ -385,7 +380,7 @@ class Banco:
 
     def fila(self, t, freno, rpm):
         """Muestra el avance y cierra la captura cuando el disco ya se detuvo."""
-        self.progreso(f"  {t / 1000:5.2f} s  {rpm:6.1f} RPM  freno {freno:g}°")
+        self.progreso(f"  {t / 1000:7.3f} s  {rpm:8.3f} RPM  freno {freno:g}°", PERIODO_MUESTRAS_PANTALLA_S)
         if rpm != 0:
             self.cero_desde = None
         elif self.cero_desde is None:

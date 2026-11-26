@@ -91,11 +91,19 @@ hasta detenerse. Usar un `--nombre` por serie (`identificacion`, `validacion`, `
 `python banco.py pid` mide qué velocidad da cada % de motor, elige la velocidad alta y la baja, y
 corre todos los ensayos de identificación, uno por Enter. Detalle y lista: [ensayos](04_ensayos.md).
 
-## 4. Analizar
+## 4. Modelo de la planta
 
-En MATLAB abrir `herramientas/visualizar_ensayo.m`, ejecutar y elegir el CSV en `datos/`.
-Grafica el ensayo, ajusta `K` y `tau` y calcula la respuesta al impulso. Requiere exactamente un
-cambio de freno en la captura (lo que produce `ensayo`).
+```bash
+python banco.py modelo            # usa datos/identificacion (--nombre para otra campaña)
+```
+
+Corre `herramientas/modelo_planta.m` en MATLAB sin abrir la interfaz (si no hay MATLAB, en GNU
+Octave) y deja en `datos/identificacion/modelo/`: `modelo.json` (fricción, ganancia del freno, zona
+muerta, τ, G(s) para el PID, polos y cero con Ts, rampas alcanzables), `escalones.csv`,
+`validacion.csv` y figuras. `banco.py pid` lo ofrece solo al terminar todos los ensayos. Desde
+MATLAB también se puede correr `modelo_planta` dentro de `herramientas/`.
+
+Para ver un solo ensayo: `herramientas/visualizar_ensayo.m` (pide el CSV).
 
 ## 5. Ajustar el freno
 

@@ -322,7 +322,8 @@ def main():
         placa.enviar("STOP")
     restantes = len([e for e in plan if clave(e) not in hechos(indice)])
     print(f"\nFin. Pendientes: {restantes}. Indice: {indice}")
+    return 0 if restantes == 0 else 3   # 0: campana completa (banco.py ofrece construir el modelo)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

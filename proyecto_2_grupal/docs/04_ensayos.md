@@ -65,6 +65,13 @@ freno en grados. Un reintento no pisa el anterior: queda como `..._r01_intento2`
 | `*.json` | Configuración de la placa, eventos y cierre de ese ensayo |
 | `indice.csv` | Grupo, nivel, repetición, motor, freno, archivo, si quedó completo, RPM inicial y motivo |
 
+## Modelo
+
+Al terminar todos los ensayos, `banco.py pid` pregunta si construir el modelo; también se puede
+correr después con `python banco.py modelo`. Necesita MATLAB (o GNU Octave) en esa computadora y
+deja todo en `datos/identificacion/modelo/` (ver [ejecución](01_ejecucion.md#4-modelo-de-la-planta)).
+Subirlo junto con los datos.
+
 Agregar una nota con cualquier cosa rara (la goma se movió, la fuente se apagó, un ensayo repetido)
 y subirlo con un commit propio (`datos: identificacion`). Si un ensayo queda `completo = no`, el
 índice dice el motivo; volver a correr la campaña lo repite.

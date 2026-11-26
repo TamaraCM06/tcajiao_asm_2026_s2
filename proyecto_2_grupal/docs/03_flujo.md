@@ -98,7 +98,7 @@ flowchart LR
     error(["<b>error</b><br/>no graba nada"])
 
     orden -->|"freno liberado"| acel
-    acel -->|"5 lecturas dentro de ±6 %<br/>una cada 500 ms"| grab
+    acel -->|"5 lecturas dentro de ±7 %<br/>una cada 500 ms"| grab
     grab -->|"t = 300 ms"| fren
     fren -->|"duración configurada o parar"| cierre
     cierre --> csv
@@ -109,14 +109,14 @@ flowchart LR
     style esp fill:none,stroke:#8b949e,stroke-width:1px
 ~~~
 
-El motor se corta cuando cinco lecturas consecutivas quedan dentro de una banda de ±6 %.
+El motor se corta cuando cinco lecturas consecutivas quedan dentro de una banda de ±7 %.
 La primera lectura válida, finita y positiva fija la referencia y cuenta como lectura 1.
 La referencia permanece fija mientras las lecturas aceptadas estén dentro de la banda;
 ambos extremos están incluidos.
 
 | Parámetro de estabilidad | Valor | Significado |
 |---|---|---|
-| Tolerancia relativa | ±6 % de la referencia | Por ejemplo, una referencia de 1000 RPM admite de 940 a 1060 RPM |
+| Tolerancia relativa | ±7 % de la referencia | Por ejemplo, una referencia de 1000 RPM admite de 930 a 1070 RPM |
 | Lecturas consecutivas | 5, incluida la referencia | Cuatro lecturas todavía no habilitan el registro |
 | Separación mínima | 500 ms | Cadencia comparable al sondeo de la consola, independiente del bucle de 1 ms |
 | Ventana mínima completa | 2 s entre primera y quinta lectura | Puede durar más si faltan lecturas; no hay una espera adicional de 3 s |
@@ -124,7 +124,7 @@ ambos extremos están incluidos.
 
 | Situación durante la aceleración | Comportamiento |
 |---|---|
-| Lectura nueva dentro de ±6 %, al menos 500 ms después de la anterior | Aumenta el conteo, sin mover la referencia |
+| Lectura nueva dentro de ±7 %, al menos 500 ms después de la anterior | Aumenta el conteo, sin mover la referencia |
 | Lectura evaluada fuera de la banda, por arriba o por abajo | Usa la velocidad actual como referencia y empieza otra cuenta desde 1 |
 | Lectura inválida, no finita o no positiva | Descarta referencia y conteo; exige cinco lecturas nuevas tras recuperarse |
 | Consulta demasiado rápida o sin pulso nuevo | No aumenta el conteo; tampoco reconstruye lecturas faltantes |
@@ -146,7 +146,51 @@ El mismo porcentaje de motor puede producir distintas RPM entre repeticiones. Es
 comprueba estabilidad aproximada; para comparar ensayos todavía hay que verificar que las
 velocidades iniciales medidas estén dentro de la tolerancia elegida para cada condición.
 
-## 1.4. Fundamento con las mediciones del banco
+## 1.4. Diagnóstico del inicio de captura
+
+El firmware envía un mensaje de tipo estabilidad por cada lectura que cuenta para la decisión.
+La consola muestra esos mensajes directamente, sin aplicar el límite de refresco de pantalla.
+Tras recibir el primero, deja de imprimir el sondeo de aceleración que consultaba el sensor
+en otro instante. El comando estado y la visualización del motor manual continúan disponibles.
+
+| Dato mostrado | Significado |
+|---|---|
+| detector, tiempo en segundos | Tiempo de la ESP32 desde que aceptó el comando ENSAYO |
+| RPM | Lectura usada por el detector, sin sustituirla por otro sondeo de la consola |
+| ref | Referencia contra la que se comparó esa lectura |
+| banda | Extremos inclusivos calculados con ±7 % de esa referencia |
+| Conteo, por ejemplo 3/5 | Número de lecturas aceptadas de la cuenta vigente |
+| referencia inicial | La lectura fija una referencia nueva y cuenta como 1 |
+| dentro de banda | Mantiene la referencia y aumenta el conteo |
+| fuera de banda: reinicio con ref | Muestra la banda anterior y la nueva referencia; el conteo vuelve a 1 |
+| lectura invalida: reinicio | El conteo pasa a 0 y se descarta la referencia |
+| estable: cumple criterio | La quinta lectura cumple la condición; después se intenta cortar el motor e iniciar el registro |
+
+Ejemplo de dos decisiones consecutivas:
+
+~~~text
+detector  0.50 s · RPM 1050.0 · ref 1000.0 · banda [930.0, 1070.0] RPM · 2/5 · dentro de banda
+detector  1.00 s · RPM 1100.0 · ref 1000.0 · banda [930.0, 1070.0] RPM · 1/5 · fuera de banda: reinicio con ref 1100.0
+~~~
+
+La segunda línea explica por qué se reinició: 1100 RPM supera el máximo anterior de 1070 RPM.
+La siguiente comparación usará 1100 RPM como referencia. Los valores de pantalla se redondean;
+los mensajes estructurados llevan tres decimales y el cálculo conserva la precisión del estimador.
+
+Una lectura inválida reinicia inmediatamente la cuenta. Se informa esa pérdida al ocurrir;
+si persiste, se repite el aviso como máximo cada 500 ms. La recuperación conserva la separación
+mínima desde la última lectura evaluada, de modo que alternar estados no acelera el conteo.
+Los mensajes con valores no finitos usan null para conservar JSON válido.
+
+| Interfaz | Compatibilidad y alcance |
+|---|---|
+| Mensaje estabilidad | Añade tiempo_ms, velocidad_rpm, referencia_rpm, minimo_rpm, maximo_rpm, referencia_siguiente_rpm, lecturas, requeridas y decision |
+| Configuración de ensayo | Añade estabilidad_tolerancia_porcentaje, estabilidad_lecturas y estabilidad_periodo_ms; se conservan en el JSON de cada captura |
+| CSV | Conserva tiempo_ms, freno_deg y velocidad_rpm; los diagnósticos previos se muestran en consola y no se añaden al CSV |
+| Consola con firmware anterior | Conserva el progreso de aceleración mientras no reciba mensajes de estabilidad |
+| Aviso del límite de motor | Usa maximo_impulso_ms recibido de la placa; si falta, muestra un aviso sin inventar la duración |
+
+## 1.5. Fundamento con las mediciones del banco
 
 El usuario compartió cuatro aceleraciones, dos al 40 %, una al 30 % y una al 20 %.
 Las 215 lecturas mostradas por la consola se conservan, incluidos ceros y lecturas
@@ -154,16 +198,18 @@ sin medida, en [estabilidad_observada.csv](../firmware/tests/datos/estabilidad_o
 Cada número de traza corresponde al orden de los ensayos originales. Los tiempos
 proceden de la consola y tienen redondeo y saltos; no son un registro de todos los pulsos.
 
-La tolerancia de ±6 % es un ajuste inicial basado en esos datos: con la misma referencia
-fija, cinco lecturas y ±5 %, el ensayo al 30 % no completa la cuenta; con ±6 %, los cuatro
-registros contienen una ventana aceptable. La reproducción sobre el coordinador C produce:
+La tolerancia anterior de ±6 % se eligió porque, con la misma referencia fija, cinco lecturas
+y ±5 %, el ensayo al 30 % no completaba la cuenta. El usuario autorizó ampliar a ±7 % como
+ajuste experimental y mostrar las lecturas reales del detector, tras observar nuevos cortes
+por tiempo y diferencias entre el sondeo de consola y la decisión. La reproducción sobre
+el coordinador C de las mismas cuatro trazas produce:
 
-| Traza | Motor original | Primera aceptación | Referencia aceptada | RPM en la quinta lectura |
-|---|---|---|---|---|
-| 1 | 40 % | 15,0 s | 1959,4 RPM | 1858,9 RPM |
-| 2 | 40 % | 28,5 s | 2166,6 RPM | 2091,9 RPM |
-| 3 | 30 % | 17,4 s | 1300,0 RPM | 1324,4 RPM |
-| 4 | 20 % | 20,8 s | 414,4 RPM | 428,8 RPM |
+| Traza | Motor original | Aceptación anterior ±6 % | Aceptación actual ±7 % | Referencia actual | RPM en la quinta lectura |
+|---|---|---|---|---|---|
+| 1 | 40 % | 15,0 s | 15,0 s | 1959,4 RPM | 1858,9 RPM |
+| 2 | 40 % | 28,5 s | 21,5 s | 2110,0 RPM | 1990,2 RPM |
+| 3 | 30 % | 17,4 s | 12,9 s | 1072,4 RPM | 1137,9 RPM |
+| 4 | 20 % | 20,8 s | 20,8 s | 414,4 RPM | 428,8 RPM |
 
 Estos son resultados de reproducción de lecturas, no nuevos ensayos físicos. No permiten
 asegurar los mismos tiempos en placa: el firmware consulta con otra fase y dispone de
@@ -171,20 +217,19 @@ estados del sensor entre las líneas mostradas por la consola. Las trazas contin
 después de algunas ventanas, especialmente al 20 %, donde alcanzan 525,1 RPM al final.
 El criterio acepta una meseta local y todavía debe contrastarse con el objetivo de la prueba.
 
-Los mensajes actuales de la consola mencionan un límite fijo de 15 s, aunque estas trazas
-llegan aproximadamente a 30 s. Ese texto no determina el límite efectivo del firmware;
-se debe consultar la configuración recibida de la placa. La tabla reproduce el criterio
-de estabilidad; completar cada ensayo exige que su aceptación ocurra antes del límite
-de impulso configurado. Un límite de 30 s deja margen para las cuatro aceptaciones calculadas.
+Las trazas históricas mencionaban un límite fijo de 15 s, aunque llegaban aproximadamente
+a 30 s. El aviso actual usa el límite informado por la ESP32. La tabla reproduce el criterio
+de estabilidad; completar cada ensayo exige que su aceptación ocurra antes del límite de
+impulso configurado. Un límite de 30 s deja margen para las cuatro aceptaciones calculadas.
 
-## 1.5. Estado de la modificación
+## 1.6. Estado de la modificación
 
 | Campo | Estado |
 |---|---|
 | Responsable | Santiago; corrección del criterio de inicio del ensayo |
-| Implementado | Cinco lecturas nuevas en ±6 %, separadas al menos 500 ms; reinicio ante cambios o lecturas inválidas |
-| Compatibilidad | Mismos comandos, CSV, eventos y espera de freno; campo interno ultimo_pulso_us añadido al estimador y usado por el coordinador |
+| Implementado | Cinco lecturas nuevas en ±7 %, separadas al menos 500 ms; diagnóstico de lectura, banda, conteo y reinicios |
+| Compatibilidad | Mismos comandos, CSV, eventos y espera de freno; añade mensajes de diagnóstico y campos de estabilidad en la configuración de ensayo |
 | Revisión | Código, documentación, enlaces locales y diff revisados |
-| Verificación en PC | 27 pruebas aprobadas con python banco.py pruebas, incluidas las cuatro trazas; compilación ESP32 aprobada con python banco.py compilar y ESP-IDF v5.5.5 |
-| Pendiente físico | Cargar el firmware y comprobar puntos de aceptación, repetibilidad y tiempos de preparación sobre el banco real |
+| Verificación en PC | 34 pruebas aprobadas con python banco.py pruebas, incluidas las cuatro trazas y la consola; compilación ESP32 aprobada con python banco.py compilar y ESP-IDF v5.5.5 |
+| Pendiente físico | Cargar el firmware, abrir la consola actualizada y contrastar las cinco decisiones con los puntos de aceptación reales |
 | Siguiente bloque | Consolidar trazabilidad y velocidades iniciales repetibles del roadmap |

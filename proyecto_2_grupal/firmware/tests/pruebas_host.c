@@ -314,8 +314,9 @@ int main(int cantidad_argumentos, char **argumentos)
         unsigned mensajes_antes_inicio = cantidad_mensajes;
         tiempo_virtual_us += 1; vigilar_ensayo_automatico(tiempo_virtual_us);
         assert(!acelerando && registrando && motor_virtual == 0 && angulo_virtual == 10);
-        assert(strstr(mensajes[mensajes_antes_inicio], "\"evento\":\"velocidad_maxima\""));
-        assert(strstr(mensajes[mensajes_antes_inicio], "\"valor\":1000.000"));
+        assert(strstr(mensajes[mensajes_antes_inicio], "\"decision\":\"aceptada\""));
+        assert(strstr(mensajes[mensajes_antes_inicio + 1], "\"evento\":\"velocidad_maxima\""));
+        assert(strstr(mensajes[mensajes_antes_inicio + 1], "\"valor\":1000.000"));
         tiempo_virtual_us += 20000; vigilar_ensayo_automatico(tiempo_virtual_us);
         assert(angulo_virtual == 10);             /* espera de 40 ms */
         tiempo_virtual_us += 20000; vigilar_ensayo_automatico(tiempo_virtual_us);
@@ -359,7 +360,7 @@ int main(int cantidad_argumentos, char **argumentos)
         velocidad_virtual.velocidad_rpm = 1000;
         vigilar_ensayo_automatico(tiempo_virtual_us);
         for (unsigned indice_muestra = 0; indice_muestra < 4; ++indice_muestra) {
-            velocidad_virtual.velocidad_rpm = indice_muestra % 2 ? 1060 : 940;
+            velocidad_virtual.velocidad_rpm = indice_muestra % 2 ? 1070 : 930;
             tiempo_virtual_us += 500000;
             vigilar_ensayo_automatico(tiempo_virtual_us);
             if (indice_muestra < 3) assert(acelerando && !registrando);
@@ -390,11 +391,58 @@ int main(int cantidad_argumentos, char **argumentos)
         tiempo_virtual_us += 500000;
         vigilar_ensayo_automatico(tiempo_virtual_us);
         assert(!acelerando && registrando && motor_virtual == 0);
+    } else if (!strcmp(escenario, "diagnostico_estabilidad")) {
+        ejecutar_comando("FRENO 10");
+        ejecutar_comando("ENSAYO 20 80 40");
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        unsigned mensajes_anteriores = cantidad_mensajes;
+        tiempo_virtual_us += 1000;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(cantidad_mensajes == mensajes_anteriores); /* No informa cada vuelta del bucle. */
+        tiempo_virtual_us += 499000;
+        velocidad_virtual.velocidad_rpm = 1070;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        tiempo_virtual_us += 500000;
+        velocidad_virtual.velocidad_rpm = 1100;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        tiempo_virtual_us += 1000;
+        velocidad_virtual.velocidad_rpm = NAN;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        mensajes_anteriores = cantidad_mensajes;
+        for (unsigned indice_muestra = 0; indice_muestra < 99; ++indice_muestra) {
+            tiempo_virtual_us += 1000;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+        }
+        assert(cantidad_mensajes == mensajes_anteriores);
+        velocidad_virtual.velocidad_rpm = 1100;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        assert(cantidad_mensajes == mensajes_anteriores && !registrando);
+        tiempo_virtual_us += 400000;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        for (unsigned indice_muestra = 0; indice_muestra < 4; ++indice_muestra) {
+            tiempo_virtual_us += 500000;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+        }
+        assert(registrando && motor_virtual == 0);
+        for (unsigned indice_mensaje = 0; indice_mensaje < cantidad_mensajes; ++indice_mensaje)
+            puts(mensajes[indice_mensaje]);
+    } else if (!strcmp(escenario, "diagnostico_invalido_sostenido")) {
+        ejecutar_comando("FRENO 10");
+        ejecutar_comando("ENSAYO 20 80 40");
+        velocidad_virtual.velocidad_rpm = NAN;
+        vigilar_ensayo_automatico(tiempo_virtual_us);
+        unsigned mensajes_anteriores = cantidad_mensajes;
+        for (unsigned indice_muestra = 0; indice_muestra < 1000; ++indice_muestra) {
+            tiempo_virtual_us += 1000;
+            vigilar_ensayo_automatico(tiempo_virtual_us);
+        }
+        assert(cantidad_mensajes == mensajes_anteriores + 2);
+        assert(acelerando && !registrando && lecturas_estables == 0);
     } else if (!strcmp(escenario, "estabilidad_observada")) {
         assert(cantidad_argumentos == 3);
         reproducir_mediciones_observadas(argumentos[2], 1, 15000);
-        reproducir_mediciones_observadas(argumentos[2], 2, 28500);
-        reproducir_mediciones_observadas(argumentos[2], 3, 17400);
+        reproducir_mediciones_observadas(argumentos[2], 2, 21500);
+        reproducir_mediciones_observadas(argumentos[2], 3, 12900);
         reproducir_mediciones_observadas(argumentos[2], 4, 20800);
     } else if (!strcmp(escenario, "estabilidad_lecturas_invalidas")) {
         const lectura_velocidad_t lecturas_invalidas[] = {

@@ -53,7 +53,7 @@ MOTIVOS = {
     "cortar_motor_antes_de_frenar": "Primero motor 0",
     "mando_rechazado": "Valor fuera de los limites calibrados",
     "parametros_ENSAYO_invalidos": "Freno fuera del recorrido calibrado",
-    "velocidad_maxima_no_alcanzada": "El motor se corto antes de estabilizar la velocidad (limite de 15 s)",
+    "velocidad_maxima_no_alcanzada": "El motor se corto antes de estabilizar la velocidad",
     "CONFIG_requiere_reposo": "El periodo solo cambia con el motor detenido y sin captura",
     "comando_invalido": "Comando no reconocido: ayuda",
     "linea_descartada": "Linea demasiado larga o con caracteres invalidos",
@@ -65,7 +65,7 @@ EVENTOS = {
     "motor": lambda v: f"motor {v:g} %" if v else "motor cortado",
     "freno": lambda v: f"freno → {v:g}°",
     "velocidad_maxima": lambda v: f"velocidad estable en {v:.0f} RPM: corta el motor y graba",
-    "limite_impulso_motor": lambda v: "motor cortado por el limite de 15 s",
+    "limite_impulso_motor": lambda v: "motor cortado por el limite de impulso configurado",
 }
 
 
@@ -181,6 +181,7 @@ class Banco:
         self.captura = None
         self.ensayo_pedido = None     # (motor, freno) del ultimo ENSAYO, para nombrar el archivo
         self.acelerando_desde = None  # ensayo: el motor acelera antes de grabar
+        self.estabilidad_recibida = False  # con firmware nuevo se muestran sus decisiones exactas
         self.girando = False          # motor manual
         self.sondeos = 0              # STATUS pedidos por sondear(), que no se imprimen enteros
         self.ultima_linea = 0.0
@@ -305,10 +306,29 @@ class Banco:
             self.ultima_linea = ahora
             mostrar(texto, CIAN)
 
+    # Muestra todas las decisiones del ESP32, sin el recorte de frecuencia del progreso general.
+    def mostrar_estabilidad(self, mensaje):
+        velocidad = mensaje.get("velocidad_rpm")
+        referencia = mensaje.get("referencia_rpm")
+        minimo, maximo = mensaje.get("minimo_rpm"), mensaje.get("maximo_rpm")
+        velocidad_texto = f"{velocidad:.1f}" if velocidad is not None else "sin medida"
+        referencia_texto = f"{referencia:.1f}" if referencia is not None else "sin referencia"
+        banda = f"[{minimo:.1f}, {maximo:.1f}]" if minimo is not None and maximo is not None else "no disponible"
+        decision = mensaje.get("decision")
+        descripcion = {"referencia": "referencia inicial", "dentro": "dentro de banda",
+                       "aceptada": "estable: cumple criterio", "invalida": "lectura invalida: reinicio"}.get(decision, decision)
+        if decision == "fuera":
+            descripcion = f"fuera de banda: reinicio con ref {mensaje['referencia_siguiente_rpm']:.1f}"
+        mostrar(f"  detector {mensaje.get('tiempo_ms', 0) / 1000:5.2f} s · RPM {velocidad_texto} · "
+                f"ref {referencia_texto} · banda {banda} RPM · "
+                f"{mensaje.get('lecturas', 0)}/{mensaje.get('requeridas', 5)} · {descripcion}", CIAN)
+
+    # Interpreta mensajes del firmware y coordina el estado de la consola y la captura.
     def mensaje_json(self, m):
         tipo = m.get("tipo")
         if tipo == "listo":
             mostrar(f"La placa se reinicio (firmware {m.get('firmware')})", AMARILLO)
+            self.estabilidad_recibida = False
             self.liberar_al_conectar = True
             self.al_conectar()
         elif tipo == "estado":
@@ -317,7 +337,7 @@ class Banco:
             rpm_texto = f"{rpm:6.1f} RPM" if rpm is not None else "  sin medida"
             if self.sondeos:
                 self.sondeos -= 1
-                if self.acelerando_desde is not None and m.get("acelerando"):
+                if self.acelerando_desde is not None and m.get("acelerando") and not self.estabilidad_recibida:
                     self.progreso(f"  acelerando {time.monotonic() - self.acelerando_desde:4.1f} s  {rpm_texto}")
                 elif self.girando and m.get("motor_porcentaje", 0) > 0:
                     self.progreso(f"  girando  {rpm_texto}")
@@ -331,6 +351,9 @@ class Banco:
             mostrar(f"placa lista · motor {m.get('motor_porcentaje', 0):g} % · freno "
                     f"{f'{freno:g}°' if freno is not None else 'sin orden'} · {rpm_texto.strip()}"
                     f"{' · grabando' if m.get('registrando') else ''}")
+        elif tipo == "estabilidad":
+            self.estabilidad_recibida = True
+            self.mostrar_estabilidad(m)
         elif tipo == "configuracion":
             self.config[m.get("grupo")] = m
             if self.captura:
@@ -354,7 +377,11 @@ class Banco:
             texto = EVENTOS.get(m.get("evento"))
             if texto:
                 momento = f"{m['tiempo_ms'] / 1000:5.2f} s  " if m.get("tiempo_ms", -1) >= 0 else ""
-                mostrar(f"  {momento}{texto(m.get('valor', 0))}", AMARILLO)
+                descripcion = texto(m.get("valor", 0))
+                limite_motor_ms = self.limite("motor", "maximo_impulso_ms")
+                if m.get("evento") == "limite_impulso_motor" and limite_motor_ms is not None:
+                    descripcion = f"motor cortado por el limite de {limite_motor_ms / 1000:g} s"
+                mostrar(f"  {momento}{descripcion}", AMARILLO)
         elif tipo == "inicio":
             self.acelerando_desde, self.girando = None, False
             self.cero_desde, self.cierre_pedido = None, False

@@ -35,7 +35,7 @@ static estado_velocidad_t estado_sensor_anterior;
 
 /* ENSAYO automatico: exige una banda estable de RPM, corta el motor,
  * empieza a registrar y aplica el freno tras la espera pedida. */
-#define ESTABILIDAD_TOLERANCIA_RELATIVA 0.06
+#define ESTABILIDAD_TOLERANCIA_RELATIVA 0.07
 #define ESTABILIDAD_LECTURAS_REQUERIDAS 5
 #define ESTABILIDAD_PERIODO_LECTURA_US 500000
 static bool acelerando;
@@ -46,6 +46,8 @@ static double velocidad_referencia_estabilidad_rpm = NAN;
 static uint32_t lecturas_estables;
 static int64_t ultima_lectura_estabilidad_us = -1;
 static int64_t ultimo_pulso_estabilidad_us = -1;
+static int64_t inicio_aceleracion_us;
+static int64_t ultimo_diagnostico_estabilidad_us = -1;
 
 /* Exige una referencia nueva tras iniciar un ensayo o perder una lectura valida. */
 static void reiniciar_estabilidad(void)
@@ -74,8 +76,11 @@ static void informar_error(const char *motivo)
 static bool informar_configuracion(void)
 {
     bool correcto = protocolo_emitir("# {\"tipo\":\"configuracion\",\"grupo\":\"ensayo\","
-        "\"periodo_ms\":%" PRIu32 ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 "}",
-        ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms);
+        "\"periodo_ms\":%" PRIu32 ",\"duracion_ms\":%" PRIu32 ",\"timeout_ms\":%" PRIu32 ","
+        "\"estabilidad_tolerancia_porcentaje\":%.1f,\"estabilidad_lecturas\":%d,"
+        "\"estabilidad_periodo_ms\":%d}", ensayo.periodo_ms, ensayo.duracion_ms, ensayo.timeout_ms,
+        ESTABILIDAD_TOLERANCIA_RELATIVA * 100, ESTABILIDAD_LECTURAS_REQUERIDAS,
+        ESTABILIDAD_PERIODO_LECTURA_US / 1000);
     correcto &= protocolo_emitir("# {\"tipo\":\"configuracion\",\"grupo\":\"sensor\","
         "\"gpio\":%d,\"flanco_bajada\":%s,\"pulsos_por_vuelta\":%" PRIu32 ",\"ventana_pulsos\":%" PRIu32 ","
         "\"minimo_pulso_us\":%" PRIu32 "}", montaje.sensor_gpio, montaje.flanco_bajada ? "true" : "false",
@@ -99,6 +104,29 @@ static bool informar_evento(const char *evento, double valor, int64_t tiempo_us)
     double tiempo_ms = registrando || cerrando ? (tiempo_us - reloj.inicio_us) / 1000.0 : -1.0;
     return protocolo_emitir("# {\"tipo\":\"evento\",\"evento\":\"%s\",\"tiempo_ms\":%.3f,\"valor\":%.3f}",
         evento, tiempo_ms, valor);
+}
+
+/* Expone la lectura y banda usadas en la decision, incluida la nueva referencia tras reiniciar. */
+static void informar_estabilidad(const lectura_velocidad_t *lectura, double referencia_evaluada_rpm,
+    const char *decision, int64_t tiempo_us)
+{
+    char velocidad[32] = "null", referencia[32] = "null", minimo[32] = "null", maximo[32] = "null";
+    char referencia_siguiente[32] = "null";
+    if (isfinite(lectura->velocidad_rpm))
+        snprintf(velocidad, sizeof(velocidad), "%.3f", lectura->velocidad_rpm);
+    if (isfinite(referencia_evaluada_rpm)) {
+        snprintf(referencia, sizeof(referencia), "%.3f", referencia_evaluada_rpm);
+        snprintf(minimo, sizeof(minimo), "%.3f", referencia_evaluada_rpm * (1 - ESTABILIDAD_TOLERANCIA_RELATIVA));
+        snprintf(maximo, sizeof(maximo), "%.3f", referencia_evaluada_rpm * (1 + ESTABILIDAD_TOLERANCIA_RELATIVA));
+    }
+    if (isfinite(velocidad_referencia_estabilidad_rpm))
+        snprintf(referencia_siguiente, sizeof(referencia_siguiente), "%.3f", velocidad_referencia_estabilidad_rpm);
+    protocolo_emitir("# {\"tipo\":\"estabilidad\",\"tiempo_ms\":%.3f,\"velocidad_rpm\":%s,"
+        "\"referencia_rpm\":%s,\"minimo_rpm\":%s,\"maximo_rpm\":%s,"
+        "\"referencia_siguiente_rpm\":%s,\"lecturas\":%" PRIu32 ",\"requeridas\":%d,\"decision\":\"%s\"}",
+        (tiempo_us - inicio_aceleracion_us) / 1000.0, velocidad, referencia, minimo, maximo,
+        referencia_siguiente, lecturas_estables, ESTABILIDAD_LECTURAS_REQUERIDAS, decision);
+    ultimo_diagnostico_estabilidad_us = tiempo_us;
 }
 
 /* Finaliza adquisicion antes de liberar; el cierre FIFO se reintenta si la cola estaba llena. */
@@ -212,10 +240,12 @@ static void iniciar_ensayo_automatico(const comando_t *comando)
     freno_automatico_deg = angulo;
     espera_freno_ms = (uint32_t)espera;
     reiniciar_estabilidad();
+    inicio_aceleracion_us = ahora;
+    ultimo_diagnostico_estabilidad_us = -1;
     informar_evento("motor", porcentaje, ahora);
 }
 
-/* Cuenta cinco lecturas nuevas, separadas 500 ms, dentro de una banda fija de +/-6 %. */
+/* Cuenta cinco lecturas nuevas, separadas 500 ms, dentro de una banda fija de +/-7 %. */
 static void vigilar_ensayo_automatico(int64_t tiempo_us)
 {
     if (acelerando) {
@@ -227,7 +257,14 @@ static void vigilar_ensayo_automatico(int64_t tiempo_us)
         lectura_velocidad_t lectura = sensor_optico_leer();
         if (lectura.estado != VELOCIDAD_VALIDA || !isfinite(lectura.velocidad_rpm) ||
             lectura.velocidad_rpm <= 0) {
-            reiniciar_estabilidad();
+            double referencia_anterior_rpm = velocidad_referencia_estabilidad_rpm;
+            bool reinicia_conteo = lecturas_estables > 0;
+            velocidad_referencia_estabilidad_rpm = NAN;
+            lecturas_estables = 0;
+            /* Conserva la cadencia aun si alternan lecturas validas e invalidas. */
+            if (reinicia_conteo || ultimo_diagnostico_estabilidad_us < 0 ||
+                tiempo_us - ultimo_diagnostico_estabilidad_us >= ESTABILIDAD_PERIODO_LECTURA_US)
+                informar_estabilidad(&lectura, referencia_anterior_rpm, "invalida", tiempo_us);
             return;
         }
         if (lectura.ultimo_pulso_us <= ultimo_pulso_estabilidad_us ||
@@ -235,14 +272,20 @@ static void vigilar_ensayo_automatico(int64_t tiempo_us)
              tiempo_us - ultima_lectura_estabilidad_us < ESTABILIDAD_PERIODO_LECTURA_US)) return;
         ultima_lectura_estabilidad_us = tiempo_us;
         ultimo_pulso_estabilidad_us = lectura.ultimo_pulso_us;
+        double referencia_evaluada_rpm = velocidad_referencia_estabilidad_rpm;
+        const char *decision;
         if (!isfinite(velocidad_referencia_estabilidad_rpm) ||
             fabs(lectura.velocidad_rpm - velocidad_referencia_estabilidad_rpm) >
                 velocidad_referencia_estabilidad_rpm * ESTABILIDAD_TOLERANCIA_RELATIVA) {
+            decision = isfinite(velocidad_referencia_estabilidad_rpm) ? "fuera" : "referencia";
+            if (!isfinite(referencia_evaluada_rpm)) referencia_evaluada_rpm = lectura.velocidad_rpm;
             velocidad_referencia_estabilidad_rpm = lectura.velocidad_rpm;
             lecturas_estables = 1;
         } else {
             ++lecturas_estables;
+            decision = lecturas_estables >= ESTABILIDAD_LECTURAS_REQUERIDAS ? "aceptada" : "dentro";
         }
+        informar_estabilidad(&lectura, referencia_evaluada_rpm, decision, tiempo_us);
         if (lecturas_estables >= ESTABILIDAD_LECTURAS_REQUERIDAS) {
             acelerando = false;
             informar_evento("velocidad_maxima", velocidad_referencia_estabilidad_rpm, tiempo_us);

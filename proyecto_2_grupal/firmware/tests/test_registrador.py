@@ -34,7 +34,7 @@ def ejecutor(tmp_path_factory):
 @pytest.mark.parametrize("escenario", ["velocidad", "promedio", "rechazo_pulsos", "timeout", "reloj_64bits", "conversion",
     "comandos", "configuracion", "temporizacion", "hardware", "inicio_bloqueado", "recorrido", "bloqueos",
     "ensayo_automatico", "estabilidad_bajada", "estabilidad_subida", "estabilidad_limites",
-    "estabilidad_lecturas_invalidas", "estabilidad_cadencia",
+    "estabilidad_lecturas_invalidas", "estabilidad_cadencia", "diagnostico_invalido_sostenido",
     "cola_llena", "fallo_corte"])
 def test_escenario_produccion(ejecutor, escenario):
     subprocess.run([str(ejecutor), escenario], check=True, capture_output=True, text=True)
@@ -45,6 +45,29 @@ def test_estabilidad_mediciones_observadas(ejecutor):
     mediciones = FIRMWARE / "tests/datos/estabilidad_observada.csv"
     subprocess.run([str(ejecutor), "estabilidad_observada", str(mediciones)],
                    check=True, capture_output=True, text=True)
+
+
+# Contrasta el diagnostico emitido con las lecturas inyectadas, sus reinicios y el inicio del CSV.
+def test_diagnostico_estabilidad_produccion(ejecutor):
+    resultado = subprocess.run([str(ejecutor), "diagnostico_estabilidad"],
+                               check=True, capture_output=True, text=True)
+    mensajes = [json.loads(linea[2:]) for linea in resultado.stdout.splitlines() if linea.startswith("# ")]
+    diagnosticos = [mensaje for mensaje in mensajes if mensaje["tipo"] == "estabilidad"]
+    assert [mensaje["decision"] for mensaje in diagnosticos] == [
+        "referencia", "dentro", "fuera", "invalida", "referencia", "dentro", "dentro", "dentro", "aceptada"]
+    assert [mensaje["lecturas"] for mensaje in diagnosticos] == [1, 2, 1, 0, 1, 2, 3, 4, 5]
+    assert [mensaje["tiempo_ms"] for mensaje in diagnosticos] == [0, 500, 1000, 1001, 1500, 2000, 2500, 3000, 3500]
+    assert all(mensaje["requeridas"] == 5 for mensaje in diagnosticos)
+    assert diagnosticos[1]["velocidad_rpm"] == 1070
+    assert diagnosticos[2]["referencia_rpm"] == 1000
+    assert diagnosticos[2]["minimo_rpm"] == 930 and diagnosticos[2]["maximo_rpm"] == 1070
+    assert diagnosticos[2]["referencia_siguiente_rpm"] == 1100
+    assert diagnosticos[3]["velocidad_rpm"] is None and diagnosticos[3]["referencia_siguiente_rpm"] is None
+    assert mensajes.index(diagnosticos[-1]) < next(indice for indice, mensaje in enumerate(mensajes)
+                                                 if mensaje["tipo"] == "inicio")
+    parametros = next(mensaje for mensaje in mensajes if mensaje.get("grupo") == "ensayo")
+    assert parametros["estabilidad_tolerancia_porcentaje"] == 7
+    assert parametros["estabilidad_lecturas"] == 5 and parametros["estabilidad_periodo_ms"] == 500
 
 
 # Verifica que los conteos del cierre corresponden a las filas reales del protocolo.

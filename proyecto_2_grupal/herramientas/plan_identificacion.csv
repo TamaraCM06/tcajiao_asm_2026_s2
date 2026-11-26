@@ -1,0 +1,17 @@
+grupo,nivel,freno,espera_ms,duracion_s,repeticiones,descripcion
+caida_libre,alto,LIBERADO,300,60,3,Caida libre desde la velocidad alta: friccion
+caida_libre,bajo,LIBERADO,300,60,3,Caida libre desde la velocidad baja: friccion
+freno_maximo,alto,MAXIMO,300,30,3,Freno maximo desde la velocidad alta
+freno_maximo,bajo,MAXIMO,300,30,3,Freno maximo desde la velocidad baja
+escalones,alto,95,300,60,2,Escalon pequeno: zona muerta
+escalones,alto,100,300,60,2,Escalon: zona muerta
+escalones,alto,110,300,30,2,Escalon de freno
+escalones,alto,120,300,30,2,Escalon de freno
+escalones,alto,130,300,30,2,Escalon de freno
+escalones,alto,140,300,30,2,Escalon de freno
+escalones,bajo,110,300,30,2,Escalon de freno a velocidad baja
+escalones,bajo,130,300,30,2,Escalon de freno a velocidad baja
+validacion,alto,115,300,30,1,Validacion: no se usa para ajustar
+validacion,alto,135,300,30,1,Validacion: no se usa para ajustar
+validacion,bajo,115,300,30,1,Validacion: no se usa para ajustar
+validacion,bajo,135,300,30,1,Validacion: no se usa para ajustar

@@ -5,6 +5,7 @@
   python banco.py compilar             compila el firmware en salidas/firmware
   python banco.py flashear [-p PUERTO] compila y programa la placa
   python banco.py consola  [-p PUERTO] [--nombre escalon]   ensayos y capturas en datos/
+  python banco.py pid      [-p PUERTO] [--nombre identificacion]   barrido de velocidad + ensayos del plan
   python banco.py monitor  [-p PUERTO] serie sin filtro (salir con Ctrl+])
   python banco.py menuconfig           cambio temporal; lo vigente va en firmware/sdkconfig.defaults
   python banco.py pruebas              pruebas del firmware en la PC (gcc + pytest)
@@ -113,9 +114,12 @@ def detectar_puerto(pedido):
 def main():
     opciones = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     opciones.add_argument("accion", choices=["preparar", "compilar", "flashear", "consola", "monitor",
-                                             "menuconfig", "pruebas", "limpiar"])
+                                             "pid", "menuconfig", "pruebas", "limpiar"])
     opciones.add_argument("-p", "--puerto")
     opciones.add_argument("--nombre", default="ensayo", help="prefijo de las capturas en datos/")
+    opciones.add_argument("--plan", help="pid: CSV del plan (por defecto herramientas/plan_identificacion.csv)")
+    opciones.add_argument("--alto", help="pid: %% de motor de la velocidad alta (omite el barrido)")
+    opciones.add_argument("--bajo", help="pid: %% de motor de la velocidad baja (omite el barrido)")
     args = opciones.parse_args()
 
     if args.accion == "limpiar":
@@ -143,6 +147,12 @@ def main():
     if args.accion == "consola":
         return subprocess.run([sys.executable, str(RAIZ / "herramientas/consola.py"), "--puerto",
                                detectar_puerto(args.puerto), "--nombre", args.nombre], env=entorno).returncode
+    if args.accion == "pid":
+        orden = [sys.executable, str(RAIZ / "herramientas/pruebas_pid.py"), "--puerto", detectar_puerto(args.puerto),
+                 "--nombre", args.nombre if args.nombre != "ensayo" else "identificacion"]
+        orden += ["--plan", args.plan] if args.plan else []
+        orden += ["--alto", args.alto, "--bajo", args.bajo] if args.alto and args.bajo else []
+        return subprocess.run(orden, env=entorno).returncode
     if args.accion == "pruebas":
         try:
             import pytest  # noqa: F401

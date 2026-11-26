@@ -98,7 +98,7 @@ flowchart LR
     grab -->|"t = 300 ms"| fren
     fren -->|"10 s o parar"| cierre
     cierre --> csv
-    acel -.->|"15 s sin<br/>estabilizar"| error
+    acel -.->|"no se estabiliza<br/>antes del límite"| error
 
     linkStyle 0,1,2,3,4 stroke:#d1700a,stroke-width:1.8px
     linkStyle 5 stroke:#c62828,stroke-width:1.6px

@@ -86,6 +86,11 @@ nombre también los lleva (`_e500`, `_p50`). La captura se cierra sola cuando el
 1 s detenido, y la consola muestra un resumen: desaceleración antes y después del freno y tiempo
 hasta detenerse. Usar un `--nombre` por serie (`identificacion`, `validacion`, `final`).
 
+### Pruebas para el PID
+
+`python banco.py pid` mide qué velocidad da cada % de motor, elige la velocidad alta y la baja, y
+corre todos los ensayos de identificación, uno por Enter. Detalle y lista: [ensayos](04_ensayos.md).
+
 ## 4. Analizar
 
 En MATLAB abrir `herramientas/visualizar_ensayo.m`, ejecutar y elegir el CSV en `datos/`.

@@ -53,7 +53,7 @@ MOTIVOS = {
     "cortar_motor_antes_de_frenar": "Primero motor 0",
     "mando_rechazado": "Valor fuera de los limites calibrados",
     "parametros_ENSAYO_invalidos": "Freno fuera del recorrido calibrado",
-    "velocidad_maxima_no_alcanzada": "El motor se corto antes de estabilizar la velocidad (limite de 15 s)",
+    "velocidad_maxima_no_alcanzada": "El motor se corto antes de estabilizar la velocidad (limite de impulso)",
     "CONFIG_requiere_reposo": "El periodo solo cambia con el motor detenido y sin captura",
     "comando_invalido": "Comando no reconocido: ayuda",
     "linea_descartada": "Linea demasiado larga o con caracteres invalidos",
@@ -65,7 +65,7 @@ EVENTOS = {
     "motor": lambda v: f"motor {v:g} %" if v else "motor cortado",
     "freno": lambda v: f"freno → {v:g}°",
     "velocidad_maxima": lambda v: f"velocidad estable en {v:.0f} RPM: corta el motor y graba",
-    "limite_impulso_motor": lambda v: "motor cortado por el limite de 15 s",
+    "limite_impulso_motor": lambda v: "motor cortado por el limite de impulso continuo",
 }
 
 
@@ -125,12 +125,18 @@ def resumir(filas):
 class Captura:
     """Escribe el CSV crudo y el JSON de metadatos de una captura."""
 
-    def __init__(self, nombre):
+    def __init__(self, nombre, numerar=True):
+        """numerar: agrega _NN (consola). Sin numerar usa el nombre exacto y, si ya existe, _intentoN."""
         DATOS.mkdir(parents=True, exist_ok=True)
-        n = 1
-        while (DATOS / f"{nombre}_{n:02d}.csv").exists():
-            n += 1
-        self.base = DATOS / f"{nombre}_{n:02d}"
+        if numerar:
+            n = 1
+            while (DATOS / f"{nombre}_{n:02d}.csv").exists():
+                n += 1
+            self.base = DATOS / f"{nombre}_{n:02d}"
+        else:
+            self.base, n = DATOS / nombre, 2
+            while self.base.with_suffix(".csv").exists():
+                self.base, n = DATOS / f"{nombre}_intento{n}", n + 1
         self.csv = open(self.base.with_suffix(".csv"), "w", encoding="utf-8")
         self.meta = {"protocolo": 1, "fecha_pc": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                      "receptor": "herramientas/consola.py", "configuracion": {}, "eventos": [], "errores": []}

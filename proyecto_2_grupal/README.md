@@ -10,6 +10,7 @@ velocidad durante el frenado. Entrega y defensa: **2 de diciembre de 2026**, 23:
 |---|---|
 | [Ejecución](docs/01_ejecucion.md) | Instalar, programar, consola, ensayos, calibración, análisis y pruebas |
 | [Conexiones](docs/02_conexiones.md) | Componentes y pinout |
+| [Ensayos](docs/04_ensayos.md) | Ensayos que hay que correr en el banco y qué entregar |
 | [Flujo](docs/03_flujo.md) | Cómo funciona: bloques, firmware, ensayo y datos |
 | [Capturas](docs/capturas/) | Fotos y capturas de pantalla |
 

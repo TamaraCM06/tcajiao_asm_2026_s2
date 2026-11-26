@@ -222,14 +222,37 @@ a 30 s. El aviso actual usa el límite informado por la ESP32. La tabla reproduc
 de estabilidad; completar cada ensayo exige que su aceptación ocurra antes del límite de
 impulso configurado. Un límite de 30 s deja margen para las cuatro aceptaciones calculadas.
 
-## 1.6. Estado de la modificación
+## 1.6. Cierre, muestras y gráfica del CSV
+
+La consola muestra filas de captura cada 100 ms aproximadamente, sin cambiar el período
+del CSV, inicialmente de 20 ms. Al cerrar, un trabajador independiente lee el CSV completo,
+imprime estadísticas y una tabla de filas originales y genera el PNG junto al CSV y JSON.
+La figura muestra velocidad y orden del servo en ejes separados; conserva picos y huecos,
+marca el cambio de freno y el primer cero y declara la integridad reportada en el JSON.
+
+| Módulo de PC | Responsabilidad |
+|---|---|
+| [analisis_captura.py](../herramientas/analisis_captura.py) | Leer el CSV, calcular extremos, pendientes y tiempos observados y seleccionar filas reales para el resumen |
+| [graficas_captura.py](../herramientas/graficas_captura.py) | Exportar el PNG con Matplotlib y abrir la imagen ya generada |
+| [mensajes_banco.py](../herramientas/mensajes_banco.py) | Traducir errores con los parámetros efectivos incluidos por la placa |
+| [consola.py](../herramientas/consola.py) | Recibir, guardar y coordinar el cierre y el postproceso sin bloquear UART |
+
+Los errores de firmware añaden parametros con límites de motor, servo, espera y estabilidad.
+La confirmación de CONFIG incluye período, duración y timeout aplicados. La consola prioriza
+los datos de la respuesta y no atribuye un corte externo al límite temporal por suposición.
+El protocolo mantiene las tres columnas del CSV y conserva los motivos existentes.
+
+La [guía de capturas y gráficas](04_capturas_y_graficas.md) documenta comandos, interpretación,
+las tres capturas conservadas y la separación entre orden de servo, velocidad estimada y medición física.
+
+## 1.7. Estado de la modificación
 
 | Campo | Estado |
 |---|---|
 | Responsable | Santiago; corrección del criterio de inicio del ensayo |
-| Implementado | Cinco lecturas nuevas en ±7 %, separadas al menos 500 ms; diagnóstico de lectura, banda, conteo y reinicios |
-| Compatibilidad | Mismos comandos, CSV, eventos y espera de freno; añade mensajes de diagnóstico y campos de estabilidad en la configuración de ensayo |
+| Implementado | Estabilidad en ±7 %, diagnóstico, resumen del CSV, PNG automático y errores con parámetros efectivos |
+| Compatibilidad | Conserva comandos seriales, CSV y espera de freno; añade campos de error y CONFIG, y la acción graficar en PC |
 | Revisión | Código, documentación, enlaces locales y diff revisados |
-| Verificación en PC | 34 pruebas aprobadas con python banco.py pruebas, incluidas las cuatro trazas y la consola; compilación ESP32 aprobada con python banco.py compilar y ESP-IDF v5.5.5 |
-| Pendiente físico | Cargar el firmware, abrir la consola actualizada y contrastar las cinco decisiones con los puntos de aceptación reales |
+| Verificación en PC | 51 pruebas aprobadas con python banco.py pruebas; compilación ESP32 aprobada con ESP-IDF v5.5.5; gráficas de capturas existentes 08, 09 y 10 generadas |
+| Pendiente físico | Cargar el firmware y confirmar mensajes, cierre y apertura del visor durante otra captura real |
 | Siguiente bloque | Consolidar trazabilidad y velocidades iniciales repetibles del roadmap |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entrada unica del banco de frenado (ESP32). Pasos completos: docs/01_ejecucion.md
+"""Entrada unica del banco de frenado (ESP32). Pasos completos: docs/04_capturas_y_graficas.md
 
   python banco.py preparar             instala pyserial y pytest en el Python de ESP-IDF (una vez)
   python banco.py compilar             compila el firmware en salidas/firmware
@@ -126,9 +126,9 @@ def main():
         return 0
     idf = buscar_idf()
     if not idf and args.accion not in ("pruebas", "graficar"):
-        fallar("no se encontro ESP-IDF 5.5 ni su entorno de Python; instalarlo segun docs/01_ejecucion.md")
+        fallar("no se encontro ESP-IDF 5.5 ni su entorno de Python; revisar docs/04_capturas_y_graficas.md")
     usar_python_idf(idf)
-    entorno = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    entorno = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1")
 
     if args.accion == "preparar":
         return subprocess.run([sys.executable, "-m", "pip", "install", "-r", str(RAIZ / "requirements.txt")]).returncode

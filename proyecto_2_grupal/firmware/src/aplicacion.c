@@ -35,20 +35,25 @@ static estado_velocidad_t estado_sensor_anterior;
 
 /* ENSAYO automatico: exige una banda estable de RPM, corta el motor,
  * empieza a registrar y aplica el freno tras la espera pedida. */
-#define ESTABILIDAD_TOLERANCIA_RELATIVA 0.03
-#define ESTABILIDAD_DURACION_US 3000000
+#define ESTABILIDAD_TOLERANCIA_RELATIVA 0.06
+#define ESTABILIDAD_LECTURAS_REQUERIDAS 5
+#define ESTABILIDAD_PERIODO_LECTURA_US 500000
 static bool acelerando;
 static bool freno_pendiente;
 static double freno_automatico_deg;
 static uint32_t espera_freno_ms;
 static double velocidad_referencia_estabilidad_rpm = NAN;
-static int64_t inicio_estabilidad_us;
+static uint32_t lecturas_estables;
+static int64_t ultima_lectura_estabilidad_us = -1;
+static int64_t ultimo_pulso_estabilidad_us = -1;
 
 /* Exige una referencia nueva tras iniciar un ensayo o perder una lectura valida. */
 static void reiniciar_estabilidad(void)
 {
     velocidad_referencia_estabilidad_rpm = NAN;
-    inicio_estabilidad_us = 0;
+    lecturas_estables = 0;
+    ultima_lectura_estabilidad_us = -1;
+    ultimo_pulso_estabilidad_us = -1;
 }
 
 /* Solicita una lectura a la tarea coordinadora, sin transmitir desde el callback. */
@@ -210,7 +215,7 @@ static void iniciar_ensayo_automatico(const comando_t *comando)
     informar_evento("motor", porcentaje, ahora);
 }
 
-/* Exige tres segundos dentro de una referencia fija; una salida por cualquier lado reinicia. */
+/* Cuenta cinco lecturas nuevas, separadas 500 ms, dentro de una banda fija de +/-6 %. */
 static void vigilar_ensayo_automatico(int64_t tiempo_us)
 {
     if (acelerando) {
@@ -225,12 +230,20 @@ static void vigilar_ensayo_automatico(int64_t tiempo_us)
             reiniciar_estabilidad();
             return;
         }
+        if (lectura.ultimo_pulso_us <= ultimo_pulso_estabilidad_us ||
+            (ultima_lectura_estabilidad_us >= 0 &&
+             tiempo_us - ultima_lectura_estabilidad_us < ESTABILIDAD_PERIODO_LECTURA_US)) return;
+        ultima_lectura_estabilidad_us = tiempo_us;
+        ultimo_pulso_estabilidad_us = lectura.ultimo_pulso_us;
         if (!isfinite(velocidad_referencia_estabilidad_rpm) ||
             fabs(lectura.velocidad_rpm - velocidad_referencia_estabilidad_rpm) >
                 velocidad_referencia_estabilidad_rpm * ESTABILIDAD_TOLERANCIA_RELATIVA) {
             velocidad_referencia_estabilidad_rpm = lectura.velocidad_rpm;
-            inicio_estabilidad_us = tiempo_us;
-        } else if (tiempo_us - inicio_estabilidad_us >= ESTABILIDAD_DURACION_US) {
+            lecturas_estables = 1;
+        } else {
+            ++lecturas_estables;
+        }
+        if (lecturas_estables >= ESTABILIDAD_LECTURAS_REQUERIDAS) {
             acelerando = false;
             informar_evento("velocidad_maxima", velocidad_referencia_estabilidad_rpm, tiempo_us);
             iniciar_registro();

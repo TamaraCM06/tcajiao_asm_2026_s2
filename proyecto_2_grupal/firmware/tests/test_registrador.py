@@ -34,10 +34,17 @@ def ejecutor(tmp_path_factory):
 @pytest.mark.parametrize("escenario", ["velocidad", "promedio", "rechazo_pulsos", "timeout", "reloj_64bits", "conversion",
     "comandos", "configuracion", "temporizacion", "hardware", "inicio_bloqueado", "recorrido", "bloqueos",
     "ensayo_automatico", "estabilidad_bajada", "estabilidad_subida", "estabilidad_limites",
-    "estabilidad_lecturas_invalidas",
+    "estabilidad_lecturas_invalidas", "estabilidad_cadencia",
     "cola_llena", "fallo_corte"])
 def test_escenario_produccion(ejecutor, escenario):
     subprocess.run([str(ejecutor), escenario], check=True, capture_output=True, text=True)
+
+
+# Reproduce las cuatro trazas del usuario en el coordinador C, sin inventar pulsos intermedios.
+def test_estabilidad_mediciones_observadas(ejecutor):
+    mediciones = FIRMWARE / "tests/datos/estabilidad_observada.csv"
+    subprocess.run([str(ejecutor), "estabilidad_observada", str(mediciones)],
+                   check=True, capture_output=True, text=True)
 
 
 # Verifica que los conteos del cierre corresponden a las filas reales del protocolo.

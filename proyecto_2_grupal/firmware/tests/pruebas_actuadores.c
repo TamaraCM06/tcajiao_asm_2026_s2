@@ -55,13 +55,6 @@ int main(int cantidad_argumentos, char **argumentos)
         assert(servo_freno_ordenar(50) == ESP_OK && orden_pwm[0] == 4588);
         assert(!servo_freno_liberado());
         assert(servo_freno_ordenar(10) == ESP_OK && servo_freno_liberado());
-    } else if (!strcmp(argumentos[1], "pulso_directo")) {
-        assert(servo_freno_ordenar_pulso(999) == ESP_ERR_INVALID_ARG && orden_pwm[0] == 0);
-        assert(servo_freno_ordenar_pulso(1801) == ESP_ERR_INVALID_ARG && servo_freno_pulso() == 0);
-        assert(servo_freno_ordenar_pulso(1400) == ESP_OK && orden_pwm[0] == 4588);
-        assert(servo_freno_pulso() == 1400 && isnan(servo_freno_angulo()) && !servo_freno_liberado());
-        assert(servo_freno_apagar() == ESP_OK && orden_pwm[0] == 0 && servo_freno_pulso() == 0);
-        assert(servo_freno_ordenar(10) == ESP_OK && servo_freno_pulso() == 1000 && servo_freno_liberado());
     } else if (!strcmp(argumentos[1], "fallo_pwm")) {
         assert(motor_ordenar(20, 0) == ESP_OK && orden_pwm[1] > 0);
         fallar_pwm = true;

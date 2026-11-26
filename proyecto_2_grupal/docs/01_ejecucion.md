@@ -92,20 +92,12 @@ En MATLAB abrir `herramientas/visualizar_ensayo.m`, ejecutar y elegir el CSV en 
 Grafica el ensayo, ajusta `K` y `tau` y calcula la respuesta al impulso. Requiere exactamente un
 cambio de freno en la captura (lo que produce `ensayo`).
 
-## 5. Calibrar el servo
+## 5. Ajustar el freno
 
-Solo si cambia el montaje del freno. Con el motor detenido, en la consola (en mayúsculas, van
-directo al firmware):
-
-```text
-CAL PULSO 1500        mover a un pulso conocido (dentro de 1000..2200 us)
-CAL + / CAL -         pasos de 2 grados; CAL PASO 0.5 para afinar
-CAL LIBERADO          marcar la posición sin contacto
-CAL CONTACTO          marcar donde la goma toca el disco (vuelve a liberado)
-```
-
-Copiar los grados que muestra a `firmware/sdkconfig.defaults` y volver a `flashear`.
-`parar` vuelve el freno a la posición liberada.
+Solo si cambia el montaje del freno. Con el motor detenido, probar ángulos en la consola con
+`FRENO <grados>` (en mayúsculas, va directo al firmware; dentro de 45..153°) hasta encontrar el
+ángulo sin contacto y el de contacto. Escribir el liberado en `CONFIG_ASM_SERVO_LIBERADO_DEG` de
+`firmware/sdkconfig.defaults` y volver a `flashear`. `parar` regresa el freno al liberado.
 
 ## 6. Pruebas en la PC
 
@@ -127,7 +119,7 @@ agregar `C:\msys64\ucrt64\bin` al PATH.
 | `falta pytest` o `No module named prompt_toolkit` | Correr `banco.py preparar` |
 | La placa se reinicia al frenar (`La placa se reinicio`) | Servo alimentado desde el USB del ESP32: usar su fuente de 5 V |
 | `El sensor no mide` | Disco detenido o sensor desalineado; ver [conexiones](02_conexiones.md) |
-| `Firmware sin configurar` | `sdkconfig.defaults` incompleto; corregir y `flashear` |
+| `Placa no lista: ...` | Pines o calibración inválidos en `sdkconfig.defaults`; corregir y `flashear` |
 | Algo raro en la consola | Cerrarla y abrir `python banco.py monitor`: muestra todo lo que envía la placa |
 
 ## Tarea 2 (entregada)

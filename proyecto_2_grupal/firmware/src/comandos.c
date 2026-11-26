@@ -14,22 +14,6 @@ static bool leer_numero(const char *texto, double *valor)
     return final != texto && !*final && errno != ERANGE && isfinite(*valor);
 }
 
-/* CAL, CAL + | - | LIBERADO | CONTACTO, CAL PULSO us, CAL PASO grados. */
-static comando_t interpretar_calibracion(char **palabras, unsigned cantidad)
-{
-    comando_t comando = {.tipo = COMANDO_INVALIDO};
-    if (cantidad == 1) comando.tipo = COMANDO_CAL_CONSULTA;
-    if (cantidad == 2 && !strcmp(palabras[1], "+")) comando.tipo = COMANDO_CAL_MAS;
-    if (cantidad == 2 && !strcmp(palabras[1], "-")) comando.tipo = COMANDO_CAL_MENOS;
-    if (cantidad == 2 && !strcmp(palabras[1], "LIBERADO")) comando.tipo = COMANDO_CAL_LIBERADO;
-    if (cantidad == 2 && !strcmp(palabras[1], "CONTACTO")) comando.tipo = COMANDO_CAL_CONTACTO;
-    if (cantidad == 3 && (!strcmp(palabras[1], "PULSO") || !strcmp(palabras[1], "PASO"))) {
-        if (!leer_numero(palabras[2], &comando.valores[0])) return comando;
-        comando.tipo = !strcmp(palabras[1], "PULSO") ? COMANDO_CAL_PULSO : COMANDO_CAL_PASO;
-    }
-    return comando;
-}
-
 /* Separa tokens en una copia acotada y rechaza tanto exceso como truncamiento. */
 comando_t comando_interpretar(const char *linea)
 {
@@ -49,10 +33,8 @@ comando_t comando_interpretar(const char *linea)
         if (*posicion) *posicion++ = '\0';
     }
     if (cantidad == 0) return comando;
-    if (!strcmp(palabras[0], "CAL")) return interpretar_calibracion(palabras, cantidad);
     if (cantidad == 1) {
         if (!strcmp(palabras[0], "CONFIG")) comando.tipo = COMANDO_CONFIG_CONSULTA;
-        if (!strcmp(palabras[0], "START")) comando.tipo = COMANDO_START;
         if (!strcmp(palabras[0], "STOP")) comando.tipo = COMANDO_STOP;
         if (!strcmp(palabras[0], "STATUS")) comando.tipo = COMANDO_STATUS;
         return comando;

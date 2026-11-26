@@ -35,9 +35,6 @@ configuracion_hardware_t hardware_cargar(void)
         .motor_maximo_porcentaje = CONFIG_ASM_MOTOR_MAXIMO_PORCENTAJE,
         .motor_maximo_impulso_ms = CONFIG_ASM_MOTOR_MAXIMO_IMPULSO_MS
     };
-#ifdef CONFIG_ASM_CONEXIONES_VERIFICADAS
-    parametros.conexiones_verificadas = true;
-#endif
 #ifdef CONFIG_ASM_SENSOR_FLANCO_BAJADA
     parametros.flanco_bajada = true;
 #endif
@@ -47,7 +44,6 @@ configuracion_hardware_t hardware_cargar(void)
 /* Valida el montaje completo antes de permitir inicializar sus perifericos. */
 const char *hardware_validar(const configuracion_hardware_t *parametros)
 {
-    if (!parametros->conexiones_verificadas) return "conexiones_no_verificadas";
     const int pines[] = {parametros->sensor_gpio, parametros->servo_gpio,
         parametros->motor_enable_gpio, parametros->motor_entrada1_gpio,
         parametros->motor_entrada2_gpio};

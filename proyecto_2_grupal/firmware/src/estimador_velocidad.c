@@ -20,7 +20,6 @@ void estimador_registrar(estimador_velocidad_t *estimador, int64_t tiempo_us,
             return;
         }
         estimador->tiene_intervalo = timeout_us > 0 && intervalo_us < timeout_us;
-        estimador->intervalo_us = intervalo_us;
         if (estimador->tiene_intervalo) {
             estimador->intervalos_us[estimador->siguiente_intervalo] = intervalo_us;
             estimador->siguiente_intervalo = (estimador->siguiente_intervalo + 1) % ESTIMADOR_VENTANA_MAXIMA;
@@ -31,7 +30,6 @@ void estimador_registrar(estimador_velocidad_t *estimador, int64_t tiempo_us,
     }
     estimador->tiene_pulso = true;
     estimador->ultimo_pulso_us = tiempo_us;
-    ++estimador->pulsos_aceptados;
 }
 
 /* Devuelve NaN mientras falta informacion; conserva la ultima ventana hasta timeout. */
@@ -40,13 +38,11 @@ lectura_velocidad_t estimador_leer(const estimador_velocidad_t *estimador,
 {
     lectura_velocidad_t lectura = {.estado = VELOCIDAD_ESPERANDO,
         .tiempo_lectura_us = tiempo_us,
-        .velocidad_rpm = NAN, .edad_pulso_us = -1,
-        .pulsos_aceptados = estimador->pulsos_aceptados,
+        .velocidad_rpm = NAN,
         .pulsos_rechazados = estimador->pulsos_rechazados};
     if (!estimador->tiene_pulso || tiempo_us < estimador->ultimo_pulso_us ||
         pulsos_por_vuelta == 0 || timeout_us <= 0) return lectura;
-    lectura.edad_pulso_us = tiempo_us - estimador->ultimo_pulso_us;
-    if (lectura.edad_pulso_us >= timeout_us) {
+    if (tiempo_us - estimador->ultimo_pulso_us >= timeout_us) {
         lectura.estado = VELOCIDAD_SIN_PULSOS;
         lectura.velocidad_rpm = 0.0;
         return lectura;

@@ -10,11 +10,9 @@ typedef struct {
     bool tiene_pulso;
     bool tiene_intervalo;
     int64_t ultimo_pulso_us;
-    int64_t intervalo_us;
     int64_t intervalos_us[ESTIMADOR_VENTANA_MAXIMA]; /* Anillo de intervalos consecutivos */
     uint32_t siguiente_intervalo;
     uint32_t cantidad_intervalos;                    /* Validos desde la ultima pausa */
-    uint32_t pulsos_aceptados;
     uint32_t pulsos_rechazados;
 } estimador_velocidad_t;
 
@@ -24,8 +22,6 @@ typedef struct {
     estado_velocidad_t estado;
     int64_t tiempo_lectura_us;
     double velocidad_rpm;
-    int64_t edad_pulso_us;
-    uint32_t pulsos_aceptados;
     uint32_t pulsos_rechazados;
 } lectura_velocidad_t;
 

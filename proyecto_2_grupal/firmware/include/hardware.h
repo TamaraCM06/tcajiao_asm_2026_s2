@@ -5,7 +5,6 @@
 #include <stdint.h>
 
 typedef struct {
-    bool conexiones_verificadas;
     int sensor_gpio;
     bool flanco_bajada;
     uint32_t pulsos_por_vuelta;

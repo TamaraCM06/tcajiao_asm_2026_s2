@@ -1,7 +1,4 @@
 menu "ASM2: banco de frenado"
-    config ASM_CONEXIONES_VERIFICADAS
-        bool "Confirmar conexiones, niveles y alimentaciones del montaje"
-        default n
     config ASM_SENSOR_GPIO
         int "GPIO de la salida DO del modulo LM393 de horquilla (-1 pendiente)"
         range -1 39

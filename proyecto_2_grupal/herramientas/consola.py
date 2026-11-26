@@ -3,7 +3,7 @@
 
 Al conectar fija el registro (CONFIG 20 10000 100: fila cada 20 ms, 10 s maximo, 0 RPM tras 100 ms
 sin ranuras) y libera el freno. Cada ensayo se guarda en datos/<prefijo>_m<motor>_f<freno>_NN.csv
-(tiempo_ms,freno_deg,velocidad_rpm) con su .json de configuracion y eventos. Los comandos del firmware en mayusculas pasan tal cual (CAL +, FRENO 120).
+(tiempo_ms,freno_deg,velocidad_rpm) con su .json de configuracion y eventos. Los comandos del firmware en mayusculas pasan tal cual (FRENO 120, MOTOR 30).
 """
 import argparse
 import json
@@ -44,7 +44,6 @@ COMANDOS = ["ensayo", "ajustes", "ajustar", "motor", "parar", "estado", "ayuda",
 
 # Motivos del firmware traducidos a una accion.
 MOTIVOS = {
-    "conexiones_no_verificadas": "Firmware sin configurar: revisar firmware/sdkconfig.defaults y flashear",
     "falta_CONFIG": "La placa no recibio CONFIG: salir y volver a abrir la consola",
     "ordenar_freno_liberado": "El freno no esta liberado: parar",
     "velocidad_no_disponible": "El sensor no mide: ¿gira el disco? ¿pasan las ranuras por la horquilla?",
@@ -67,7 +66,6 @@ EVENTOS = {
     "freno": lambda v: f"freno → {v:g}°",
     "velocidad_maxima": lambda v: f"velocidad estable en {v:.0f} RPM: corta el motor y graba",
     "limite_impulso_motor": lambda v: "motor cortado por el limite de 15 s",
-    "servo_apagado": lambda v: "servo sin fuerza (15 s sin ordenes CAL)",
 }
 
 
@@ -357,8 +355,6 @@ class Banco:
             if texto:
                 momento = f"{m['tiempo_ms'] / 1000:5.2f} s  " if m.get("tiempo_ms", -1) >= 0 else ""
                 mostrar(f"  {momento}{texto(m.get('valor', 0))}", AMARILLO)
-        elif tipo == "calibracion":
-            mostrar("  " + " · ".join(f"{k} {v}" for k, v in m.items() if k != "tipo"), CIAN)
         elif tipo == "inicio":
             self.acelerando_desde, self.girando = None, False
             self.cero_desde, self.cierre_pedido = None, False

@@ -34,7 +34,7 @@ static int64_t tiempo_fin_us;
 static estado_velocidad_t estado_sensor_anterior;
 
 /* ENSAYO automatico: acelera hasta que la velocidad deja de subir, entonces corta el
- * motor, registra como START y aplica el freno tras la espera pedida. */
+ * motor, empieza a registrar y aplica el freno tras la espera pedida. */
 #define MESETA_TOLERANCIA 0.02      /* subida relativa que aun cuenta como aceleracion */
 #define MESETA_VENTANA_US 500000    /* tiempo sin nuevo maximo para declarar velocidad maxima */
 static bool acelerando;
@@ -43,16 +43,6 @@ static double freno_automatico_deg;
 static uint32_t espera_freno_ms;
 static double rpm_maxima;
 static int64_t inicio_meseta_us;
-
-/* CAL: mueve el servo en microsegundos para encontrar liberado y contacto. Tras 15 s sin
- * ordenes CAL se apaga el PWM para que el servo no quede haciendo fuerza contra el disco. */
-#define CAL_INACTIVIDAD_US 15000000
-#define CAL_PASO_INICIAL_DEG 2.0
-static bool calibrando;
-static int64_t ultima_calibracion_us;
-static uint32_t paso_calibracion_us;
-static uint32_t liberado_calibracion_us;
-static uint32_t contacto_calibracion_us;
 
 /* Solicita una lectura a la tarea coordinadora, sin transmitir desde el callback. */
 static void solicitar_muestra(void *argumento)
@@ -248,98 +238,6 @@ static void vigilar_ensayo_automatico(int64_t tiempo_us)
     }
 }
 
-/* Escribe grados equivalentes a un pulso, o null si el pulso aun no existe. */
-static void grados_json(char *texto, size_t capacidad, uint32_t pulso_us)
-{
-    if (pulso_us) snprintf(texto, capacidad, "%.1f", freno_grados_de_pulso(&montaje, pulso_us));
-    else snprintf(texto, capacidad, "null");
-}
-
-/* Reporta la calibracion en curso; liberado_deg y contacto_deg van a sdkconfig.defaults. */
-static void informar_calibracion(void)
-{
-    char grados[16], liberado[16], contacto[16];
-    grados_json(grados, sizeof(grados), servo_freno_pulso());
-    grados_json(liberado, sizeof(liberado), liberado_calibracion_us);
-    grados_json(contacto, sizeof(contacto), contacto_calibracion_us);
-    int minimo = montaje.servo_pulso_minimo_us, maximo = montaje.servo_pulso_maximo_us;
-    protocolo_emitir("# {\"tipo\":\"calibracion\",\"pulso_us\":%" PRIu32 ",\"grados\":%s,"
-        "\"paso_us\":%" PRIu32 ",\"liberado_us\":%" PRIu32 ",\"liberado_deg\":%s,"
-        "\"contacto_us\":%" PRIu32 ",\"contacto_deg\":%s,\"minimo_us\":%d,\"maximo_us\":%d}",
-        servo_freno_pulso(), grados, paso_calibracion_us, liberado_calibracion_us, liberado,
-        contacto_calibracion_us, contacto, minimo < maximo ? minimo : maximo, minimo < maximo ? maximo : minimo);
-}
-
-/* Paso nominal en microsegundos con la pendiente de la calibracion vigente. */
-static uint32_t pulso_de_grados_relativos(double grados)
-{
-    double us_por_grado = fabs((double)(montaje.servo_pulso_maximo_us - montaje.servo_pulso_minimo_us) /
-        (montaje.servo_maximo_deg - montaje.servo_minimo_deg));
-    return (uint32_t)lround(grados * us_por_grado);
-}
-
-/* Ordenes CAL: solo en reposo, dentro del recorrido calibrado y sin mover el motor. */
-static void ejecutar_calibracion(const comando_t *comando, int64_t tiempo_us)
-{
-    if (!hardware_listo) { informar_error(motivo_hardware); return; }
-    if (registrando || cerrando || acelerando || motor_porcentaje() > 0) {
-        informar_error("CAL_requiere_reposo"); return;
-    }
-    if (!paso_calibracion_us) paso_calibracion_us = pulso_de_grados_relativos(CAL_PASO_INICIAL_DEG);
-    uint32_t actual = servo_freno_pulso();
-    esp_err_t resultado = ESP_OK;
-    switch (comando->tipo) {
-    case COMANDO_CAL_CONSULTA:
-        break;
-    case COMANDO_CAL_PULSO:
-        if (comando->valores[0] < 0 || floor(comando->valores[0]) != comando->valores[0]) {
-            informar_error("CAL_PULSO_entero"); return;
-        }
-        resultado = servo_freno_ordenar_pulso((uint32_t)comando->valores[0]);
-        break;
-    case COMANDO_CAL_MAS:
-    case COMANDO_CAL_MENOS:
-        if (!actual) { informar_error("CAL_PULSO_primero"); return; }
-        if (comando->tipo == COMANDO_CAL_MENOS && actual < paso_calibracion_us) { informar_error("CAL_limite"); return; }
-        resultado = servo_freno_ordenar_pulso(comando->tipo == COMANDO_CAL_MAS ?
-            actual + paso_calibracion_us : actual - paso_calibracion_us);
-        if (resultado == ESP_ERR_INVALID_ARG) { informar_error("CAL_limite"); return; }
-        break;
-    case COMANDO_CAL_PASO:
-        if (comando->valores[0] < 0.5 || comando->valores[0] > 10) { informar_error("CAL_PASO_0.5_a_10"); return; }
-        paso_calibracion_us = pulso_de_grados_relativos(comando->valores[0]);
-        break;
-    case COMANDO_CAL_LIBERADO:
-        if (!actual) { informar_error("CAL_PULSO_primero"); return; }
-        liberado_calibracion_us = actual;
-        break;
-    case COMANDO_CAL_CONTACTO:
-        if (!liberado_calibracion_us || liberado_calibracion_us == actual) {
-            informar_error("CAL_LIBERADO_primero"); return;
-        }
-        contacto_calibracion_us = actual;
-        resultado = servo_freno_ordenar_pulso(liberado_calibracion_us); /* suelta la goma */
-        break;
-    default:
-        return;
-    }
-    if (resultado != ESP_OK) {
-        informar_error(resultado == ESP_ERR_INVALID_ARG ? "CAL_fuera_de_limites" : "mando_rechazado"); return;
-    }
-    calibrando = servo_freno_pulso() != 0 && !isfinite(servo_freno_angulo());
-    ultima_calibracion_us = tiempo_us;
-    informar_calibracion();
-}
-
-/* Apaga el PWM de calibracion abandonado; FRENO o STOP vuelven a la escala en grados. */
-static void vigilar_calibracion(int64_t tiempo_us)
-{
-    if (!calibrando || tiempo_us - ultima_calibracion_us < CAL_INACTIVIDAD_US) return;
-    calibrando = false;
-    if (servo_freno_apagar() == ESP_OK) informar_evento("servo_apagado", 0, tiempo_us);
-    else informar_error("fallo_actuador");
-}
-
 /* Consulta estado sin enviar NaN como un numero JSON invalido. */
 static void informar_estado(void)
 {
@@ -349,10 +247,9 @@ static void informar_estado(void)
     if (hardware_listo && isfinite(lectura.velocidad_rpm))
         snprintf(velocidad, sizeof(velocidad), "%.1f", lectura.velocidad_rpm);
     protocolo_emitir("# {\"tipo\":\"estado\",\"hardware_listo\":%s,\"motivo\":\"%s\","
-        "\"registrando\":%s,\"cerrando\":%s,\"acelerando\":%s,\"motor_porcentaje\":%.3f,\"freno_deg\":%s,"
-        "\"velocidad_rpm\":%s,\"fallo_uart\":%s}", hardware_listo ? "true" : "false", motivo_hardware,
-        registrando ? "true" : "false", cerrando ? "true" : "false", acelerando ? "true" : "false",
-        motor_porcentaje(), angulo, velocidad, protocolo_fallo() ? "true" : "false");
+        "\"registrando\":%s,\"acelerando\":%s,\"motor_porcentaje\":%.3f,\"freno_deg\":%s,"
+        "\"velocidad_rpm\":%s}", hardware_listo ? "true" : "false", motivo_hardware,
+        registrando ? "true" : "false", acelerando ? "true" : "false", motor_porcentaje(), angulo, velocidad);
 }
 
 /* Procesa ordenes completas; CONFIG y reactivacion de motor quedan bloqueados en captura. */
@@ -371,7 +268,6 @@ static void ejecutar_comando(const char *linea)
                     informar_error("fallo_actuador"); return;
                 }
             }
-            calibrando = false;
             protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"STOP\"}");
         }
         return;
@@ -393,9 +289,7 @@ static void ejecutar_comando(const char *linea)
         protocolo_emitir("# {\"tipo\":\"ok\",\"comando\":\"CONFIG\"}");
         return;
     }
-    if (comando.tipo == COMANDO_START) { acelerando = false; iniciar_registro(); return; }
     if (comando.tipo == COMANDO_ENSAYO) { iniciar_ensayo_automatico(&comando); return; }
-    if (comando.tipo >= COMANDO_CAL_CONSULTA) { ejecutar_calibracion(&comando, esp_timer_get_time()); return; }
     if (comando.tipo != COMANDO_MOTOR && comando.tipo != COMANDO_FRENO) {
         informar_error("comando_invalido"); return;
     }
@@ -409,7 +303,6 @@ static void ejecutar_comando(const char *linea)
     } else {
         if (motor_porcentaje() > 0) { informar_error("cortar_motor_antes_de_frenar"); return; }
         resultado = servo_freno_ordenar(comando.valores[0]);
-        if (resultado == ESP_OK) calibrando = false;
     }
     if (resultado != ESP_OK) {
         informar_error("mando_rechazado");
@@ -455,7 +348,6 @@ void app_main(void)
         int64_t tiempo_us = esp_timer_get_time();
         if (motor_vigilar(tiempo_us)) informar_evento("limite_impulso_motor", 0, tiempo_us);
         vigilar_ensayo_automatico(tiempo_us);
-        vigilar_calibracion(tiempo_us);
         if (protocolo_fallo() && motor_porcentaje() > 0) motor_ordenar(0, tiempo_us);
         if (registrando && protocolo_fallo()) terminar_registro("fallo_uart", false);
         if (registrando && tiempo_us - reloj.inicio_us >= (int64_t)ensayo.duracion_ms * 1000)

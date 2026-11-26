@@ -9,7 +9,7 @@ velocidad durante el frenado. Entrega y defensa: **2 de diciembre de 2026**, 23:
 | Documento | Para qué |
 |---|---|
 | [Ejecución](docs/01_ejecucion.md) | Instalar, programar, consola, ensayos, calibración, análisis y pruebas |
-| [Conexiones](docs/02_conexiones.md) | Cableado y calibración vigente |
+| [Conexiones](docs/02_conexiones.md) | Componentes y pinout |
 | [Flujo](docs/03_flujo.md) | Cómo funciona: bloques, firmware, ensayo y datos |
 | [Capturas](docs/capturas/) | Fotos y capturas de pantalla |
 
@@ -24,8 +24,8 @@ salidas/        todo lo generado (ignorado por git)
 
 ## Estado
 
-Hecho: banco construido, registro a lazo abierto con ensayo automático, calibración del servo
-desde la consola, velocidad promediada por vuelta, caracterización por escalón (Tarea 2) y PID
+Hecho: banco construido, registro a lazo abierto con ensayo automático, consola con ajustes
+por ensayo, velocidad promediada por vuelta, caracterización por escalón (Tarea 2) y PID
 discreto probado en simulación. `datos/escalon_02` es del banco anterior (TCRT5000, 10 marcas):
 sirve como referencia de la Tarea 2, no para identificar el banco actual.
 

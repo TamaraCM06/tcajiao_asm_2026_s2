@@ -17,7 +17,7 @@ flowchart LR
         ser["<b>protocolo_serial</b><br/>+ <b>comandos</b><br/>texto a comando"]
         sen["<b>sensor_optico</b><br/>hora de cada ranura"]
         est["<b>estimador_velocidad</b><br/>RPM por vuelta"]
-        app["<b>aplicacion</b><br/>ensayo, CAL y registro<br/>cada 20 ms"]
+        app["<b>aplicacion</b><br/>ensayo y registro<br/>cada 20 ms"]
         srv["<b>servo_freno</b><br/>PWM 50 Hz"]
         mot["<b>motor</b><br/>PWM 1 kHz"]
     end
@@ -64,7 +64,6 @@ flowchart LR
    2. `ejecutar_comando`: qué hace cada comando y qué bloqueos de seguridad aplica.
    3. `iniciar_ensayo_automatico` y `vigilar_ensayo_automatico`: el ensayo (diagrama abajo).
    4. `iniciar_registro` → `adquirir_muestra` → `terminar_registro` → `intentar_cierre`: una captura.
-   5. `ejecutar_calibracion` y `vigilar_calibracion`: los comandos `CAL`.
 4. **Cómo se mide la velocidad**: `firmware/src/sensor_optico.c` (interrupción por ranura) y
    `firmware/src/estimador_velocidad.c` (RPM con la última vuelta).
 5. **Cómo se mueven los actuadores**: `firmware/src/servo_freno.c` con `conversion_freno.c`, y
